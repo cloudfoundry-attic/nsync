@@ -1,0 +1,64 @@
+{
+	"ImportPath": "github.com/cloudfoundry-incubator/nsync",
+	"GoVersion": "go1.2.1",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/delta_force/delta_force",
+			"Rev": "7499a2b3e62c1eaa21cb0020154f5679f3736714"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
+			"Rev": "9a7d5246fcf7a2c30480857a6853805e44531e04"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
+			"Rev": "9a7d5246fcf7a2c30480857a6853805e44531e04"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gosteno",
+			"Comment": "scotty_09012012-40-g5eb8c6e",
+			"Rev": "5eb8c6e554f0dfc39d6468813b8ac19ec28fe74f"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
+			"Rev": "64cdd7421c0413dc87e5fca2b254efbb4e7dd9d0"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
+			"Rev": "64cdd7421c0413dc87e5fca2b254efbb4e7dd9d0"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/storeadapter",
+			"Rev": "65a22cbed10ebcd7708870001cbc6f2d3f5263ae"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/yagnats",
+			"Rev": "196990d547253e2c2d14e188464ccd69b526e35d"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-etcd/etcd",
+			"Comment": "v0.2.0-rc1-114-g7745cfd",
+			"Rev": "7745cfd7f8e619cc9e6be450238e6253a57a227f"
+		},
+		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+		},
+		{
+			"ImportPath": "github.com/onsi/ginkgo",
+			"Comment": "v1.0.0-16-g12446bb",
+			"Rev": "12446bbcc74950944c897e32ea99cc8d058f9c92"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega",
+			"Rev": "036273e6f643552b16fe7a6464afd2ae0324992e"
+		},
+		{
+			"ImportPath": "github.com/tedsuo/ifrit",
+			"Rev": "f5c8edd2e5e404742ad194b0979ed4c95214d569"
+		}
+	]
+}
