@@ -50,7 +50,6 @@ var _ = Describe("Starting apps", func() {
 			nsyncPath,
 			etcdRunner.NodeURLS(),
 			[]string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
-			"127.0.0.1:20515",
 		)
 
 		runner.Start()
