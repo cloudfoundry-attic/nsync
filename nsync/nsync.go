@@ -15,13 +15,13 @@ const DesireAppTopic = "diego.desire.app"
 
 type Nsync struct {
 	natsClient yagnats.NATSClient
-	bbs        Bbs.AppManagerBBS
+	bbs        Bbs.NsyncBBS
 	logger     *steno.Logger
 }
 
 func NewNsync(
 	natsClient yagnats.NATSClient,
-	bbs Bbs.AppManagerBBS,
+	bbs Bbs.NsyncBBS,
 	logger *steno.Logger,
 ) *Nsync {
 	return &Nsync{

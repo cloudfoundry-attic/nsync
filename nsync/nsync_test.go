@@ -20,7 +20,7 @@ var _ = Describe("Nsync", func() {
 		fakenats         *fakeyagnats.FakeYagnats
 		logSink          *steno.TestingSink
 		desireAppRequest models.DesireAppRequestFromCC
-		bbs              *fake_bbs.FakeAppManagerBBS
+		bbs              *fake_bbs.FakeNsyncBBS
 
 		nsync ifrit.Process
 	)
@@ -37,7 +37,7 @@ var _ = Describe("Nsync", func() {
 
 		fakenats = fakeyagnats.New()
 
-		bbs = fake_bbs.NewFakeAppManagerBBS()
+		bbs = &fake_bbs.FakeNsyncBBS{}
 
 		nsyncRunner := NewNsync(fakenats, bbs, logger)
 
@@ -75,14 +75,9 @@ var _ = Describe("Nsync", func() {
 		})
 
 		Describe("the happy path", func() {
-			BeforeEach(func() {
-				bbs.WhenGettingAvailableFileServer = func() (string, error) {
-					return "http://file-server.com/", nil
-				}
-			})
-
 			It("marks the LRP desired in the bbs", func() {
-				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
+				Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
+				Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(models.DesiredLRP{
 					ProcessGuid:  "some-guid",
 					Instances:    2,
 					MemoryMB:     128,
@@ -104,22 +99,11 @@ var _ = Describe("Nsync", func() {
 		Context("when the number of desired app instances is zero", func() {
 			BeforeEach(func() {
 				desireAppRequest.NumInstances = 0
-				bbs.Lock()
-				bbs.ActualLRPs = []models.ActualLRP{
-					{
-						ProcessGuid:  "some-guid",
-						InstanceGuid: "a",
-						Index:        0,
-						State:        models.ActualLRPStateStarting,
-					},
-				}
-				bbs.Unlock()
 			})
 
 			It("deletes the desired LRP from BBS", func() {
-				Eventually(bbs.GetRemovedDesiredLRPProcessGuids).Should(HaveLen(1))
-				removed := bbs.GetRemovedDesiredLRPProcessGuids()
-				Ω(removed[0]).Should(Equal("some-guid"))
+				Eventually(bbs.RemoveDesiredLRPByProcessGuidCallCount).Should(Equal(1))
+				Ω(bbs.RemoveDesiredLRPByProcessGuidArgsForCall(0)).Should(Equal("some-guid"))
 			})
 		})
 	})
@@ -138,7 +122,7 @@ var _ = Describe("Nsync", func() {
 		})
 
 		It("does not put a desired LRP into the BBS", func() {
-			Consistently(bbs.DesiredLRPs).Should(BeEmpty())
+			Consistently(bbs.GetAllDesiredLRPs).Should(BeEmpty())
 		})
 	})
 })

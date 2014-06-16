@@ -92,7 +92,7 @@ func initializeLogger() *steno.Logger {
 
 	steno.Init(stenoConfig)
 
-	return steno.NewLogger("AppManager")
+	return steno.NewLogger("Nsync")
 }
 
 func initializeNatsClient(logger *steno.Logger) yagnats.NATSClient {
@@ -117,7 +117,7 @@ func initializeNatsClient(logger *steno.Logger) yagnats.NATSClient {
 	return natsClient
 }
 
-func initializeBbs(logger *steno.Logger) Bbs.AppManagerBBS {
+func initializeBbs(logger *steno.Logger) Bbs.NsyncBBS {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
 		workerpool.NewWorkerPool(10),
@@ -128,5 +128,5 @@ func initializeBbs(logger *steno.Logger) Bbs.AppManagerBBS {
 		logger.Fatalf("Error connecting to etcd: %s\n", err)
 	}
 
-	return Bbs.NewAppManagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
+	return Bbs.NewNsyncBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
