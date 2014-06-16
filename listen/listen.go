@@ -1,4 +1,4 @@
-package nsync
+package listen
 
 import (
 	"encoding/json"
@@ -13,28 +13,17 @@ import (
 
 const DesireAppTopic = "diego.desire.app"
 
-type Nsync struct {
-	natsClient yagnats.NATSClient
-	bbs        Bbs.NsyncBBS
-	logger     *steno.Logger
+type Listen struct {
+	NATSClient yagnats.NATSClient
+	BBS        Bbs.NsyncBBS
+	Logger     *steno.Logger
 }
 
-func NewNsync(
-	natsClient yagnats.NATSClient,
-	bbs Bbs.NsyncBBS,
-	logger *steno.Logger,
-) *Nsync {
-	return &Nsync{
-		natsClient: natsClient,
-		bbs:        bbs,
-		logger:     logger,
-	}
-}
-
-func (n *Nsync) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
+func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	wg := new(sync.WaitGroup)
 	desiredApps := make(chan models.DesireAppRequestFromCC)
-	n.listenForDesiredApps(desiredApps)
+
+	listen.listenForDesiredApps(desiredApps)
 
 	close(ready)
 
@@ -44,22 +33,22 @@ func (n *Nsync) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				n.desireApp(msg)
+				listen.desireApp(msg)
 			}()
 		case <-signals:
-			n.natsClient.UnsubscribeAll(DesireAppTopic)
+			listen.NATSClient.UnsubscribeAll(DesireAppTopic)
 			wg.Wait()
 			return nil
 		}
 	}
 }
 
-func (n *Nsync) listenForDesiredApps(desiredApps chan models.DesireAppRequestFromCC) {
-	n.natsClient.Subscribe(DesireAppTopic, func(message *yagnats.Message) {
+func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppRequestFromCC) {
+	listen.NATSClient.Subscribe(DesireAppTopic, func(message *yagnats.Message) {
 		desireAppMessage := models.DesireAppRequestFromCC{}
 		err := json.Unmarshal(message.Payload, &desireAppMessage)
 		if err != nil {
-			n.logger.Errorf("Failed to parse NATS message.")
+			listen.Logger.Errorf("Failed to parse NATS message.")
 			return
 		}
 
@@ -67,7 +56,7 @@ func (n *Nsync) listenForDesiredApps(desiredApps chan models.DesireAppRequestFro
 	})
 }
 
-func (n *Nsync) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
+func (listen Listen) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
 	desiredLRP := models.DesiredLRP{
 		ProcessGuid:     desireAppMessage.ProcessGuid,
 		Source:          desireAppMessage.DropletUri,
@@ -83,9 +72,9 @@ func (n *Nsync) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
 	}
 
 	if desiredLRP.Instances == 0 {
-		err := n.bbs.RemoveDesiredLRPByProcessGuid(desiredLRP.ProcessGuid)
+		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desiredLRP.ProcessGuid)
 		if err != nil {
-			n.logger.Errord(
+			listen.Logger.Errord(
 				map[string]interface{}{
 					"desired-app-message": desireAppMessage,
 					"error":               err.Error(),
@@ -96,9 +85,9 @@ func (n *Nsync) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
 			return
 		}
 	} else {
-		err := n.bbs.DesireLRP(desiredLRP)
+		err := listen.BBS.DesireLRP(desiredLRP)
 		if err != nil {
-			n.logger.Errord(
+			listen.Logger.Errord(
 				map[string]interface{}{
 					"desired-app-message": desireAppMessage,
 					"error":               err.Error(),

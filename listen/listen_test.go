@@ -1,10 +1,10 @@
-package nsync_test
+package listen_test
 
 import (
 	"encoding/json"
 	"syscall"
 
-	. "github.com/cloudfoundry-incubator/nsync/nsync"
+	. "github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	steno "github.com/cloudfoundry/gosteno"
@@ -15,14 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Nsync", func() {
+var _ = Describe("Listen", func() {
 	var (
 		fakenats         *fakeyagnats.FakeYagnats
 		logSink          *steno.TestingSink
 		desireAppRequest models.DesireAppRequestFromCC
 		bbs              *fake_bbs.FakeNsyncBBS
 
-		nsync ifrit.Process
+		process ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -37,9 +37,13 @@ var _ = Describe("Nsync", func() {
 
 		fakenats = fakeyagnats.New()
 
-		bbs = &fake_bbs.FakeNsyncBBS{}
+		bbs = new(fake_bbs.FakeNsyncBBS)
 
-		nsyncRunner := NewNsync(fakenats, bbs, logger)
+		runner := Listen{
+			NATSClient: fakenats,
+			BBS:        bbs,
+			Logger:     logger,
+		}
 
 		desireAppRequest = models.DesireAppRequestFromCC{
 			ProcessGuid:  "some-guid",
@@ -57,13 +61,13 @@ var _ = Describe("Nsync", func() {
 			Routes:          []string{"route1", "route2"},
 			LogGuid:         "some-log-guid",
 		}
-		nsync = ifrit.Envoke(nsyncRunner)
+
+		process = ifrit.Envoke(runner)
 	})
 
-	AfterEach(func(done Done) {
-		nsync.Signal(syscall.SIGINT)
-		<-nsync.Wait()
-		close(done)
+	AfterEach(func() {
+		process.Signal(syscall.SIGINT)
+		Eventually(process.Wait()).Should(Receive())
 	})
 
 	Describe("when a 'diego.desire.app' message is received", func() {
@@ -74,26 +78,24 @@ var _ = Describe("Nsync", func() {
 			fakenats.Publish("diego.desire.app", messagePayload)
 		})
 
-		Describe("the happy path", func() {
-			It("marks the LRP desired in the bbs", func() {
-				Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
-				Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(models.DesiredLRP{
-					ProcessGuid:  "some-guid",
-					Instances:    2,
-					MemoryMB:     128,
-					DiskMB:       512,
-					Stack:        "some-stack",
-					StartCommand: "the-start-command",
-					Environment: []models.EnvironmentVariable{
-						{Key: "foo", Value: "bar"},
-						{Key: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
-					},
-					FileDescriptors: 32,
-					Source:          "http://the-droplet.uri.com",
-					Routes:          []string{"route1", "route2"},
-					LogGuid:         "some-log-guid",
-				}))
-			})
+		It("marks the LRP desired in the bbs", func() {
+			Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
+			Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(models.DesiredLRP{
+				ProcessGuid:  "some-guid",
+				Instances:    2,
+				MemoryMB:     128,
+				DiskMB:       512,
+				Stack:        "some-stack",
+				StartCommand: "the-start-command",
+				Environment: []models.EnvironmentVariable{
+					{Key: "foo", Value: "bar"},
+					{Key: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
+				},
+				FileDescriptors: 32,
+				Source:          "http://the-droplet.uri.com",
+				Routes:          []string{"route1", "route2"},
+				LogGuid:         "some-log-guid",
+			}))
 		})
 
 		Context("when the number of desired app instances is zero", func() {
@@ -122,7 +124,7 @@ var _ = Describe("Nsync", func() {
 		})
 
 		It("does not put a desired LRP into the BBS", func() {
-			Consistently(bbs.GetAllDesiredLRPs).Should(BeEmpty())
+			Consistently(bbs.DesireLRPCallCount).Should(Equal(0))
 		})
 	})
 })

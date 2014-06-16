@@ -4,24 +4,18 @@ import (
 	"flag"
 	"os"
 	"strings"
+	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
-	"github.com/cloudfoundry-incubator/nsync/nsync"
-)
-
-var repAddrRelativeToExecutor = flag.String(
-	"repAddrRelativeToExecutor",
-	"127.0.0.1:20515",
-	"address of the rep server that should receive health status updates",
+	"github.com/cloudfoundry-incubator/nsync/bulk"
 )
 
 var etcdCluster = flag.String(
@@ -30,42 +24,58 @@ var etcdCluster = flag.String(
 	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
-var natsAddresses = flag.String(
-	"natsAddresses",
-	"127.0.0.1:4222",
-	"comma-separated list of NATS addresses (ip:port)",
-)
-
-var natsUsername = flag.String(
-	"natsUsername",
-	"nats",
-	"Username to connect to nats",
-)
-
-var natsPassword = flag.String(
-	"natsPassword",
-	"nats",
-	"Password for nats user",
-)
-
 var syslogName = flag.String(
 	"syslogName",
 	"",
 	"syslog name",
 )
 
+var ccBaseURL = flag.String(
+	"ccBaseURL",
+	"",
+	"base URL of the cloud controller",
+)
+
+var ccUsername = flag.String(
+	"ccUsername",
+	"",
+	"basic auth username for CC bulk API",
+)
+
+var ccPassword = flag.String(
+	"ccPassword",
+	"",
+	"basic auth password for CC bulk API",
+)
+
+var pollingInterval = flag.Duration(
+	"pollingInterval",
+	30*time.Second,
+	"interval at which to poll bulk API",
+)
+
+var bulkBatchSize = flag.Uint(
+	"bulkBatchSize",
+	500,
+	"number of apps to fetch at once from bulk API",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := initializeLogger()
-	natsClient := initializeNatsClient(logger)
 	bbs := initializeBbs(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"nsync": nsync.NewNsync(natsClient, bbs, logger),
+		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *bulkBatchSize, logger, &bulk.CCFetcher{
+			BaseURI:   *ccBaseURL,
+			BatchSize: *bulkBatchSize,
+			Username:  *ccUsername,
+			Password:  *ccPassword,
+		}),
 	})
 
-	logger.Info("nsync.started")
+	logger.Info("nsync.bulker.started")
 
 	monitor := ifrit.Envoke(sigmon.New(group))
 
@@ -73,10 +83,11 @@ func main() {
 	if err != nil {
 		logger.Errord(map[string]interface{}{
 			"error": err.Error(),
-		}, "nsync.exited")
+		}, "nsync.bulker.exited")
 		os.Exit(1)
 	}
-	logger.Info("nsync.exited")
+
+	logger.Info("nsync.bulker.exited")
 }
 
 func initializeLogger() *steno.Logger {
@@ -92,29 +103,7 @@ func initializeLogger() *steno.Logger {
 
 	steno.Init(stenoConfig)
 
-	return steno.NewLogger("Nsync")
-}
-
-func initializeNatsClient(logger *steno.Logger) yagnats.NATSClient {
-	natsClient := yagnats.NewClient()
-
-	natsMembers := []yagnats.ConnectionProvider{}
-	for _, addr := range strings.Split(*natsAddresses, ",") {
-		natsMembers = append(
-			natsMembers,
-			&yagnats.ConnectionInfo{addr, *natsUsername, *natsPassword},
-		)
-	}
-
-	err := natsClient.Connect(&yagnats.ConnectionCluster{
-		Members: natsMembers,
-	})
-
-	if err != nil {
-		logger.Fatalf("Error connecting to NATS: %s\n", err)
-	}
-
-	return natsClient
+	return steno.NewLogger("Bulker")
 }
 
 func initializeBbs(logger *steno.Logger) Bbs.NsyncBBS {

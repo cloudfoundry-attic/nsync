@@ -1,25 +1,28 @@
-package integration_test
+package main_test
 
 import (
 	"fmt"
-	"time"
+	"os"
+	"strings"
 
-	"github.com/cloudfoundry/storeadapter/test_helpers"
-
-	"github.com/cloudfoundry-incubator/nsync/integration/nsync_runner"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/yagnats"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
+
+	"github.com/cloudfoundry-incubator/nsync/integration/runner"
 )
 
-var _ = Describe("Starting apps", func() {
+var _ = Describe("Syncing desired state with CC", func() {
 	var (
 		natsClient yagnats.NATSClient
 		bbs        *Bbs.BBS
+
+		run     ifrit.Runner
+		process ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -36,32 +39,23 @@ var _ = Describe("Starting apps", func() {
 
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), logger)
 
-		var err error
-		var presenceStatus <-chan bool
-
-		fileServerPresence, presenceStatus, err = bbs.MaintainFileServerPresence(time.Second, "http://some.file.server", "file-server-id")
-		Ω(err).ShouldNot(HaveOccurred())
-
-		Eventually(presenceStatus).Should(Receive(BeTrue()))
-
-		test_helpers.NewStatusReporter(presenceStatus)
-
-		runner = nsync_runner.New(
-			nsyncPath,
-			etcdRunner.NodeURLS(),
-			[]string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
+		run = runner.NewRunner(
+			"nsync.listener.started",
+			listenerPath,
+			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
+			"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
 		)
 
-		runner.Start()
+		process = ifrit.Envoke(run)
 	})
 
 	AfterEach(func() {
-		runner.KillWithFire()
-		fileServerPresence.Remove()
+		process.Signal(os.Interrupt)
+		Eventually(process.Wait(), 5).Should(Receive())
 	})
 
 	var publishDesireWithInstances = func(nInstances int) {
-		natsClient.Publish("diego.desire.app", []byte(fmt.Sprintf(`
+		err := natsClient.Publish("diego.desire.app", []byte(fmt.Sprintf(`
         {
           "process_guid": "the-guid",
           "droplet_uri": "http://the-droplet.uri.com",
@@ -74,20 +68,22 @@ var _ = Describe("Starting apps", func() {
           "log_guid": "the-log-guid"
         }
       `, nInstances)))
+		Ω(err).ShouldNot(HaveOccurred())
 	}
 
 	Describe("when a 'diego.desire.app' message is recieved", func() {
-		JustBeforeEach(func() {
+		BeforeEach(func() {
 			publishDesireWithInstances(3)
 		})
 
 		It("registers an app desire in etcd", func() {
-			Eventually(bbs.GetAllDesiredLRPs).Should(HaveLen(1))
+			Eventually(bbs.GetAllDesiredLRPs, 10).Should(HaveLen(1))
 		})
 
 		Context("when an app is no longer desired", func() {
-			JustBeforeEach(func() {
+			BeforeEach(func() {
 				Eventually(bbs.GetAllDesiredLRPs).Should(HaveLen(1))
+
 				publishDesireWithInstances(0)
 			})
 

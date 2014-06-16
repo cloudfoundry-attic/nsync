@@ -1,4 +1,4 @@
-package nsync_test
+package listen_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestNsync(t *testing.T) {
+func TestListen(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Nsync Suite")
+	RunSpecs(t, "Listen Suite")
 }
