@@ -79,7 +79,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 }
 
 func (fetcher *CCFetcher) bulkURL(bulkToken string) string {
-	return fmt.Sprintf("%s/internal/bulk-apps?batch_size=%d&bulk_token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
+	return fmt.Sprintf("%s/internal/bulk-apps?batch_size=%d&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
 }
 
 func lrpFromBulkApp(app BulkApp) models.DesiredLRP {

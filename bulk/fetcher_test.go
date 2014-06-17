@@ -31,7 +31,7 @@ var _ = Describe("Fetcher", func() {
 		It("gets the desired state of all apps from the CC", func() {
 			fakeCC.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/internal/bulk-apps", "batch_size=2&bulk_token={}"),
+					ghttp.VerifyRequest("GET", "/internal/bulk-apps", "batch_size=2&token={}"),
 					ghttp.VerifyHeaderKV("Authorization", "Basic "+base64Encode("the-username:the-password")),
 					ghttp.RespondWith(200, `{
 						"token": {"id":"the-token-id"},
@@ -72,7 +72,7 @@ var _ = Describe("Fetcher", func() {
 					}`),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/internal/bulk-apps", `batch_size=2&bulk_token={"id":"the-token-id"}`),
+					ghttp.VerifyRequest("GET", "/internal/bulk-apps", `batch_size=2&token={"id":"the-token-id"}`),
 					ghttp.VerifyHeaderKV("Authorization", "Basic "+base64Encode("the-username:the-password")),
 					ghttp.RespondWith(200, `{
 						"token": {"id":"another-token-id"},
