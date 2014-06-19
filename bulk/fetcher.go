@@ -86,7 +86,7 @@ func lrpFromBulkApp(app BulkApp) models.DesiredLRP {
 	environment := []models.EnvironmentVariable{}
 	for _, pair := range app.Environment {
 		environment = append(environment, models.EnvironmentVariable{
-			Key:   pair.Name,
+			Name:  pair.Name,
 			Value: pair.Value,
 		})
 	}

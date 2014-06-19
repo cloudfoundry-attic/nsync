@@ -71,8 +71,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Source:          "source-url-1",
 				StartCommand:    "start-command-1",
 				Environment: []models.EnvironmentVariable{
-					{Key: "env-key-1", Value: "env-value-1"},
-					{Key: "env-key-2", Value: "env-value-2"},
+					{Name: "env-key-1", Value: "env-value-1"},
+					{Name: "env-key-2", Value: "env-value-2"},
 				},
 				Routes:  []string{"route-1", "route-2"},
 				LogGuid: "log-guid-1",
@@ -88,8 +88,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Source:          "source-url-2",
 				StartCommand:    "start-command-2",
 				Environment: []models.EnvironmentVariable{
-					{Key: "env-key-3", Value: "env-value-3"},
-					{Key: "env-key-4", Value: "env-value-4"},
+					{Name: "env-key-3", Value: "env-value-3"},
+					{Name: "env-key-4", Value: "env-value-4"},
 				},
 				Routes:  []string{"route-3", "route-4"},
 				LogGuid: "log-guid-2",
@@ -162,8 +162,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Source:          "source-url-1",
 					StartCommand:    "the-new-start-command-1",
 					Environment: []models.EnvironmentVariable{
-						{Key: "env-key-1", Value: "env-value-1"},
-						{Key: "env-key-2", Value: "env-value-2"},
+						{Name: "env-key-1", Value: "env-value-1"},
+						{Name: "env-key-2", Value: "env-value-2"},
 					},
 					Routes:  []string{"route-1", "route-2"},
 					LogGuid: "log-guid-1",
@@ -178,8 +178,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Source:          "source-url-2",
 					StartCommand:    "start-command-2",
 					Environment: []models.EnvironmentVariable{
-						{Key: "env-key-3", Value: "env-value-3"},
-						{Key: "env-key-4", Value: "env-value-4"},
+						{Name: "env-key-3", Value: "env-value-3"},
+						{Name: "env-key-4", Value: "env-value-4"},
 					},
 					Routes:  []string{"route-3", "route-4"},
 					LogGuid: "log-guid-2",
