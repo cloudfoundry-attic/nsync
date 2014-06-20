@@ -48,6 +48,12 @@ var ccPassword = flag.String(
 	"basic auth password for CC bulk API",
 )
 
+var ccFetchTimeout = flag.Duration(
+	"ccFetchTimeout",
+	30*time.Second,
+	"how long to wait for bulk app request to CC to respond",
+)
+
 var pollingInterval = flag.Duration(
 	"pollingInterval",
 	30*time.Second,
@@ -67,7 +73,7 @@ func main() {
 	bbs := initializeBbs(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *bulkBatchSize, logger, &bulk.CCFetcher{
+		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, logger, &bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,
 			BatchSize: *bulkBatchSize,
 			Username:  *ccUsername,

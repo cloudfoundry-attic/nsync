@@ -96,7 +96,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			fakeCC.AppendHandlers(ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/internal/bulk-apps"),
+				ghttp.VerifyRequest("GET", "/internal/bulk/apps"),
 				ghttp.RespondWith(200, `{
 					"token": {},
 					"apps": [

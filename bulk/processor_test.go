@@ -32,6 +32,7 @@ var _ = Describe("Processor", func() {
 		processor = NewProcessor(
 			bbs,
 			500*time.Millisecond,
+			time.Second,
 			10,
 			gosteno.NewLogger("test"),
 			fetcher,
@@ -81,7 +82,7 @@ var _ = Describe("Processor", func() {
 				return <-results
 			}
 
-			fetcher.FetchStub = func(results chan<- models.DesiredLRP) error {
+			fetcher.FetchStub = func(results chan<- models.DesiredLRP, duration time.Duration) error {
 				results <- models.DesiredLRP{}
 				results <- models.DesiredLRP{}
 				results <- models.DesiredLRP{}

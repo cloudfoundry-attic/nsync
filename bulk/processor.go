@@ -12,6 +12,7 @@ import (
 type Processor struct {
 	bbs             bbs.NsyncBBS
 	pollingInterval time.Duration
+	ccFetchTimeout  time.Duration
 	bulkBatchSize   uint
 	logger          *gosteno.Logger
 	fetcher         Fetcher
@@ -20,12 +21,14 @@ type Processor struct {
 func NewProcessor(
 	bbs bbs.NsyncBBS,
 	pollingInterval time.Duration,
+	ccFetchTimeout time.Duration,
 	bulkBatchSize uint,
 	logger *gosteno.Logger,
 	fetcher Fetcher) *Processor {
 	return &Processor{
 		bbs:             bbs,
 		pollingInterval: pollingInterval,
+		ccFetchTimeout:  ccFetchTimeout,
 		bulkBatchSize:   bulkBatchSize,
 		logger:          logger,
 		fetcher:         fetcher,
@@ -47,7 +50,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		}
 
 		fromCC := make(chan models.DesiredLRP)
-		go p.fetcher.Fetch(fromCC)
+		go p.fetcher.Fetch(fromCC, p.ccFetchTimeout)
 
 		changes := Diff(existing, fromCC)
 

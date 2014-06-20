@@ -2,6 +2,8 @@ package bulk_test
 
 import (
 	"encoding/base64"
+	"net/http"
+	"time"
 
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -31,7 +33,7 @@ var _ = Describe("Fetcher", func() {
 		It("gets the desired state of all apps from the CC", func() {
 			fakeCC.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/internal/bulk-apps", "batch_size=2&token={}"),
+					ghttp.VerifyRequest("GET", "/internal/bulk/apps", "batch_size=2&token={}"),
 					ghttp.VerifyHeaderKV("Authorization", "Basic "+base64Encode("the-username:the-password")),
 					ghttp.RespondWith(200, `{
 						"token": {"id":"the-token-id"},
@@ -72,7 +74,7 @@ var _ = Describe("Fetcher", func() {
 					}`),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/internal/bulk-apps", `batch_size=2&token={"id":"the-token-id"}`),
+					ghttp.VerifyRequest("GET", "/internal/bulk/apps", `batch_size=2&token={"id":"the-token-id"}`),
 					ghttp.VerifyHeaderKV("Authorization", "Basic "+base64Encode("the-username:the-password")),
 					ghttp.RespondWith(200, `{
 						"token": {"id":"another-token-id"},
@@ -96,7 +98,7 @@ var _ = Describe("Fetcher", func() {
 			)
 
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results)
+			err := fetcher.Fetch(results, time.Second)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
@@ -153,6 +155,38 @@ var _ = Describe("Fetcher", func() {
 		})
 	})
 
+	Context("when the API times out", func() {
+		BeforeEach(func() {
+			fakeCC.AppendHandlers(func(w http.ResponseWriter, req *http.Request) {
+				time.Sleep(100 * time.Millisecond)
+				w.Write([]byte(`{
+						"token": {"id":"another-token-id"},
+						"apps": [
+							{
+								"disk_mb": 512,
+								"environment": [],
+								"file_descriptors": 8,
+								"instances": 4,
+								"log_guid": "log-guid-3",
+								"memory_mb": 128,
+								"process_guid": "process-guid-3",
+								"routes": [],
+								"source_url": "source-url-3",
+								"stack": "stack-3",
+								"start_command": "start-command-3"
+							}
+						]
+					}`))
+			})
+		})
+
+		It("returns an error", func() {
+			results := make(chan models.DesiredLRP, 3)
+			err := fetcher.Fetch(results, 50*time.Millisecond)
+			Ω(err).Should(HaveOccurred())
+		})
+	})
+
 	Context("when the API returns an error response", func() {
 		BeforeEach(func() {
 			fakeCC.AppendHandlers(ghttp.RespondWith(403, ""))
@@ -160,7 +194,7 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results)
+			err := fetcher.Fetch(results, time.Second)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
@@ -172,7 +206,7 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results)
+			err := fetcher.Fetch(results, time.Second)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
