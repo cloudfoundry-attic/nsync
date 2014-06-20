@@ -32,7 +32,7 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
-			"Rev": "1a43788769c69f92f6f1eaa41cd6366df2c3b5ed"
+			"Rev": "6798458485919c837534d805fd56d76d5ab172da"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/yagnats",
@@ -58,7 +58,7 @@
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
-			"Rev": "9a6dc5f3eab3f180174c5053724737bf10402c6c"
+			"Rev": "439138de94ac33aebc7dad33cada3796318845ea"
 		}
 	]
 }
