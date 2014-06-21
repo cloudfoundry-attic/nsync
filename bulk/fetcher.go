@@ -56,7 +56,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 		return err
 	}
 
-	response := DesiredStateServerResponse{}
+	response := models.CCDesiredStateServerResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return err
@@ -71,29 +71,21 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 		return nil
 	}
 
-	if response.BulkToken == nil {
+	if response.CCBulkToken == nil {
 		return fmt.Errorf("token not included in response")
 	}
 
-	return fetcher.fetchBatch(string(*response.BulkToken), resultChan, ccFetchTimeout)
+	return fetcher.fetchBatch(string(*response.CCBulkToken), resultChan, ccFetchTimeout)
 }
 
 func (fetcher *CCFetcher) bulkURL(bulkToken string) string {
 	return fmt.Sprintf("%s/internal/bulk/apps?batch_size=%d&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
 }
 
-func lrpFromBulkApp(app BulkApp) models.DesiredLRP {
-	environment := []models.EnvironmentVariable{}
-	for _, pair := range app.Environment {
-		environment = append(environment, models.EnvironmentVariable{
-			Name:  pair.Name,
-			Value: pair.Value,
-		})
-	}
-
+func lrpFromBulkApp(app models.CCBulkDesiredApp) models.DesiredLRP {
 	return models.DesiredLRP{
 		DiskMB:          int(app.DiskMB),
-		Environment:     environment,
+		Environment:     app.Environment,
 		FileDescriptors: app.FileDescriptors,
 		Instances:       int(app.Instances),
 		LogGuid:         app.LogGuid,
@@ -104,34 +96,4 @@ func lrpFromBulkApp(app BulkApp) models.DesiredLRP {
 		Stack:           app.Stack,
 		StartCommand:    app.StartCommand,
 	}
-}
-
-func (response DesiredStateServerResponse) BulkTokenRepresentation() string {
-	return string(*response.BulkToken)
-}
-
-type DesiredStateServerResponse struct {
-	Apps      []BulkApp        `json:"apps"`
-	BulkToken *json.RawMessage `json:"token"`
-}
-
-type BulkApp struct {
-	DiskMB      uint64 `json:"disk_mb"`
-	Environment []struct {
-		Name  string
-		Value string
-	} `json:"environment"`
-	FileDescriptors uint64   `json:"file_descriptors"`
-	Instances       uint     `json:"instances"`
-	LogGuid         string   `json:"log_guid"`
-	MemoryMB        uint64   `json:"memory_mb"`
-	ProcessGuid     string   `json:"process_guid"`
-	Routes          []string `json:"routes"`
-	SourceURL       string   `json:"source_url"`
-	Stack           string   `json:"stack"`
-	StartCommand    string   `json:"start_command"`
-}
-
-type BulkToken struct {
-	Id int `json:"id"`
 }
