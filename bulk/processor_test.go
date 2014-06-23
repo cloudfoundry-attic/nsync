@@ -2,6 +2,7 @@ package bulk_test
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"time"
 
@@ -82,7 +83,7 @@ var _ = Describe("Processor", func() {
 				return <-results
 			}
 
-			fetcher.FetchStub = func(results chan<- models.DesiredLRP, duration time.Duration) error {
+			fetcher.FetchStub = func(results chan<- models.DesiredLRP, httpClient *http.Client) error {
 				results <- models.DesiredLRP{}
 				results <- models.DesiredLRP{}
 				results <- models.DesiredLRP{}

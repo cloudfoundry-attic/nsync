@@ -1,6 +1,7 @@
 package bulk
 
 import (
+	"net/http"
 	"os"
 	"time"
 
@@ -50,7 +51,10 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		}
 
 		fromCC := make(chan models.DesiredLRP)
-		go p.fetcher.Fetch(fromCC, p.ccFetchTimeout)
+		httpClient := &http.Client{
+			Timeout: p.ccFetchTimeout,
+		}
+		go p.fetcher.Fetch(fromCC, httpClient)
 
 		changes := Diff(existing, fromCC)
 

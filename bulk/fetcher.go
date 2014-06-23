@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
 type Fetcher interface {
-	Fetch(chan<- models.DesiredLRP, time.Duration) error
+	Fetch(chan<- models.DesiredLRP, *http.Client) error
 }
 
 type CCFetcher struct {
@@ -23,11 +22,11 @@ type CCFetcher struct {
 
 const initialBulkToken = "{}"
 
-func (fetcher *CCFetcher) Fetch(resultChan chan<- models.DesiredLRP, ccFetchTimeout time.Duration) error {
-	return fetcher.fetchBatch(initialBulkToken, resultChan, ccFetchTimeout)
+func (fetcher *CCFetcher) Fetch(resultChan chan<- models.DesiredLRP, httpClient *http.Client) error {
+	return fetcher.fetchBatch(initialBulkToken, resultChan, httpClient)
 }
 
-func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.DesiredLRP, ccFetchTimeout time.Duration) error {
+func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.DesiredLRP, httpClient *http.Client) error {
 	req, err := http.NewRequest("GET", fetcher.bulkURL(token), nil)
 	if err != nil {
 		return err
@@ -35,8 +34,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 
 	req.SetBasicAuth(fetcher.Username, fetcher.Password)
 
-	http.DefaultClient.Timeout = ccFetchTimeout
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -75,7 +73,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 		return fmt.Errorf("token not included in response")
 	}
 
-	return fetcher.fetchBatch(string(*response.CCBulkToken), resultChan, ccFetchTimeout)
+	return fetcher.fetchBatch(string(*response.CCBulkToken), resultChan, httpClient)
 }
 
 func (fetcher *CCFetcher) bulkURL(bulkToken string) string {

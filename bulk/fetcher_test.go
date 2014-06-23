@@ -98,7 +98,8 @@ var _ = Describe("Fetcher", func() {
 			)
 
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results, time.Second)
+			httpClient := &http.Client{Timeout: time.Second}
+			err := fetcher.Fetch(results, httpClient)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
@@ -182,7 +183,8 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results, 50*time.Millisecond)
+			httpClient := &http.Client{Timeout: 50 * time.Millisecond}
+			err := fetcher.Fetch(results, httpClient)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
@@ -194,7 +196,7 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results, time.Second)
+			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
@@ -206,7 +208,7 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan models.DesiredLRP, 3)
-			err := fetcher.Fetch(results, time.Second)
+			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
