@@ -107,12 +107,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 								{ "name": "env-key-2", "value": "env-value-2" }
 							],
 							"file_descriptors": 16,
-							"instances": 2,
+							"num_instances": 2,
 							"log_guid": "log-guid-1",
 							"memory_mb": 256,
 							"process_guid": "process-guid-1",
 							"routes": [ "route-1", "route-2" ],
-							"source_url": "source-url-1",
+							"droplet_uri": "source-url-1",
 							"stack": "stack-1",
 							"start_command": "the-new-start-command-1"
 						},
@@ -123,12 +123,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 								{ "name": "env-key-4", "value": "env-value-4" }
 							],
 							"file_descriptors": 32,
-							"instances": 4,
+							"num_instances": 4,
 							"log_guid": "log-guid-2",
 							"memory_mb": 512,
 							"process_guid": "process-guid-2",
 							"routes": [ "route-3", "route-4" ],
-							"source_url": "source-url-2",
+							"droplet_uri": "source-url-2",
 							"stack": "stack-2",
 							"start_command": "start-command-2"
 						},
@@ -136,12 +136,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"disk_mb": 512,
 							"environment": [],
 							"file_descriptors": 8,
-							"instances": 4,
+							"num_instances": 4,
 							"log_guid": "log-guid-3",
 							"memory_mb": 128,
 							"process_guid": "process-guid-3",
 							"routes": [],
-							"source_url": "source-url-3",
+							"droplet_uri": "source-url-3",
 							"stack": "stack-3",
 							"start_command": "start-command-3"
 						}

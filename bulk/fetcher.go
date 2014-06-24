@@ -80,17 +80,17 @@ func (fetcher *CCFetcher) bulkURL(bulkToken string) string {
 	return fmt.Sprintf("%s/internal/bulk/apps?batch_size=%d&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
 }
 
-func lrpFromBulkApp(app models.CCBulkDesiredApp) models.DesiredLRP {
+func lrpFromBulkApp(app models.DesireAppRequestFromCC) models.DesiredLRP {
 	return models.DesiredLRP{
 		DiskMB:          int(app.DiskMB),
 		Environment:     app.Environment,
 		FileDescriptors: app.FileDescriptors,
-		Instances:       int(app.Instances),
+		Instances:       int(app.NumInstances),
 		LogGuid:         app.LogGuid,
 		MemoryMB:        int(app.MemoryMB),
 		ProcessGuid:     app.ProcessGuid,
 		Routes:          app.Routes,
-		Source:          app.SourceURL,
+		Source:          app.DropletUri,
 		Stack:           app.Stack,
 		StartCommand:    app.StartCommand,
 	}
