@@ -66,6 +66,12 @@ var bulkBatchSize = flag.Uint(
 	"number of apps to fetch at once from bulk API",
 )
 
+var skipCertVerify = flag.Bool(
+	"skipCertVerify",
+	false,
+	"skip SSL certificate verification",
+)
+
 func main() {
 	flag.Parse()
 
@@ -73,7 +79,7 @@ func main() {
 	bbs := initializeBbs(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, logger, &bulk.CCFetcher{
+		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, *skipCertVerify, logger, &bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,
 			BatchSize: *bulkBatchSize,
 			Username:  *ccUsername,

@@ -1,6 +1,7 @@
 package bulk
 
 import (
+	"crypto/tls"
 	"net/http"
 	"os"
 	"time"
@@ -15,6 +16,7 @@ type Processor struct {
 	pollingInterval time.Duration
 	ccFetchTimeout  time.Duration
 	bulkBatchSize   uint
+	skipCertVerify  bool
 	logger          *gosteno.Logger
 	fetcher         Fetcher
 }
@@ -24,6 +26,7 @@ func NewProcessor(
 	pollingInterval time.Duration,
 	ccFetchTimeout time.Duration,
 	bulkBatchSize uint,
+	skipCertVerify bool,
 	logger *gosteno.Logger,
 	fetcher Fetcher) *Processor {
 	return &Processor{
@@ -31,6 +34,7 @@ func NewProcessor(
 		pollingInterval: pollingInterval,
 		ccFetchTimeout:  ccFetchTimeout,
 		bulkBatchSize:   bulkBatchSize,
+		skipCertVerify:  skipCertVerify,
 		logger:          logger,
 		fetcher:         fetcher,
 	}
@@ -51,9 +55,16 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		}
 
 		fromCC := make(chan models.DesiredLRP)
+
 		httpClient := &http.Client{
 			Timeout: p.ccFetchTimeout,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: p.skipCertVerify,
+				},
+			},
 		}
+
 		go p.fetcher.Fetch(fromCC, httpClient)
 
 		changes := Diff(existing, fromCC)
