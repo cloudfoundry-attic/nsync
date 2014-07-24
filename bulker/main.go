@@ -25,12 +25,6 @@ var etcdCluster = flag.String(
 	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
-var syslogName = flag.String(
-	"syslogName",
-	"",
-	"syslog name",
-)
-
 var ccBaseURL = flag.String(
 	"ccBaseURL",
 	"",
