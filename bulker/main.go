@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
@@ -75,8 +76,9 @@ var skipCertVerify = flag.Bool(
 func main() {
 	flag.Parse()
 
-	logger := initializeLogger()
-	bbs := initializeBbs(logger)
+	logger := cf_lager.New("nsync.bulker")
+	stenoLogger := initializeStenoLogger()
+	bbs := initializeBbs(stenoLogger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, *skipCertVerify, logger, &bulk.CCFetcher{
@@ -87,22 +89,20 @@ func main() {
 		}),
 	})
 
-	logger.Info("nsync.bulker.started")
+	logger.Info("started")
 
 	monitor := ifrit.Envoke(sigmon.New(group))
 
 	err := <-monitor.Wait()
 	if err != nil {
-		logger.Errord(map[string]interface{}{
-			"error": err.Error(),
-		}, "nsync.bulker.exited")
+		logger.Error("exited", err)
 		os.Exit(1)
 	}
 
-	logger.Info("nsync.bulker.exited")
+	logger.Info("exited")
 }
 
-func initializeLogger() *steno.Logger {
+func initializeStenoLogger() *steno.Logger {
 	stenoConfig := &steno.Config{
 		Sinks: []steno.Sink{
 			steno.NewIOSink(os.Stdout),

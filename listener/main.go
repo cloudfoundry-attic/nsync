@@ -5,12 +5,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
@@ -51,9 +53,10 @@ var syslogName = flag.String(
 func main() {
 	flag.Parse()
 
-	logger := initializeLogger()
+	logger := cf_lager.New("nsync.listener")
+	stenoLogger := initializeStenoLogger()
 	natsClient := initializeNatsClient(logger)
-	bbs := initializeBbs(logger)
+	bbs := initializeBbs(stenoLogger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"listener": listen.Listen{
@@ -63,22 +66,20 @@ func main() {
 		},
 	})
 
-	logger.Info("nsync.listener.started")
+	logger.Info("started")
 
 	monitor := ifrit.Envoke(sigmon.New(group))
 
 	err := <-monitor.Wait()
 	if err != nil {
-		logger.Errord(map[string]interface{}{
-			"error": err.Error(),
-		}, "nsync.listener.exited")
+		logger.Error("exited", err)
 		os.Exit(1)
 	}
 
-	logger.Info("nsync.listener.exited")
+	logger.Info("exited")
 }
 
-func initializeLogger() *steno.Logger {
+func initializeStenoLogger() *steno.Logger {
 	stenoConfig := &steno.Config{
 		Sinks: []steno.Sink{
 			steno.NewIOSink(os.Stdout),
@@ -94,7 +95,7 @@ func initializeLogger() *steno.Logger {
 	return steno.NewLogger("Listener")
 }
 
-func initializeNatsClient(logger *steno.Logger) yagnats.NATSClient {
+func initializeNatsClient(logger lager.Logger) yagnats.NATSClient {
 	natsClient := yagnats.NewClient()
 
 	natsMembers := []yagnats.ConnectionProvider{}
@@ -110,7 +111,7 @@ func initializeNatsClient(logger *steno.Logger) yagnats.NATSClient {
 	})
 
 	if err != nil {
-		logger.Fatalf("Error connecting to NATS: %s\n", err)
+		logger.Fatal("connecting-to-nats-failed", err)
 	}
 
 	return natsClient

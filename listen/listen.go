@@ -7,8 +7,8 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/pivotal-golang/lager"
 )
 
 const DesireAppTopic = "diego.desire.app"
@@ -16,7 +16,7 @@ const DesireAppTopic = "diego.desire.app"
 type Listen struct {
 	NATSClient yagnats.NATSClient
 	BBS        Bbs.NsyncBBS
-	Logger     *steno.Logger
+	Logger     lager.Logger
 }
 
 func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
@@ -48,7 +48,7 @@ func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppReque
 		desireAppMessage := models.DesireAppRequestFromCC{}
 		err := json.Unmarshal(message.Payload, &desireAppMessage)
 		if err != nil {
-			listen.Logger.Errorf("Failed to parse NATS message.")
+			listen.Logger.Error("parse-nats-message-failed", err)
 			return
 		}
 
@@ -57,6 +57,7 @@ func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppReque
 }
 
 func (listen Listen) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
+	requestLogger := listen.Logger.Session("desire-lrp")
 	desiredLRP := models.DesiredLRP{
 		ProcessGuid:     desireAppMessage.ProcessGuid,
 		Source:          desireAppMessage.DropletUri,
@@ -74,27 +75,14 @@ func (listen Listen) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
 	if desiredLRP.Instances == 0 {
 		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desiredLRP.ProcessGuid)
 		if err != nil {
-			listen.Logger.Errord(
-				map[string]interface{}{
-					"desired-app-message": desireAppMessage,
-					"error":               err.Error(),
-				},
-				"nsync.remove-desired-lrp.failed",
-			)
+			requestLogger.Error("remove-failed", err, lager.Data{"desired-app-message": desireAppMessage})
 
 			return
 		}
 	} else {
 		err := listen.BBS.DesireLRP(desiredLRP)
 		if err != nil {
-			listen.Logger.Errord(
-				map[string]interface{}{
-					"desired-app-message": desireAppMessage,
-					"error":               err.Error(),
-				},
-				"nsync.desire-lrp.failed",
-			)
-
+			requestLogger.Error("failed", err, lager.Data{"desired-app-message": desireAppMessage})
 			return
 		}
 	}

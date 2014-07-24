@@ -8,7 +8,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/gosteno"
+	"github.com/pivotal-golang/lager"
 )
 
 type Processor struct {
@@ -17,7 +17,7 @@ type Processor struct {
 	ccFetchTimeout  time.Duration
 	bulkBatchSize   uint
 	skipCertVerify  bool
-	logger          *gosteno.Logger
+	logger          lager.Logger
 	fetcher         Fetcher
 }
 
@@ -27,7 +27,7 @@ func NewProcessor(
 	ccFetchTimeout time.Duration,
 	bulkBatchSize uint,
 	skipCertVerify bool,
-	logger *gosteno.Logger,
+	logger lager.Logger,
 	fetcher Fetcher) *Processor {
 	return &Processor{
 		bbs:             bbs,
@@ -46,6 +46,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	for {
 		existing, err := p.bbs.GetAllDesiredLRPs()
 		if err != nil {
+			p.logger.Error("getting-desired-lrps-failed", err)
 			select {
 			case <-signals:
 				return nil

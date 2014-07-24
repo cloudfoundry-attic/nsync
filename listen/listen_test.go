@@ -7,33 +7,30 @@ import (
 	. "github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("Listen", func() {
 	var (
 		fakenats         *fakeyagnats.FakeYagnats
-		logSink          *steno.TestingSink
 		desireAppRequest models.DesireAppRequestFromCC
+		logOutput        *gbytes.Buffer
 		bbs              *fake_bbs.FakeNsyncBBS
 
 		process ifrit.Process
 	)
 
 	BeforeEach(func() {
-		logSink = steno.NewTestingSink()
+		logOutput = gbytes.NewBuffer()
 
-		steno.Init(&steno.Config{
-			Sinks: []steno.Sink{logSink},
-		})
-
-		logger := steno.NewLogger("the-logger")
-		steno.EnterTestMode()
+		logger := lager.NewLogger("the-logger")
+		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 
 		fakenats = fakeyagnats.New()
 
@@ -119,8 +116,7 @@ var _ = Describe("Listen", func() {
 		})
 
 		It("logs an error", func() {
-			Eventually(logSink.Records).ShouldNot(HaveLen(0))
-			Ω(logSink.Records()[0].Message).Should(ContainSubstring("Failed to parse NATS message."))
+			Eventually(logOutput).Should(gbytes.Say("parse-nats-message-failed"))
 		})
 
 		It("does not put a desired LRP into the BBS", func() {

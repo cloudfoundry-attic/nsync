@@ -10,9 +10,9 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakefetcher"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/gosteno"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 )
 
@@ -36,7 +36,7 @@ var _ = Describe("Processor", func() {
 			time.Second,
 			10,
 			false,
-			gosteno.NewLogger("test"),
+			lager.NewLogger("test"),
 			fetcher,
 		)
 	})

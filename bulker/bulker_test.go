@@ -11,7 +11,7 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 
 	"github.com/cloudfoundry-incubator/nsync/integration/runner"
@@ -27,16 +27,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 	)
 
 	BeforeEach(func() {
-		logSink := steno.NewTestingSink()
+		stenoLogger := gosteno.NewLogger("the-steno-logger")
+		gosteno.EnterTestMode()
 
-		steno.Init(&steno.Config{
-			Sinks: []steno.Sink{logSink},
-		})
-
-		logger := steno.NewLogger("the-logger")
-		steno.EnterTestMode()
-
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), logger)
+		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), stenoLogger)
 
 		fakeCC = ghttp.NewServer()
 
