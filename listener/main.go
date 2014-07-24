@@ -4,7 +4,6 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -103,7 +102,11 @@ func initializeNatsClient(logger lager.Logger) yagnats.NATSClient {
 	for _, addr := range strings.Split(*natsAddresses, ",") {
 		natsMembers = append(
 			natsMembers,
-			&yagnats.ConnectionInfo{addr, *natsUsername, *natsPassword, 10 * time.Second},
+			&yagnats.ConnectionInfo{
+				Addr:     addr,
+				Username: *natsUsername,
+				Password: *natsPassword,
+			},
 		)
 	}
 
