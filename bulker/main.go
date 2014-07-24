@@ -8,10 +8,10 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
@@ -77,8 +77,7 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("nsync.bulker")
-	stenoLogger := initializeStenoLogger()
-	bbs := initializeBbs(stenoLogger)
+	bbs := initializeBbs(logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, *skipCertVerify, logger, &bulk.CCFetcher{
@@ -102,23 +101,7 @@ func main() {
 	logger.Info("exited")
 }
 
-func initializeStenoLogger() *steno.Logger {
-	stenoConfig := &steno.Config{
-		Sinks: []steno.Sink{
-			steno.NewIOSink(os.Stdout),
-		},
-	}
-
-	if *syslogName != "" {
-		stenoConfig.Sinks = append(stenoConfig.Sinks, steno.NewSyslogSink(*syslogName))
-	}
-
-	steno.Init(stenoConfig)
-
-	return steno.NewLogger("Bulker")
-}
-
-func initializeBbs(logger *steno.Logger) Bbs.NsyncBBS {
+func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
 		workerpool.NewWorkerPool(10),
@@ -126,7 +109,7 @@ func initializeBbs(logger *steno.Logger) Bbs.NsyncBBS {
 
 	err := etcdAdapter.Connect()
 	if err != nil {
-		logger.Fatalf("Error connecting to etcd: %s\n", err)
+		logger.Fatal("failed-to-connect-to-etcd", err)
 	}
 
 	return Bbs.NewNsyncBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
