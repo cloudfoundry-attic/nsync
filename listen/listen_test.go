@@ -8,7 +8,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
-	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 
 	. "github.com/onsi/ginkgo"
@@ -20,17 +20,14 @@ var _ = Describe("Listen", func() {
 	var (
 		fakenats         *fakeyagnats.FakeYagnats
 		desireAppRequest models.DesireAppRequestFromCC
-		logOutput        *gbytes.Buffer
+		logger           *lagertest.TestLogger
 		bbs              *fake_bbs.FakeNsyncBBS
 
 		process ifrit.Process
 	)
 
 	BeforeEach(func() {
-		logOutput = gbytes.NewBuffer()
-
-		logger := lager.NewLogger("the-logger")
-		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
+		logger = lagertest.NewTestLogger("test")
 
 		fakenats = fakeyagnats.New()
 
@@ -116,7 +113,7 @@ var _ = Describe("Listen", func() {
 		})
 
 		It("logs an error", func() {
-			Eventually(logOutput).Should(gbytes.Say("parse-nats-message-failed"))
+			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("parse-nats-message-failed"))
 		})
 
 		It("does not put a desired LRP into the BBS", func() {
