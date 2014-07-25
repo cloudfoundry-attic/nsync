@@ -7,7 +7,7 @@ import (
 	"time"
 
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/nsync/bulk/fakefetcher"
+	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
@@ -19,7 +19,8 @@ import (
 var _ = Describe("Processor", func() {
 	var (
 		bbs     *fake_bbs.FakeNsyncBBS
-		fetcher *fakefetcher.FakeFetcher
+		fetcher *fakes.FakeFetcher
+		differ  Differ
 
 		processor ifrit.Runner
 
@@ -28,7 +29,8 @@ var _ = Describe("Processor", func() {
 
 	BeforeEach(func() {
 		bbs = new(fake_bbs.FakeNsyncBBS)
-		fetcher = new(fakefetcher.FakeFetcher)
+		fetcher = new(fakes.FakeFetcher)
+		differ = NewDiffer(new(fakes.FakeRecipeBuilder))
 
 		processor = NewProcessor(
 			bbs,
@@ -38,6 +40,7 @@ var _ = Describe("Processor", func() {
 			false,
 			lager.NewLogger("test"),
 			fetcher,
+			differ,
 		)
 	})
 
@@ -84,10 +87,10 @@ var _ = Describe("Processor", func() {
 				return <-results
 			}
 
-			fetcher.FetchStub = func(results chan<- models.DesiredLRP, httpClient *http.Client) error {
-				results <- models.DesiredLRP{}
-				results <- models.DesiredLRP{}
-				results <- models.DesiredLRP{}
+			fetcher.FetchStub = func(results chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
+				results <- models.DesireAppRequestFromCC{}
+				results <- models.DesireAppRequestFromCC{}
+				results <- models.DesireAppRequestFromCC{}
 				return nil
 			}
 		})

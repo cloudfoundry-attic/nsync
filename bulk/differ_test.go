@@ -2,6 +2,7 @@ package bulk_test
 
 import (
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 
 	. "github.com/onsi/ginkgo"
@@ -9,72 +10,92 @@ import (
 )
 
 var _ = Describe("Differ", func() {
-	var desired chan<- models.DesiredLRP
+	var desired chan<- models.DesireAppRequestFromCC
 	var changes <-chan models.DesiredLRPChange
 	var existingLRPs []models.DesiredLRP
 
+	var builder *fakes.FakeRecipeBuilder
+
+	var differ Differ
+
 	BeforeEach(func() {
-		desiredChan := make(chan models.DesiredLRP)
+		desired = nil
+
 		existingLRPs = []models.DesiredLRP{
 			{
-				ProcessGuid:     "process-guid-1",
-				Instances:       2,
-				Stack:           "stack-1",
-				MemoryMB:        256,
-				DiskMB:          1024,
-				FileDescriptors: 16,
-				Source:          "source-url-1",
-				StartCommand:    "start-command-1",
-				Environment: []models.EnvironmentVariable{
-					{Name: "env-key-1", Value: "env-value-1"},
-					{Name: "env-key-2", Value: "env-value-2"},
+				ProcessGuid: "process-guid-1",
+
+				Instances: 2,
+				Stack:     "stack-1",
+
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.DownloadAction{
+							From: "http://example.com",
+							To:   "/tmp/internet",
+						},
+					},
 				},
-				Routes:  []string{"route-1", "route-2"},
-				LogGuid: "log-guid-1",
 			},
 			{
-				ProcessGuid:     "process-guid-2",
-				Instances:       1,
-				Stack:           "stack-2",
-				MemoryMB:        255,
-				DiskMB:          1023,
-				FileDescriptors: 15,
-				Source:          "source-url-2",
-				StartCommand:    "start-command-2",
-				Environment: []models.EnvironmentVariable{
-					{Name: "env-key-2", Value: "env-value-2"},
-					{Name: "env-key-3", Value: "env-value-3"},
+				ProcessGuid: "process-guid-2",
+
+				Instances: 1,
+				Stack:     "stack-2",
+
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.RunAction{
+							Path: "reboot",
+						},
+					},
 				},
-				Routes:  []string{"route-3", "route-4"},
-				LogGuid: "log-guid-2",
 			},
 		}
 
-		desired = desiredChan
-		changes = Diff(existingLRPs, desiredChan)
+		builder = new(fakes.FakeRecipeBuilder)
+
+		differ = NewDiffer(builder)
 	})
 
-	Context("when a desired LRP comes in", func() {
+	JustBeforeEach(func() {
+		desiredChan := make(chan models.DesireAppRequestFromCC)
+
+		desired = desiredChan
+
+		changes = differ.Diff(existingLRPs, desiredChan)
+	})
+
+	Context("when a desired LRP comes in from CC", func() {
+		newlyDesiredApp := models.DesireAppRequestFromCC{
+			ProcessGuid:  "new-process-guid",
+			NumInstances: 1,
+			DropletUri:   "http://example.com",
+			Stack:        "some-stack",
+		}
+
+		JustBeforeEach(func() {
+			desired <- newlyDesiredApp
+		})
+
 		Context("and it is not in the desired set", func() {
 			newlyDesiredLRP := models.DesiredLRP{
-				ProcessGuid:     "process-guid-3",
-				Instances:       2,
-				Stack:           "stack-2",
-				MemoryMB:        255,
-				DiskMB:          1023,
-				FileDescriptors: 15,
-				Source:          "source-url-2",
-				StartCommand:    "start-command-2",
-				Environment: []models.EnvironmentVariable{
-					{Name: "env-key-2", Value: "env-value-2"},
-					{Name: "env-key-3", Value: "env-value-3"},
+				ProcessGuid: "new-process-guid",
+
+				Instances: 1,
+				Stack:     "stack-2",
+
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.RunAction{
+							Path: "ls",
+						},
+					},
 				},
-				Routes:  []string{"route-3", "route-4"},
-				LogGuid: "log-guid-2",
 			}
 
 			BeforeEach(func() {
-				desired <- newlyDesiredLRP
+				builder.BuildReturns(newlyDesiredLRP, nil)
 			})
 
 			It("emits a change no before, but an after", func() {
@@ -82,13 +103,15 @@ var _ = Describe("Differ", func() {
 					Before: nil,
 					After:  &newlyDesiredLRP,
 				})))
+
+				Ω(builder.BuildArgsForCall(0)).Should(Equal(newlyDesiredApp))
 			})
 		})
 
 		Context("and it is in the desired set", func() {
 			Context("with the same values", func() {
 				BeforeEach(func() {
-					desired <- existingLRPs[1]
+					builder.BuildReturns(existingLRPs[1], nil)
 				})
 
 				It("does not emit any change", func() {
@@ -101,8 +124,8 @@ var _ = Describe("Differ", func() {
 
 				BeforeEach(func() {
 					changedLRP = existingLRPs[1]
-					changedLRP.Source = "new-source"
-					desired <- changedLRP
+					changedLRP.Stack = "new-stack"
+					builder.BuildReturns(changedLRP, nil)
 				})
 
 				It("emits a change with before and after", func() {
@@ -125,7 +148,7 @@ var _ = Describe("Differ", func() {
 
 			Context("and there were extras in the existing desired set", func() {
 				BeforeEach(func() {
-					desired <- existingLRPs[1]
+					builder.BuildReturns(existingLRPs[1], nil)
 				})
 
 				It("emits a change for each with before, but no after", func() {

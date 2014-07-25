@@ -6,14 +6,38 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
-func Diff(existing []models.DesiredLRP, newChan <-chan models.DesiredLRP) <-chan models.DesiredLRPChange {
+type Differ interface {
+	Diff(existing []models.DesiredLRP, newChan <-chan models.DesireAppRequestFromCC) <-chan models.DesiredLRPChange
+}
+
+type RecipeBuilder interface {
+	Build(models.DesireAppRequestFromCC) (models.DesiredLRP, error)
+}
+
+type differ struct {
+	builder RecipeBuilder
+}
+
+func NewDiffer(builder RecipeBuilder) Differ {
+	return &differ{
+		builder: builder,
+	}
+}
+
+func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan models.DesireAppRequestFromCC) <-chan models.DesiredLRPChange {
 	changeChan := make(chan models.DesiredLRPChange)
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
 	go func() {
-		for lrp := range newChan {
-			change := changeForNewLRP(existingLRPs, lrp)
-			delete(existingLRPs, lrp.ProcessGuid)
+		for fromCC := range newChan {
+			desiredLRP, err := d.builder.Build(fromCC)
+			if err != nil {
+				continue
+			}
+
+			change := changeForDesiredLRP(existingLRPs, desiredLRP)
+			delete(existingLRPs, desiredLRP.ProcessGuid)
+
 			if change != nil {
 				changeChan <- *change
 			}
@@ -29,15 +53,15 @@ func Diff(existing []models.DesiredLRP, newChan <-chan models.DesiredLRP) <-chan
 	return changeChan
 }
 
-func changeForNewLRP(existing map[string]models.DesiredLRP, newLRP models.DesiredLRP) *models.DesiredLRPChange {
-	if existingLRP, ok := existing[newLRP.ProcessGuid]; ok {
-		if reflect.DeepEqual(existingLRP, newLRP) {
+func changeForDesiredLRP(existing map[string]models.DesiredLRP, desired models.DesiredLRP) *models.DesiredLRPChange {
+	if existingLRP, ok := existing[desired.ProcessGuid]; ok {
+		if reflect.DeepEqual(existingLRP, desired) {
 			return nil
 		} else {
-			return &models.DesiredLRPChange{Before: &existingLRP, After: &newLRP}
+			return &models.DesiredLRPChange{Before: &existingLRP, After: &desired}
 		}
 	} else {
-		return &models.DesiredLRPChange{After: &newLRP}
+		return &models.DesiredLRPChange{After: &desired}
 	}
 }
 

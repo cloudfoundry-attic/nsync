@@ -13,10 +13,15 @@ import (
 
 const DesireAppTopic = "diego.desire.app"
 
+type RecipeBuilder interface {
+	Build(models.DesireAppRequestFromCC) (models.DesiredLRP, error)
+}
+
 type Listen struct {
-	NATSClient yagnats.NATSClient
-	BBS        Bbs.NsyncBBS
-	Logger     lager.Logger
+	RecipeBuilder RecipeBuilder
+	NATSClient    yagnats.NATSClient
+	BBS           Bbs.NsyncBBS
+	Logger        lager.Logger
 }
 
 func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
@@ -57,32 +62,26 @@ func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppReque
 }
 
 func (listen Listen) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
-	requestLogger := listen.Logger.Session("desire-lrp")
-	desiredLRP := models.DesiredLRP{
-		ProcessGuid:     desireAppMessage.ProcessGuid,
-		Source:          desireAppMessage.DropletUri,
-		FileDescriptors: desireAppMessage.FileDescriptors,
-		Environment:     desireAppMessage.Environment,
-		StartCommand:    desireAppMessage.StartCommand,
-		Instances:       desireAppMessage.NumInstances,
-		MemoryMB:        desireAppMessage.MemoryMB,
-		DiskMB:          desireAppMessage.DiskMB,
-		Stack:           desireAppMessage.Stack,
-		Routes:          desireAppMessage.Routes,
-		LogGuid:         desireAppMessage.LogGuid,
-	}
+	requestLogger := listen.Logger.Session("desire-lrp", lager.Data{
+		"desired-app-message": desireAppMessage,
+	})
 
-	if desiredLRP.Instances == 0 {
-		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desiredLRP.ProcessGuid)
+	if desireAppMessage.NumInstances == 0 {
+		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desireAppMessage.ProcessGuid)
 		if err != nil {
-			requestLogger.Error("remove-failed", err, lager.Data{"desired-app-message": desireAppMessage})
-
+			requestLogger.Error("remove-failed", err)
 			return
 		}
 	} else {
-		err := listen.BBS.DesireLRP(desiredLRP)
+		desiredLRP, err := listen.RecipeBuilder.Build(desireAppMessage)
 		if err != nil {
-			requestLogger.Error("failed", err, lager.Data{"desired-app-message": desireAppMessage})
+			requestLogger.Error("failed-to-build-recipe", err)
+			return
+		}
+
+		err = listen.BBS.DesireLRP(desiredLRP)
+		if err != nil {
+			requestLogger.Error("failed", err)
 			return
 		}
 	}

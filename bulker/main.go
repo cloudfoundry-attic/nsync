@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
 var etcdCluster = flag.String(
@@ -67,28 +69,57 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
+var repAddrRelativeToExecutor = flag.String(
+	"repAddrRelativeToExecutor",
+	"127.0.0.1:20515",
+	"address of the rep server that should receive health status updates",
+)
+
+var circuses = flag.String(
+	"circuses",
+	"",
+	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("nsync.bulker")
 	bbs := initializeBbs(logger)
 
+	var circuseDownloadURLs map[string]string
+	err := json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
+	if err != nil {
+		logger.Fatal("invalid-circus-mapping", err)
+	}
+
+	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, logger)
+
 	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"bulk": bulk.NewProcessor(bbs, *pollingInterval, *ccFetchTimeout, *bulkBatchSize, *skipCertVerify, logger, &bulk.CCFetcher{
-			BaseURI:   *ccBaseURL,
-			BatchSize: *bulkBatchSize,
-			Username:  *ccUsername,
-			Password:  *ccPassword,
-		}),
+		"bulk": bulk.NewProcessor(
+			bbs,
+			*pollingInterval,
+			*ccFetchTimeout,
+			*bulkBatchSize,
+			*skipCertVerify,
+			logger,
+			&bulk.CCFetcher{
+				BaseURI:   *ccBaseURL,
+				BatchSize: *bulkBatchSize,
+				Username:  *ccUsername,
+				Password:  *ccPassword,
+			},
+			bulk.NewDiffer(recipeBuilder),
+		),
 	})
 
 	logger.Info("started")
 
 	monitor := ifrit.Envoke(sigmon.New(group))
 
-	err := <-monitor.Wait()
+	err = <-monitor.Wait()
 	if err != nil {
-		logger.Error("exited", err)
+		logger.Error("exited-with-failure", err)
 		os.Exit(1)
 	}
 

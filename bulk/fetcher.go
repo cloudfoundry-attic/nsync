@@ -10,7 +10,7 @@ import (
 )
 
 type Fetcher interface {
-	Fetch(chan<- models.DesiredLRP, *http.Client) error
+	Fetch(chan<- models.DesireAppRequestFromCC, *http.Client) error
 }
 
 type CCFetcher struct {
@@ -22,11 +22,11 @@ type CCFetcher struct {
 
 const initialBulkToken = "{}"
 
-func (fetcher *CCFetcher) Fetch(resultChan chan<- models.DesiredLRP, httpClient *http.Client) error {
+func (fetcher *CCFetcher) Fetch(resultChan chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
 	return fetcher.fetchBatch(initialBulkToken, resultChan, httpClient)
 }
 
-func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.DesiredLRP, httpClient *http.Client) error {
+func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
 	req, err := http.NewRequest("GET", fetcher.bulkURL(token), nil)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 	}
 
 	for _, app := range response.Apps {
-		resultChan <- lrpFromBulkApp(app)
+		resultChan <- app
 	}
 
 	if uint(len(response.Apps)) < fetcher.BatchSize {
@@ -78,20 +78,4 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 
 func (fetcher *CCFetcher) bulkURL(bulkToken string) string {
 	return fmt.Sprintf("%s/internal/bulk/apps?batch_size=%d&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
-}
-
-func lrpFromBulkApp(app models.DesireAppRequestFromCC) models.DesiredLRP {
-	return models.DesiredLRP{
-		DiskMB:          int(app.DiskMB),
-		Environment:     app.Environment,
-		FileDescriptors: app.FileDescriptors,
-		Instances:       int(app.NumInstances),
-		LogGuid:         app.LogGuid,
-		MemoryMB:        int(app.MemoryMB),
-		ProcessGuid:     app.ProcessGuid,
-		Routes:          app.Routes,
-		Source:          app.DropletUri,
-		Stack:           app.Stack,
-		StartCommand:    app.StartCommand,
-	}
 }

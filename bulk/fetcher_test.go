@@ -97,21 +97,21 @@ var _ = Describe("Fetcher", func() {
 				),
 			)
 
-			results := make(chan models.DesiredLRP, 3)
+			results := make(chan models.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: time.Second}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
 
-			Ω(results).Should(Receive(Equal(models.DesiredLRP{
+			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-1",
-				Instances:       2,
+				NumInstances:    2,
 				Stack:           "stack-1",
 				MemoryMB:        256,
 				DiskMB:          1024,
 				FileDescriptors: 16,
-				Source:          "source-url-1",
+				DropletUri:      "source-url-1",
 				StartCommand:    "start-command-1",
 				Environment: []models.EnvironmentVariable{
 					{Name: "env-key-1", Value: "env-value-1"},
@@ -121,14 +121,14 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-1",
 			})))
 
-			Ω(results).Should(Receive(Equal(models.DesiredLRP{
+			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-2",
-				Instances:       4,
+				NumInstances:    4,
 				Stack:           "stack-2",
 				MemoryMB:        512,
 				DiskMB:          2048,
 				FileDescriptors: 32,
-				Source:          "source-url-2",
+				DropletUri:      "source-url-2",
 				StartCommand:    "start-command-2",
 				Environment: []models.EnvironmentVariable{
 					{Name: "env-key-3", Value: "env-value-3"},
@@ -138,14 +138,14 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-2",
 			})))
 
-			Ω(results).Should(Receive(Equal(models.DesiredLRP{
+			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-3",
-				Instances:       4,
+				NumInstances:    4,
 				Stack:           "stack-3",
 				MemoryMB:        128,
 				DiskMB:          512,
 				FileDescriptors: 8,
-				Source:          "source-url-3",
+				DropletUri:      "source-url-3",
 				StartCommand:    "start-command-3",
 				Environment:     []models.EnvironmentVariable{},
 				Routes:          []string{},
@@ -182,7 +182,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesiredLRP, 3)
+			results := make(chan models.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: 50 * time.Millisecond}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).Should(HaveOccurred())
@@ -195,7 +195,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesiredLRP, 3)
+			results := make(chan models.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
@@ -207,7 +207,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesiredLRP, 3)
+			results := make(chan models.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})

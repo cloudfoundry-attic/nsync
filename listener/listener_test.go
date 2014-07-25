@@ -35,6 +35,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			listenerPath,
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 			"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
+			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 		)
 
 		process = ifrit.Envoke(run)
@@ -47,18 +48,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	var publishDesireWithInstances = func(nInstances int) {
 		err := natsClient.Publish("diego.desire.app", []byte(fmt.Sprintf(`
-        {
-          "process_guid": "the-guid",
-          "droplet_uri": "http://the-droplet.uri.com",
-          "start_command": "the-start-command",
-          "memory_mb": 128,
-          "disk_mb": 512,
-          "file_descriptors": 32,
-          "num_instances": %d,
-          "stack": "some-stack",
-          "log_guid": "the-log-guid"
-        }
-      `, nInstances)))
+      {
+        "process_guid": "the-guid",
+        "droplet_uri": "http://the-droplet.uri.com",
+        "start_command": "the-start-command",
+        "memory_mb": 128,
+        "disk_mb": 512,
+        "file_descriptors": 32,
+        "num_instances": %d,
+        "stack": "some-stack",
+        "log_guid": "the-log-guid"
+      }
+    `, nInstances)))
 		Ω(err).ShouldNot(HaveOccurred())
 	}
 

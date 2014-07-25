@@ -19,6 +19,7 @@ type Processor struct {
 	skipCertVerify  bool
 	logger          lager.Logger
 	fetcher         Fetcher
+	differ          Differ
 }
 
 func NewProcessor(
@@ -28,7 +29,9 @@ func NewProcessor(
 	bulkBatchSize uint,
 	skipCertVerify bool,
 	logger lager.Logger,
-	fetcher Fetcher) *Processor {
+	fetcher Fetcher,
+	differ Differ,
+) *Processor {
 	return &Processor{
 		bbs:             bbs,
 		pollingInterval: pollingInterval,
@@ -37,6 +40,7 @@ func NewProcessor(
 		skipCertVerify:  skipCertVerify,
 		logger:          logger,
 		fetcher:         fetcher,
+		differ:          differ,
 	}
 }
 
@@ -55,7 +59,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			}
 		}
 
-		fromCC := make(chan models.DesiredLRP)
+		fromCC := make(chan models.DesireAppRequestFromCC)
 
 		httpClient := &http.Client{
 			Timeout: p.ccFetchTimeout,
@@ -68,7 +72,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 		go p.fetcher.Fetch(fromCC, httpClient)
 
-		changes := Diff(existing, fromCC)
+		changes := p.differ.Diff(existing, fromCC)
 
 	dance:
 		for {

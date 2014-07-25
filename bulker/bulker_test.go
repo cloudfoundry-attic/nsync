@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/cloudfoundry/gunk/timeprovider"
 
 	"github.com/cloudfoundry-incubator/nsync/integration/runner"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
@@ -38,6 +40,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 			"-pollingInterval", "100ms",
 			"-bulkBatchSize", "10",
+			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 		)
 	})
 
@@ -51,40 +54,66 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	Describe("when the CC polling interval elapses", func() {
-		BeforeEach(func() {
-			bbs.DesireLRP(models.DesiredLRP{
-				ProcessGuid:     "process-guid-1",
-				Instances:       2,
-				Stack:           "stack-1",
-				MemoryMB:        256,
-				DiskMB:          1024,
-				FileDescriptors: 16,
-				Source:          "source-url-1",
-				StartCommand:    "start-command-1",
-				Environment: []models.EnvironmentVariable{
-					{Name: "env-key-1", Value: "env-value-1"},
-					{Name: "env-key-2", Value: "env-value-2"},
-				},
-				Routes:  []string{"route-1", "route-2"},
-				LogGuid: "log-guid-1",
-			})
+		var desired1, desired2 models.DesiredLRP
 
-			bbs.DesireLRP(models.DesiredLRP{
-				ProcessGuid:     "process-guid-2",
-				Instances:       4,
-				Stack:           "stack-2",
-				MemoryMB:        512,
-				DiskMB:          2048,
-				FileDescriptors: 32,
-				Source:          "source-url-2",
-				StartCommand:    "start-command-2",
-				Environment: []models.EnvironmentVariable{
-					{Name: "env-key-3", Value: "env-value-3"},
-					{Name: "env-key-4", Value: "env-value-4"},
-				},
-				Routes:  []string{"route-3", "route-4"},
-				LogGuid: "log-guid-2",
-			})
+		BeforeEach(func() {
+			var existing1 models.DesireAppRequestFromCC
+			var existing2 models.DesireAppRequestFromCC
+
+			// start command is different
+			err := json.Unmarshal([]byte(`{
+				"disk_mb": 1024,
+				"environment": [
+					{ "name": "env-key-1", "value": "env-value-1" },
+					{ "name": "env-key-2", "value": "env-value-2" }
+				],
+				"file_descriptors": 16,
+				"num_instances": 2,
+				"log_guid": "log-guid-1",
+				"memory_mb": 256,
+				"process_guid": "process-guid-1",
+				"routes": [ "route-1", "route-2" ],
+				"droplet_uri": "source-url-1",
+				"stack": "some-stack",
+				"start_command": "start-command-1"
+			}`), &existing1)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = json.Unmarshal([]byte(`{
+				"disk_mb": 1024,
+				"environment": [
+					{ "name": "env-key-1", "value": "env-value-1" },
+					{ "name": "env-key-2", "value": "env-value-2" }
+				],
+				"file_descriptors": 16,
+				"num_instances": 2,
+				"log_guid": "log-guid-1",
+				"memory_mb": 256,
+				"process_guid": "process-guid-1",
+				"routes": [ "route-1", "route-2" ],
+				"droplet_uri": "source-url-1",
+				"stack": "some-stack",
+				"start_command": "start-command-1"
+			}`), &existing2)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			builder := recipebuilder.New(
+				"some.rep.address",
+				map[string]string{"some-stack": "some-health-check.tar.gz"},
+				lagertest.NewTestLogger("test"),
+			)
+
+			desired1, err = builder.Build(existing1)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			desired2, err = builder.Build(existing2)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = bbs.DesireLRP(desired1)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = bbs.DesireLRP(desired2)
+			Ω(err).ShouldNot(HaveOccurred())
 
 			fakeCC.AppendHandlers(ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/internal/bulk/apps"),
@@ -104,7 +133,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"process_guid": "process-guid-1",
 							"routes": [ "route-1", "route-2" ],
 							"droplet_uri": "source-url-1",
-							"stack": "stack-1",
+							"stack": "some-stack",
 							"start_command": "the-new-start-command-1"
 						},
 						{
@@ -120,7 +149,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"process_guid": "process-guid-2",
 							"routes": [ "route-3", "route-4" ],
 							"droplet_uri": "source-url-2",
-							"stack": "stack-2",
+							"stack": "some-stack",
 							"start_command": "start-command-2"
 						},
 						{
@@ -133,7 +162,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"process_guid": "process-guid-3",
 							"routes": [],
 							"droplet_uri": "source-url-3",
-							"stack": "stack-3",
+							"stack": "some-stack",
 							"start_command": "start-command-3"
 						}
 					]
@@ -142,52 +171,201 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		It("gets the desired state of all apps from the CC", func() {
-			Eventually(bbs.GetAllDesiredLRPs, 5).Should(Equal([]models.DesiredLRP{
-				{
-					ProcessGuid:     "process-guid-1",
-					Instances:       2,
-					Stack:           "stack-1",
-					MemoryMB:        256,
-					DiskMB:          1024,
-					FileDescriptors: 16,
-					Source:          "source-url-1",
-					StartCommand:    "the-new-start-command-1",
-					Environment: []models.EnvironmentVariable{
-						{Name: "env-key-1", Value: "env-value-1"},
-						{Name: "env-key-2", Value: "env-value-2"},
+			Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(3))
+
+			nowDesired, err := bbs.GetAllDesiredLRPs()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			nofile := uint64(16)
+
+			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+				ProcessGuid: "process-guid-1",
+				Instances:   2,
+				Stack:       "some-stack",
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.DownloadAction{
+							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							To:       "/tmp/circus",
+							Extract:  true,
+							CacheKey: "",
+						},
 					},
-					Routes:  []string{"route-1", "route-2"},
-					LogGuid: "log-guid-1",
-				},
-				{
-					ProcessGuid:     "process-guid-2",
-					Instances:       4,
-					Stack:           "stack-2",
-					MemoryMB:        512,
-					DiskMB:          2048,
-					FileDescriptors: 32,
-					Source:          "source-url-2",
-					StartCommand:    "start-command-2",
-					Environment: []models.EnvironmentVariable{
-						{Name: "env-key-3", Value: "env-value-3"},
-						{Name: "env-key-4", Value: "env-value-4"},
+					{
+						Action: models.DownloadAction{
+							From:     "source-url-1",
+							To:       ".",
+							Extract:  true,
+							CacheKey: "droplets-process-guid-1",
+						},
 					},
-					Routes:  []string{"route-3", "route-4"},
-					LogGuid: "log-guid-2",
+					models.Parallel(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/circus/soldier",
+								Args: []string{"/app", "the-new-start-command-1"},
+								Env: []models.EnvironmentVariable{
+									{Name: "env-key-1", Value: "env-value-1"},
+									{Name: "env-key-2", Value: "env-value-2"},
+									{Name: "PORT", Value: "8080"},
+									{Name: "VCAP_APP_PORT", Value: "8080"},
+									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+								},
+								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+							},
+						},
+						models.ExecutorAction{
+							models.MonitorAction{
+								Action: models.ExecutorAction{
+									Action: models.RunAction{
+										Path: "/tmp/circus/spy",
+										Args: []string{"-addr=:8080"},
+									},
+								},
+								HealthyHook: models.HealthRequest{
+									Method: "PUT",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+								},
+								HealthyThreshold:   1,
+								UnhealthyThreshold: 1,
+							},
+						},
+					),
 				},
-				{
-					ProcessGuid:     "process-guid-3",
-					Instances:       4,
-					Stack:           "stack-3",
-					MemoryMB:        128,
-					DiskMB:          512,
-					FileDescriptors: 8,
-					Source:          "source-url-3",
-					StartCommand:    "start-command-3",
-					Environment:     []models.EnvironmentVariable{},
-					Routes:          []string{},
-					LogGuid:         "log-guid-3",
+				DiskMB:   1024,
+				MemoryMB: 256,
+				Ports: []models.PortMapping{
+					{ContainerPort: 8080, HostPort: 0},
 				},
+				Routes: []string{"route-1", "route-2"},
+				Log:    models.LogConfig{Guid: "log-guid-1", SourceName: "App"},
+			}))
+
+			nofile = 32
+
+			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+				ProcessGuid: "process-guid-2",
+				Instances:   4,
+				Stack:       "some-stack",
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.DownloadAction{
+							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							To:       "/tmp/circus",
+							Extract:  true,
+							CacheKey: "",
+						},
+					},
+					{
+						Action: models.DownloadAction{
+							From:     "source-url-2",
+							To:       ".",
+							Extract:  true,
+							CacheKey: "droplets-process-guid-2",
+						},
+					},
+					models.Parallel(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/circus/soldier",
+								Args: []string{"/app", "start-command-2"},
+								Env: []models.EnvironmentVariable{
+									{Name: "env-key-3", Value: "env-value-3"},
+									{Name: "env-key-4", Value: "env-value-4"},
+									{Name: "PORT", Value: "8080"},
+									{Name: "VCAP_APP_PORT", Value: "8080"},
+									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+								},
+								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+							},
+						},
+						models.ExecutorAction{
+							models.MonitorAction{
+								Action: models.ExecutorAction{
+									Action: models.RunAction{
+										Path: "/tmp/circus/spy",
+										Args: []string{"-addr=:8080"},
+									},
+								},
+								HealthyHook: models.HealthRequest{
+									Method: "PUT",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+								},
+								HealthyThreshold:   1,
+								UnhealthyThreshold: 1,
+							},
+						},
+					),
+				},
+				DiskMB:   2048,
+				MemoryMB: 512,
+				Ports: []models.PortMapping{
+					{ContainerPort: 8080, HostPort: 0},
+				},
+				Routes: []string{"route-3", "route-4"},
+				Log:    models.LogConfig{Guid: "log-guid-2", SourceName: "App"},
+			}))
+
+			nofile = 8
+			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+				ProcessGuid: "process-guid-3",
+				Instances:   4,
+				Stack:       "some-stack",
+				Actions: []models.ExecutorAction{
+					{
+						Action: models.DownloadAction{
+							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							To:       "/tmp/circus",
+							Extract:  true,
+							CacheKey: "",
+						},
+					},
+					{
+						Action: models.DownloadAction{
+							From:     "source-url-3",
+							To:       ".",
+							Extract:  true,
+							CacheKey: "droplets-process-guid-3",
+						},
+					},
+					models.Parallel(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/circus/soldier",
+								Args: []string{"/app", "start-command-3"},
+								Env: []models.EnvironmentVariable{
+									{Name: "PORT", Value: "8080"},
+									{Name: "VCAP_APP_PORT", Value: "8080"},
+									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+								},
+								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+							},
+						},
+						models.ExecutorAction{
+							models.MonitorAction{
+								Action: models.ExecutorAction{
+									Action: models.RunAction{
+										Path: "/tmp/circus/spy",
+										Args: []string{"-addr=:8080"},
+									},
+								},
+								HealthyHook: models.HealthRequest{
+									Method: "PUT",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+								},
+								HealthyThreshold:   1,
+								UnhealthyThreshold: 1,
+							},
+						},
+					),
+				},
+				DiskMB:   512,
+				MemoryMB: 128,
+				Ports: []models.PortMapping{
+					{ContainerPort: 8080, HostPort: 0},
+				},
+				Routes: []string{},
+				Log:    models.LogConfig{Guid: "log-guid-3", SourceName: "App"},
 			}))
 		})
 	})
