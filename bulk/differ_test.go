@@ -4,6 +4,7 @@ import (
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -55,7 +56,7 @@ var _ = Describe("Differ", func() {
 
 		builder = new(fakes.FakeRecipeBuilder)
 
-		differ = NewDiffer(builder)
+		differ = NewDiffer(builder, lagertest.NewTestLogger("test"))
 	})
 
 	JustBeforeEach(func() {
@@ -67,12 +68,16 @@ var _ = Describe("Differ", func() {
 	})
 
 	Context("when a desired LRP comes in from CC", func() {
-		newlyDesiredApp := models.DesireAppRequestFromCC{
-			ProcessGuid:  "new-process-guid",
-			NumInstances: 1,
-			DropletUri:   "http://example.com",
-			Stack:        "some-stack",
-		}
+		var newlyDesiredApp models.DesireAppRequestFromCC
+
+		BeforeEach(func() {
+			newlyDesiredApp = models.DesireAppRequestFromCC{
+				ProcessGuid:  "new-process-guid",
+				NumInstances: 1,
+				DropletUri:   "http://example.com",
+				Stack:        "some-stack",
+			}
+		})
 
 		JustBeforeEach(func() {
 			desired <- newlyDesiredApp
@@ -109,6 +114,10 @@ var _ = Describe("Differ", func() {
 		})
 
 		Context("and it is in the desired set", func() {
+			BeforeEach(func() {
+				newlyDesiredApp.ProcessGuid = existingLRPs[1].ProcessGuid
+			})
+
 			Context("with the same values", func() {
 				BeforeEach(func() {
 					builder.BuildReturns(existingLRPs[1], nil)
@@ -123,8 +132,11 @@ var _ = Describe("Differ", func() {
 				var changedLRP models.DesiredLRP
 
 				BeforeEach(func() {
+					newlyDesiredApp.NumInstances = 42
+
 					changedLRP = existingLRPs[1]
-					changedLRP.Stack = "new-stack"
+					changedLRP.Instances = 42
+
 					builder.BuildReturns(changedLRP, nil)
 				})
 

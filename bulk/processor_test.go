@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 )
 
@@ -30,7 +31,7 @@ var _ = Describe("Processor", func() {
 	BeforeEach(func() {
 		bbs = new(fake_bbs.FakeNsyncBBS)
 		fetcher = new(fakes.FakeFetcher)
-		differ = NewDiffer(new(fakes.FakeRecipeBuilder))
+		differ = NewDiffer(new(fakes.FakeRecipeBuilder), lagertest.NewTestLogger("test"))
 
 		processor = NewProcessor(
 			bbs,

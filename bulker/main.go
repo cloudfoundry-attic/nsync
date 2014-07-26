@@ -109,7 +109,7 @@ func main() {
 				Username:  *ccUsername,
 				Password:  *ccPassword,
 			},
-			bulk.NewDiffer(recipeBuilder),
+			bulk.NewDiffer(recipeBuilder, logger),
 		),
 	})
 

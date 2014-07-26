@@ -60,7 +60,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			var existing1 models.DesireAppRequestFromCC
 			var existing2 models.DesireAppRequestFromCC
 
-			// start command is different
+			// total instances is different in the response from CC
 			err := json.Unmarshal([]byte(`{
 				"disk_mb": 1024,
 				"environment": [
@@ -127,14 +127,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 								{ "name": "env-key-2", "value": "env-value-2" }
 							],
 							"file_descriptors": 16,
-							"num_instances": 2,
+							"num_instances": 42,
 							"log_guid": "log-guid-1",
 							"memory_mb": 256,
 							"process_guid": "process-guid-1",
-							"routes": [ "route-1", "route-2" ],
+							"routes": [ "route-1", "route-2", "new-route" ],
 							"droplet_uri": "source-url-1",
 							"stack": "some-stack",
-							"start_command": "the-new-start-command-1"
+							"start_command": "start-command-1"
 						},
 						{
 							"disk_mb": 2048,
@@ -180,7 +180,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
 				ProcessGuid: "process-guid-1",
-				Instances:   2,
+				Instances:   42,
 				Stack:       "some-stack",
 				Actions: []models.ExecutorAction{
 					{
@@ -203,7 +203,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						models.ExecutorAction{
 							models.RunAction{
 								Path: "/tmp/circus/soldier",
-								Args: []string{"/app", "the-new-start-command-1"},
+								Args: []string{"/app", "start-command-1"},
 								Env: []models.EnvironmentVariable{
 									{Name: "env-key-1", Value: "env-value-1"},
 									{Name: "env-key-2", Value: "env-value-2"},
@@ -237,7 +237,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Ports: []models.PortMapping{
 					{ContainerPort: 8080, HostPort: 0},
 				},
-				Routes: []string{"route-1", "route-2"},
+				Routes: []string{"route-1", "route-2", "new-route"},
 				Log:    models.LogConfig{Guid: "log-guid-1", SourceName: "App"},
 			}))
 
