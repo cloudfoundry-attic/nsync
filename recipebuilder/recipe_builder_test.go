@@ -66,7 +66,7 @@ var _ = Describe("Recipe Builder", func() {
 		Ω(desiredLRP.Actions).Should(HaveLen(3))
 
 		Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-			From:    "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-circus.tgz",
+			From:    "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
 			To:      "/tmp/circus",
 			Extract: true,
 		}))
@@ -94,7 +94,7 @@ var _ = Describe("Recipe Builder", func() {
 
 		Ω(monitorAction.HealthyHook).Should(Equal(models.HealthRequest{
 			Method: "PUT",
-			URL:    "http://" + repAddrRelativeToExecutor + "/lrp_running/the-app-guid-the-app-version/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+			URL:    "http://" + repAddrRelativeToExecutor + "/lrp_running/the-app-guid-the-app-version/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
 		}))
 
 		Ω(monitorAction.HealthyThreshold).ShouldNot(BeZero())

@@ -185,7 +185,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.DownloadAction{
-							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 							To:       "/tmp/circus",
 							Extract:  true,
 							CacheKey: "",
@@ -224,7 +224,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 								},
 								HealthyHook: models.HealthRequest{
 									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
 								},
 								HealthyThreshold:   1,
 								UnhealthyThreshold: 1,
@@ -250,7 +250,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.DownloadAction{
-							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 							To:       "/tmp/circus",
 							Extract:  true,
 							CacheKey: "",
@@ -289,7 +289,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 								},
 								HealthyHook: models.HealthRequest{
 									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
 								},
 								HealthyThreshold:   1,
 								UnhealthyThreshold: 1,
@@ -314,7 +314,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.DownloadAction{
-							From:     "http://PLACEHOLDER_FILESERVER_ADDR/v1/static/some-health-check.tar.gz",
+							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 							To:       "/tmp/circus",
 							Extract:  true,
 							CacheKey: "",
@@ -351,7 +351,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 								},
 								HealthyHook: models.HealthRequest{
 									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INDEX/PLACEHOLDER_INSTANCE_GUID",
+									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
 								},
 								HealthyThreshold:   1,
 								UnhealthyThreshold: 1,

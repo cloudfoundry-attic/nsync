@@ -34,7 +34,7 @@ func (b *RecipeBuilder) Build(desiredApp models.DesireAppRequestFromCC) (models.
 
 	buildLogger := b.logger.Session("message-builder")
 
-	circusURL, err := b.circusDownloadURL(desiredApp.Stack, "http://PLACEHOLDER_FILESERVER_ADDR")
+	circusURL, err := b.circusDownloadURL(desiredApp.Stack, "PLACEHOLDER_FILESERVER_URL")
 	if err != nil {
 		buildLogger.Error("construct-circus-download-url-failed", err, lager.Data{
 			"stack": desiredApp.Stack,
@@ -59,7 +59,7 @@ func (b *RecipeBuilder) Build(desiredApp models.DesireAppRequestFromCC) (models.
 			"process_guid": lrpGuid,
 
 			// these go away once rep is polling, rather than receiving callbacks
-			"index":         "PLACEHOLDER_INDEX",
+			"index":         "PLACEHOLDER_INSTANCE_INDEX",
 			"instance_guid": "PLACEHOLDER_INSTANCE_GUID",
 		},
 		nil,
