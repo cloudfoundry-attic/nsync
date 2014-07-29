@@ -1,10 +1,10 @@
-package models_test
+package cc_messages_test
 
 import (
 	"encoding/json"
 
-	"github.com/cloudfoundry-incubator/candiedyaml"
-	. "github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	. "github.com/cloudfoundry-incubator/stager/staging_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -45,10 +45,20 @@ var _ = Describe("StagingMessages", func() {
 						Url:  "fake-buildpack-url",
 					},
 				},
-				Environment: []EnvironmentVariable{
+				Environment: Environment{
 					{Name: "FOO", Value: "BAR"},
 				},
 			}))
+		})
+	})
+
+	Describe("Environment", func() {
+		It("translates into a []model.Environment", func() {
+			env := Environment{
+				{Name: "FOO", Value: "BAR"},
+			}
+			bbsEnv := env.BBSEnvironment()
+			Ω(bbsEnv).Should(Equal([]models.EnvironmentVariable{{Name: "FOO", Value: "BAR"}}))
 		})
 	})
 
@@ -70,26 +80,6 @@ var _ = Describe("StagingMessages", func() {
 				Key:  "ocaml-buildpack-guid",
 				Url:  "http://ocaml.org/buildpack.zip",
 			}))
-		})
-	})
-
-	Describe("StagingInfo", func() {
-		Context("when yaml", func() {
-			stagingYAML := `---
-detected_buildpack: yaml-buildpack
-start_command: yaml-ize -d`
-
-			It("exposes an extracted `detected_buildpack` property", func() {
-				var stagingInfo StagingInfo
-
-				err := candiedyaml.Unmarshal([]byte(stagingYAML), &stagingInfo)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(stagingInfo).Should(Equal(StagingInfo{
-					DetectedBuildpack:    "yaml-buildpack",
-					DetectedStartCommand: "yaml-ize -d",
-				}))
-			})
 		})
 	})
 

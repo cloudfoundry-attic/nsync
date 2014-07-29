@@ -31,6 +31,7 @@ type RepBBS interface {
 	ReportActualLRPAsStarting(lrp models.ActualLRP, executorID string) error
 	ReportActualLRPAsRunning(lrp models.ActualLRP, executorId string) error
 	RemoveActualLRP(lrp models.ActualLRP) error
+	RemoveActualLRPForIndex(processGuid string, index int, instanceGuid string) error
 	WatchForStopLRPInstance() (<-chan models.StopLRPInstance, chan<- bool, <-chan error)
 	ResolveStopLRPInstance(stopInstance models.StopLRPInstance) error
 }
@@ -137,6 +138,26 @@ type RouteEmitterBBS interface {
 	GetRunningActualLRPsByProcessGuid(processGuid string) ([]models.ActualLRP, error)
 }
 
+type VeritasBBS interface {
+	//task
+	GetAllTasks() ([]models.Task, error)
+
+	//lrp
+	GetAllDesiredLRPs() ([]models.DesiredLRP, error)
+	GetAllActualLRPs() ([]models.ActualLRP, error)
+	GetAllStopLRPInstances() ([]models.StopLRPInstance, error)
+
+	//start auctions
+	GetAllLRPStartAuctions() ([]models.LRPStartAuction, error)
+
+	//stop auctions
+	GetAllLRPStopAuctions() ([]models.LRPStopAuction, error)
+
+	//services
+	GetAllExecutors() ([]models.ExecutorPresence, error)
+	GetAllFileServers() ([]string, error)
+}
+
 func NewRepBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger lager.Logger) RepBBS {
 	return NewBBS(store, timeProvider, logger)
 }
@@ -174,6 +195,10 @@ func NewRouteEmitterBBS(store storeadapter.StoreAdapter, timeProvider timeprovid
 }
 
 func NewTPSBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger lager.Logger) TPSBBS {
+	return NewBBS(store, timeProvider, logger)
+}
+
+func NewVeritasBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger lager.Logger) VeritasBBS {
 	return NewBBS(store, timeProvider, logger)
 }
 
