@@ -6,7 +6,7 @@ import (
 	"time"
 
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -97,14 +97,14 @@ var _ = Describe("Fetcher", func() {
 				),
 			)
 
-			results := make(chan models.DesireAppRequestFromCC, 3)
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: time.Second}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
 
-			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-1",
 				NumInstances:    2,
 				Stack:           "stack-1",
@@ -113,7 +113,7 @@ var _ = Describe("Fetcher", func() {
 				FileDescriptors: 16,
 				DropletUri:      "source-url-1",
 				StartCommand:    "start-command-1",
-				Environment: []models.EnvironmentVariable{
+				Environment: cc_messages.Environment{
 					{Name: "env-key-1", Value: "env-value-1"},
 					{Name: "env-key-2", Value: "env-value-2"},
 				},
@@ -121,7 +121,7 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-1",
 			})))
 
-			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-2",
 				NumInstances:    4,
 				Stack:           "stack-2",
@@ -130,7 +130,7 @@ var _ = Describe("Fetcher", func() {
 				FileDescriptors: 32,
 				DropletUri:      "source-url-2",
 				StartCommand:    "start-command-2",
-				Environment: []models.EnvironmentVariable{
+				Environment: cc_messages.Environment{
 					{Name: "env-key-3", Value: "env-value-3"},
 					{Name: "env-key-4", Value: "env-value-4"},
 				},
@@ -138,7 +138,7 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-2",
 			})))
 
-			Ω(results).Should(Receive(Equal(models.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-3",
 				NumInstances:    4,
 				Stack:           "stack-3",
@@ -147,7 +147,7 @@ var _ = Describe("Fetcher", func() {
 				FileDescriptors: 8,
 				DropletUri:      "source-url-3",
 				StartCommand:    "start-command-3",
-				Environment:     []models.EnvironmentVariable{},
+				Environment:     cc_messages.Environment{},
 				Routes:          []string{},
 				LogGuid:         "log-guid-3",
 			})))
@@ -182,7 +182,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesireAppRequestFromCC, 3)
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: 50 * time.Millisecond}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).Should(HaveOccurred())
@@ -195,7 +195,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesireAppRequestFromCC, 3)
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
@@ -207,7 +207,7 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan models.DesireAppRequestFromCC, 3)
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})

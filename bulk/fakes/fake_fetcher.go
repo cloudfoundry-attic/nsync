@@ -4,15 +4,16 @@ package fakes
 import (
 	"net/http"
 	"sync"
+
 	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type FakeFetcher struct {
-	FetchStub        func(chan<- models.DesireAppRequestFromCC, *http.Client) error
+	FetchStub        func(chan<- cc_messages.DesireAppRequestFromCC, *http.Client) error
 	fetchMutex       sync.RWMutex
 	fetchArgsForCall []struct {
-		arg1 chan<- models.DesireAppRequestFromCC
+		arg1 chan<- cc_messages.DesireAppRequestFromCC
 		arg2 *http.Client
 	}
 	fetchReturns struct {
@@ -20,11 +21,11 @@ type FakeFetcher struct {
 	}
 }
 
-func (fake *FakeFetcher) Fetch(arg1 chan<- models.DesireAppRequestFromCC, arg2 *http.Client) error {
+func (fake *FakeFetcher) Fetch(arg1 chan<- cc_messages.DesireAppRequestFromCC, arg2 *http.Client) error {
 	fake.fetchMutex.Lock()
 	defer fake.fetchMutex.Unlock()
 	fake.fetchArgsForCall = append(fake.fetchArgsForCall, struct {
-		arg1 chan<- models.DesireAppRequestFromCC
+		arg1 chan<- cc_messages.DesireAppRequestFromCC
 		arg2 *http.Client
 	}{arg1, arg2})
 	if fake.FetchStub != nil {
@@ -40,7 +41,7 @@ func (fake *FakeFetcher) FetchCallCount() int {
 	return len(fake.fetchArgsForCall)
 }
 
-func (fake *FakeFetcher) FetchArgsForCall(i int) (chan<- models.DesireAppRequestFromCC, *http.Client) {
+func (fake *FakeFetcher) FetchArgsForCall(i int) (chan<- cc_messages.DesireAppRequestFromCC, *http.Client) {
 	fake.fetchMutex.RLock()
 	defer fake.fetchMutex.RUnlock()
 	return fake.fetchArgsForCall[i].arg1, fake.fetchArgsForCall[i].arg2

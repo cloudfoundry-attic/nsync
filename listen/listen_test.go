@@ -8,6 +8,7 @@ import (
 	. "github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/listen/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -22,7 +23,7 @@ var _ = Describe("Listen", func() {
 	var (
 		builder          *fakes.FakeRecipeBuilder
 		fakenats         *fakeyagnats.FakeYagnats
-		desireAppRequest models.DesireAppRequestFromCC
+		desireAppRequest cc_messages.DesireAppRequestFromCC
 		logger           *lagertest.TestLogger
 		bbs              *fake_bbs.FakeNsyncBBS
 
@@ -45,12 +46,12 @@ var _ = Describe("Listen", func() {
 			RecipeBuilder: builder,
 		}
 
-		desireAppRequest = models.DesireAppRequestFromCC{
+		desireAppRequest = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "some-guid",
 			DropletUri:   "http://the-droplet.uri.com",
 			Stack:        "some-stack",
 			StartCommand: "the-start-command",
-			Environment: []models.EnvironmentVariable{
+			Environment: cc_messages.Environment{
 				{Name: "foo", Value: "bar"},
 				{Name: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
 			},

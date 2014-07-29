@@ -2,6 +2,7 @@ package recipebuilder_test
 
 import (
 	. "github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 
@@ -13,7 +14,7 @@ var _ = Describe("Recipe Builder", func() {
 	var (
 		builder                   *RecipeBuilder
 		repAddrRelativeToExecutor string
-		desiredLRP                models.DesireAppRequestFromCC
+		desiredLRP                cc_messages.DesireAppRequestFromCC
 		circuses                  map[string]string
 		fileServerURL             string
 	)
@@ -29,12 +30,12 @@ var _ = Describe("Recipe Builder", func() {
 
 		builder = New(repAddrRelativeToExecutor, circuses, logger)
 
-		desiredLRP = models.DesireAppRequestFromCC{
+		desiredLRP = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "the-app-guid-the-app-version",
 			DropletUri:   "http://the-droplet.uri.com",
 			Stack:        "some-stack",
 			StartCommand: "the-start-command",
-			Environment: []models.EnvironmentVariable{
+			Environment: cc_messages.Environment{
 				{Name: "foo", Value: "bar"},
 			},
 			MemoryMB:        128,

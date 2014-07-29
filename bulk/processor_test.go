@@ -9,6 +9,7 @@ import (
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -88,10 +89,10 @@ var _ = Describe("Processor", func() {
 				return <-results
 			}
 
-			fetcher.FetchStub = func(results chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
-				results <- models.DesireAppRequestFromCC{}
-				results <- models.DesireAppRequestFromCC{}
-				results <- models.DesireAppRequestFromCC{}
+			fetcher.FetchStub = func(results chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+				results <- cc_messages.DesireAppRequestFromCC{}
+				results <- cc_messages.DesireAppRequestFromCC{}
+				results <- cc_messages.DesireAppRequestFromCC{}
 				return nil
 			}
 		})

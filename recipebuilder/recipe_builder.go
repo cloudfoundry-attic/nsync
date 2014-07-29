@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	RepRoutes "github.com/cloudfoundry-incubator/rep/routes"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	SchemaRouter "github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
@@ -29,7 +30,7 @@ func New(repAddrRelativeToExecutor string, circuses map[string]string, logger la
 	}
 }
 
-func (b *RecipeBuilder) Build(desiredApp models.DesireAppRequestFromCC) (models.DesiredLRP, error) {
+func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error) {
 	lrpGuid := desiredApp.ProcessGuid
 
 	buildLogger := b.logger.Session("message-builder")
@@ -108,7 +109,7 @@ func (b *RecipeBuilder) Build(desiredApp models.DesireAppRequestFromCC) (models.
 					models.RunAction{
 						Path: "/tmp/circus/soldier",
 						Args: append([]string{"/app"}, strings.Split(desiredApp.StartCommand, " ")...),
-						Env:  createLrpEnv(desiredApp.Environment),
+						Env:  createLrpEnv(desiredApp.Environment.BBSEnvironment()),
 						ResourceLimits: models.ResourceLimits{
 							Nofile: numFiles,
 						},

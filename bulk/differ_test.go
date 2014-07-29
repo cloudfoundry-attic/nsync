@@ -3,6 +3,7 @@ package bulk_test
 import (
 	. "github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager/lagertest"
 
@@ -11,7 +12,7 @@ import (
 )
 
 var _ = Describe("Differ", func() {
-	var desired chan<- models.DesireAppRequestFromCC
+	var desired chan<- cc_messages.DesireAppRequestFromCC
 	var changes <-chan models.DesiredLRPChange
 	var existingLRPs []models.DesiredLRP
 
@@ -60,7 +61,7 @@ var _ = Describe("Differ", func() {
 	})
 
 	JustBeforeEach(func() {
-		desiredChan := make(chan models.DesireAppRequestFromCC)
+		desiredChan := make(chan cc_messages.DesireAppRequestFromCC)
 
 		desired = desiredChan
 
@@ -74,10 +75,10 @@ var _ = Describe("Differ", func() {
 	})
 
 	Context("when a desired LRP comes in from CC", func() {
-		var newlyDesiredApp models.DesireAppRequestFromCC
+		var newlyDesiredApp cc_messages.DesireAppRequestFromCC
 
 		BeforeEach(func() {
-			newlyDesiredApp = models.DesireAppRequestFromCC{
+			newlyDesiredApp = cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:  "new-process-guid",
 				NumInstances: 1,
 				DropletUri:   "http://example.com",

@@ -3,16 +3,17 @@ package bulk
 import (
 	"reflect"
 
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
 type Differ interface {
-	Diff(existing []models.DesiredLRP, newChan <-chan models.DesireAppRequestFromCC) <-chan models.DesiredLRPChange
+	Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange
 }
 
 type RecipeBuilder interface {
-	Build(models.DesireAppRequestFromCC) (models.DesiredLRP, error)
+	Build(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
 }
 
 type differ struct {
@@ -27,7 +28,7 @@ func NewDiffer(builder RecipeBuilder, logger lager.Logger) Differ {
 	}
 }
 
-func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan models.DesireAppRequestFromCC) <-chan models.DesiredLRPChange {
+func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange {
 	changeChan := make(chan models.DesiredLRPChange)
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
@@ -60,7 +61,7 @@ func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan models.Desire
 	return changeChan
 }
 
-func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]models.DesiredLRP, fromCC models.DesireAppRequestFromCC) *models.DesiredLRPChange {
+func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]models.DesiredLRP, fromCC cc_messages.DesireAppRequestFromCC) *models.DesiredLRPChange {
 	var beforeLRP *models.DesiredLRP
 
 	if existingLRP, ok := existing[fromCC.ProcessGuid]; ok {
@@ -96,7 +97,7 @@ func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]mo
 	}
 }
 
-func isInSync(existingLRP models.DesiredLRP, fromCC models.DesireAppRequestFromCC) bool {
+func isInSync(existingLRP models.DesiredLRP, fromCC cc_messages.DesireAppRequestFromCC) bool {
 	routesA := map[string]bool{}
 	routesB := map[string]bool{}
 

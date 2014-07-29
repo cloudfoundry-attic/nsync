@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
@@ -14,7 +15,7 @@ import (
 const DesireAppTopic = "diego.desire.app"
 
 type RecipeBuilder interface {
-	Build(models.DesireAppRequestFromCC) (models.DesiredLRP, error)
+	Build(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
 }
 
 type Listen struct {
@@ -26,7 +27,7 @@ type Listen struct {
 
 func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	wg := new(sync.WaitGroup)
-	desiredApps := make(chan models.DesireAppRequestFromCC)
+	desiredApps := make(chan cc_messages.DesireAppRequestFromCC)
 
 	listen.listenForDesiredApps(desiredApps)
 
@@ -48,9 +49,9 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 	}
 }
 
-func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppRequestFromCC) {
+func (listen Listen) listenForDesiredApps(desiredApps chan cc_messages.DesireAppRequestFromCC) {
 	listen.NATSClient.Subscribe(DesireAppTopic, func(message *yagnats.Message) {
-		desireAppMessage := models.DesireAppRequestFromCC{}
+		desireAppMessage := cc_messages.DesireAppRequestFromCC{}
 		err := json.Unmarshal(message.Payload, &desireAppMessage)
 		if err != nil {
 			listen.Logger.Error("parse-nats-message-failed", err)
@@ -61,7 +62,7 @@ func (listen Listen) listenForDesiredApps(desiredApps chan models.DesireAppReque
 	})
 }
 
-func (listen Listen) desireApp(desireAppMessage models.DesireAppRequestFromCC) {
+func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFromCC) {
 	requestLogger := listen.Logger.Session("desire-lrp", lager.Data{
 		"desired-app-message": desireAppMessage,
 	})

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -63,7 +63,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			}
 		}
 
-		fromCC := make(chan models.DesireAppRequestFromCC)
+		fromCC := make(chan cc_messages.DesireAppRequestFromCC)
 
 		httpClient := &http.Client{
 			Timeout: p.ccFetchTimeout,

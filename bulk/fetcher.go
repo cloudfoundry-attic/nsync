@@ -6,11 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type Fetcher interface {
-	Fetch(chan<- models.DesireAppRequestFromCC, *http.Client) error
+	Fetch(chan<- cc_messages.DesireAppRequestFromCC, *http.Client) error
 }
 
 type CCFetcher struct {
@@ -22,11 +22,11 @@ type CCFetcher struct {
 
 const initialBulkToken = "{}"
 
-func (fetcher *CCFetcher) Fetch(resultChan chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
+func (fetcher *CCFetcher) Fetch(resultChan chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
 	return fetcher.fetchBatch(initialBulkToken, resultChan, httpClient)
 }
 
-func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.DesireAppRequestFromCC, httpClient *http.Client) error {
+func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
 	req, err := http.NewRequest("GET", fetcher.bulkURL(token), nil)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- models.Desi
 		return err
 	}
 
-	response := models.CCDesiredStateServerResponse{}
+	response := cc_messages.CCDesiredStateServerResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return err

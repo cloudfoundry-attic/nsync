@@ -12,6 +12,7 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/timeprovider"
 
@@ -57,8 +58,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 		var desired1, desired2 models.DesiredLRP
 
 		BeforeEach(func() {
-			var existing1 models.DesireAppRequestFromCC
-			var existing2 models.DesireAppRequestFromCC
+			var existing1 cc_messages.DesireAppRequestFromCC
+			var existing2 cc_messages.DesireAppRequestFromCC
 
 			// total instances is different in the response from CC
 			err := json.Unmarshal([]byte(`{

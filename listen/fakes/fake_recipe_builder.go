@@ -3,16 +3,17 @@ package fakes
 
 import (
 	"github.com/cloudfoundry-incubator/nsync/listen"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 
 	"sync"
 )
 
 type FakeRecipeBuilder struct {
-	BuildStub        func(models.DesireAppRequestFromCC) (models.DesiredLRP, error)
+	BuildStub        func(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
 	buildMutex       sync.RWMutex
 	buildArgsForCall []struct {
-		arg1 models.DesireAppRequestFromCC
+		arg1 cc_messages.DesireAppRequestFromCC
 	}
 	buildReturns struct {
 		result1 models.DesiredLRP
@@ -20,11 +21,11 @@ type FakeRecipeBuilder struct {
 	}
 }
 
-func (fake *FakeRecipeBuilder) Build(arg1 models.DesireAppRequestFromCC) (models.DesiredLRP, error) {
+func (fake *FakeRecipeBuilder) Build(arg1 cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error) {
 	fake.buildMutex.Lock()
 	defer fake.buildMutex.Unlock()
 	fake.buildArgsForCall = append(fake.buildArgsForCall, struct {
-		arg1 models.DesireAppRequestFromCC
+		arg1 cc_messages.DesireAppRequestFromCC
 	}{arg1})
 	if fake.BuildStub != nil {
 		return fake.BuildStub(arg1)
@@ -39,7 +40,7 @@ func (fake *FakeRecipeBuilder) BuildCallCount() int {
 	return len(fake.buildArgsForCall)
 }
 
-func (fake *FakeRecipeBuilder) BuildArgsForCall(i int) models.DesireAppRequestFromCC {
+func (fake *FakeRecipeBuilder) BuildArgsForCall(i int) cc_messages.DesireAppRequestFromCC {
 	fake.buildMutex.RLock()
 	defer fake.buildMutex.RUnlock()
 	return fake.buildArgsForCall[i].arg1
