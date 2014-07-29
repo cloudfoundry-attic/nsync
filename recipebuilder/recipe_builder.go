@@ -1,6 +1,7 @@
 package recipebuilder
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -154,5 +155,34 @@ func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable
 	env = append(env, models.EnvironmentVariable{Name: "PORT", Value: "8080"})
 	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_PORT", Value: "8080"})
 	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_HOST", Value: "0.0.0.0"})
+
+	vcapAppEnv := map[string]interface{}{}
+	vcapAppEnvIndex := -1
+	for i, envVar := range env {
+		if envVar.Name == "VCAP_APPLICATION" {
+			vcapAppEnvIndex = i
+			err := json.Unmarshal([]byte(envVar.Value), &vcapAppEnv)
+			if err != nil {
+				return env
+			}
+		}
+	}
+
+	if vcapAppEnvIndex == -1 {
+		return env
+	}
+
+	vcapAppEnv["port"] = 8080
+	vcapAppEnv["host"] = "0.0.0.0"
+	vcapAppEnv["instance_id"] = "PLACEHOLDER_INSTANCE_GUID"
+	vcapAppEnv["instance_index"] = "PLACEHOLDER_INSTANCE_INDEX"
+
+	lrpEnv, err := json.Marshal(vcapAppEnv)
+	if err != nil {
+		panic("failed to marshal app env: " + err.Error())
+	}
+
+	env[vcapAppEnvIndex] = models.EnvironmentVariable{Name: "VCAP_APPLICATION", Value: string(lrpEnv)}
+
 	return env
 }
