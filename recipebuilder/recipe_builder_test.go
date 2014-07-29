@@ -36,7 +36,6 @@ var _ = Describe("Recipe Builder", func() {
 			StartCommand: "the-start-command",
 			Environment: []models.EnvironmentVariable{
 				{Name: "foo", Value: "bar"},
-				{Name: "VCAP_APPLICATION", Value: `{"foo": 1, "bar": 2}`},
 			},
 			MemoryMB:        128,
 			DiskMB:          512,
@@ -128,27 +127,6 @@ var _ = Describe("Recipe Builder", func() {
 			Name:  "VCAP_APP_HOST",
 			Value: "0.0.0.0",
 		}))
-
-		var vcapApplication string
-		for _, env := range runAction.Env {
-			if env.Name == "VCAP_APPLICATION" {
-				vcapApplication = env.Value
-			}
-		}
-
-		// note: instance index must be an integer, but we cannot inline the
-		// replacement term and still have valid JSON. the lrpreprocessor in app
-		// manager must replace it including the surrounding quotes.
-		Ω(vcapApplication).Should(MatchJSON(
-			`{
-				"foo": 1,
-				"bar": 2,
-				"port": 8080,
-				"host": "0.0.0.0",
-				"instance_id": "PLACEHOLDER_INSTANCE_GUID",
-				"instance_index": "PLACEHOLDER_INSTANCE_INDEX"
-			}`,
-		))
 	})
 
 	Context("when there is no file descriptor limit", func() {
