@@ -48,9 +48,13 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	close(ready)
 
 	for {
+		processLog := p.logger.Session("processor")
+
+		processLog.Info("getting-desired-lrps-from-bbs")
+
 		existing, err := p.bbs.GetAllDesiredLRPs()
 		if err != nil {
-			p.logger.Error("getting-desired-lrps-failed", err)
+			p.logger.Error("failed-to-get-desired-lrps", err)
 			select {
 			case <-signals:
 				return nil
@@ -70,6 +74,8 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			},
 		}
 
+		processLog.Info("fetching-desired-from-cc")
+
 		go p.fetcher.Fetch(fromCC, httpClient)
 
 		changes := p.differ.Diff(existing, fromCC)
@@ -80,17 +86,21 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			case change, ok := <-changes:
 				if !ok {
 					changes = nil
-					break
+					break dance
 				}
 
 				p.bbs.ChangeDesiredLRP(change)
 			case <-signals:
 				return nil
-			case <-time.After(p.pollingInterval):
-				break dance
 			}
+		}
+
+		select {
+		case <-signals:
+			return nil
+		case <-time.After(p.pollingInterval):
 		}
 	}
 
-	return nil
+	panic("unreachable")
 }
