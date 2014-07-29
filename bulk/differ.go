@@ -45,11 +45,13 @@ func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan models.Desire
 		}
 
 		for _, lrp := range existingLRPs {
+			deletedLRP := lrp
+
 			diffLog.Info("found-extra-desired-lrp", lager.Data{
 				"guid": lrp.ProcessGuid,
 			})
 
-			changeChan <- models.DesiredLRPChange{Before: &lrp}
+			changeChan <- models.DesiredLRPChange{Before: &deletedLRP}
 		}
 
 		close(changeChan)

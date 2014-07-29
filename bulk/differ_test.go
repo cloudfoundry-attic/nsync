@@ -67,6 +67,12 @@ var _ = Describe("Differ", func() {
 		changes = differ.Diff(existingLRPs, desiredChan)
 	})
 
+	AfterEach(func() {
+		// consume from changes channel
+		for _ = range changes {
+		}
+	})
+
 	Context("when a desired LRP comes in from CC", func() {
 		var newlyDesiredApp models.DesireAppRequestFromCC
 
@@ -103,6 +109,10 @@ var _ = Describe("Differ", func() {
 				builder.BuildReturns(newlyDesiredLRP, nil)
 			})
 
+			AfterEach(func() {
+				close(desired)
+			})
+
 			It("emits a change no before, but an after", func() {
 				Eventually(changes).Should(Receive(Equal(models.DesiredLRPChange{
 					Before: nil,
@@ -116,6 +126,10 @@ var _ = Describe("Differ", func() {
 		Context("and it is in the desired set", func() {
 			BeforeEach(func() {
 				newlyDesiredApp.ProcessGuid = existingLRPs[1].ProcessGuid
+			})
+
+			AfterEach(func() {
+				close(desired)
 			})
 
 			Context("with the same values", func() {
