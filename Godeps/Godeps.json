@@ -23,19 +23,19 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "cac1170d9579bdae2caa155fcb3400608ad6a59c"
+			"Rev": "1173a9196e65cbc57d643242cbb0da9391bc1b08"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/cc_messages",
-			"Rev": "cac1170d9579bdae2caa155fcb3400608ad6a59c"
+			"Rev": "1173a9196e65cbc57d643242cbb0da9391bc1b08"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "cac1170d9579bdae2caa155fcb3400608ad6a59c"
+			"Rev": "1173a9196e65cbc57d643242cbb0da9391bc1b08"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "cac1170d9579bdae2caa155fcb3400608ad6a59c"
+			"Rev": "1173a9196e65cbc57d643242cbb0da9391bc1b08"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
