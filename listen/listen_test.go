@@ -133,6 +133,43 @@ var _ = Describe("Listen", func() {
 		})
 	})
 
+	Describe("when a 'diego.docker.desire.app' message is received", func() {
+
+		JustBeforeEach(func() {
+			desireAppRequest.DockerImageUrl = "https:///docker.com/docker"
+			messagePayload, err := json.Marshal(desireAppRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			fakenats.Publish("diego.docker.desire.app", messagePayload)
+		})
+
+		newlyDesiredLRP := models.DesiredLRP{
+			ProcessGuid: "new-process-guid",
+
+			Instances:  1,
+			Stack:      "stack-2",
+			RootFSPath: "docker:///docker.com/docker",
+			Actions: []models.ExecutorAction{
+				{
+					Action: models.RunAction{
+						Path: "ls",
+					},
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			builder.BuildReturns(newlyDesiredLRP, nil)
+		})
+
+		It("marks the LRP desired in the bbs", func() {
+			Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
+
+			Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+			Ω(builder.BuildArgsForCall(0)).Should(Equal(desireAppRequest))
+		})
+	})
+
 	Describe("when a invalid 'diego.desire.app' message is received", func() {
 		BeforeEach(func() {
 			fakenats.Publish("diego.desire.app", []byte(`

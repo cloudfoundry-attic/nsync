@@ -12,7 +12,23 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
-const DesireAppTopic = "diego.desire.app"
+const (
+	DesireAppTopic       = "diego.desire.app"
+	DesireDockerAppTopic = "diego.docker.desire.app"
+)
+
+type desireAppChan chan cc_messages.DesireAppRequestFromCC
+
+func (desiredApps desireAppChan) sendDesireAppRequest(message *yagnats.Message, logger lager.Logger) {
+	desireAppMessage := cc_messages.DesireAppRequestFromCC{}
+	err := json.Unmarshal(message.Payload, &desireAppMessage)
+	if err != nil {
+		logger.Error("parse-nats-message-failed", err)
+		return
+	}
+
+	desiredApps <- desireAppMessage
+}
 
 type RecipeBuilder interface {
 	Build(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
@@ -30,6 +46,7 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 	desiredApps := make(chan cc_messages.DesireAppRequestFromCC)
 
 	listen.listenForDesiredApps(desiredApps)
+	listen.listenForDesiredDockerApps(desiredApps)
 
 	close(ready)
 
@@ -49,16 +66,15 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 	}
 }
 
-func (listen Listen) listenForDesiredApps(desiredApps chan cc_messages.DesireAppRequestFromCC) {
+func (listen Listen) listenForDesiredApps(desiredApps desireAppChan) {
 	listen.NATSClient.Subscribe(DesireAppTopic, func(message *yagnats.Message) {
-		desireAppMessage := cc_messages.DesireAppRequestFromCC{}
-		err := json.Unmarshal(message.Payload, &desireAppMessage)
-		if err != nil {
-			listen.Logger.Error("parse-nats-message-failed", err)
-			return
-		}
+		desiredApps.sendDesireAppRequest(message, listen.Logger)
+	})
+}
 
-		desiredApps <- desireAppMessage
+func (listen Listen) listenForDesiredDockerApps(desiredApps desireAppChan) {
+	listen.NATSClient.Subscribe(DesireDockerAppTopic, func(message *yagnats.Message) {
+		desiredApps.sendDesireAppRequest(message, listen.Logger)
 	})
 }
 

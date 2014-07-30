@@ -14,7 +14,9 @@ var _ = Describe("Recipe Builder", func() {
 	var (
 		builder                   *RecipeBuilder
 		repAddrRelativeToExecutor string
-		desiredLRP                cc_messages.DesireAppRequestFromCC
+		err                       error
+		desiredAppReq             cc_messages.DesireAppRequestFromCC
+		desiredLRP                models.DesiredLRP
 		circuses                  map[string]string
 		fileServerURL             string
 	)
@@ -30,7 +32,7 @@ var _ = Describe("Recipe Builder", func() {
 
 		builder = New(repAddrRelativeToExecutor, circuses, logger)
 
-		desiredLRP = cc_messages.DesireAppRequestFromCC{
+		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "the-app-guid-the-app-version",
 			DropletUri:   "http://the-droplet.uri.com",
 			Stack:        "some-stack",
@@ -47,101 +49,146 @@ var _ = Describe("Recipe Builder", func() {
 		}
 	})
 
-	It("builds a valid DesiredLRP", func() {
-		desiredLRP, err := builder.Build(desiredLRP)
-		Ω(err).ShouldNot(HaveOccurred())
+	JustBeforeEach(func() {
+		desiredLRP, err = builder.Build(desiredAppReq)
+	})
 
-		Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
-		Ω(desiredLRP.Instances).Should(Equal(23))
-		Ω(desiredLRP.Routes).Should(Equal([]string{"route1", "route2"}))
-		Ω(desiredLRP.Stack).Should(Equal("some-stack"))
-		Ω(desiredLRP.MemoryMB).Should(Equal(128))
-		Ω(desiredLRP.DiskMB).Should(Equal(512))
-		Ω(desiredLRP.Ports).Should(Equal([]models.PortMapping{{ContainerPort: 8080}}))
+	Context("when everything is correct", func() {
+		It("does not error", func() {
+			Ω(err).ShouldNot(HaveOccurred())
+		})
 
-		Ω(desiredLRP.Log).Should(Equal(models.LogConfig{
-			Guid:       "the-log-id",
-			SourceName: "App",
-		}))
+		It("builds a valid DesiredLRP", func() {
+			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
+			Ω(desiredLRP.Instances).Should(Equal(23))
+			Ω(desiredLRP.Routes).Should(Equal([]string{"route1", "route2"}))
+			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
+			Ω(desiredLRP.MemoryMB).Should(Equal(128))
+			Ω(desiredLRP.DiskMB).Should(Equal(512))
+			Ω(desiredLRP.Ports).Should(Equal([]models.PortMapping{{ContainerPort: 8080}}))
 
-		Ω(desiredLRP.Actions).Should(HaveLen(3))
+			Ω(desiredLRP.Log).Should(Equal(models.LogConfig{
+				Guid:       "the-log-id",
+				SourceName: "App",
+			}))
 
-		Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-			From:    "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
-			To:      "/tmp/circus",
-			Extract: true,
-		}))
+			Ω(desiredLRP.Actions).Should(HaveLen(3))
 
-		Ω(desiredLRP.Actions[1].Action).Should(Equal(models.DownloadAction{
-			From:     "http://the-droplet.uri.com",
-			To:       ".",
-			Extract:  true,
-			CacheKey: "droplets-the-app-guid-the-app-version",
-		}))
+			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
+				From:    "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
+				To:      "/tmp/circus",
+				Extract: true,
+			}))
 
-		parallelAction, ok := desiredLRP.Actions[2].Action.(models.ParallelAction)
-		Ω(ok).Should(BeTrue())
+			Ω(desiredLRP.Actions[1].Action).Should(Equal(models.DownloadAction{
+				From:     "http://the-droplet.uri.com",
+				To:       ".",
+				Extract:  true,
+				CacheKey: "droplets-the-app-guid-the-app-version",
+			}))
 
-		runAction, ok := parallelAction.Actions[0].Action.(models.RunAction)
-		Ω(ok).Should(BeTrue())
+			parallelAction, ok := desiredLRP.Actions[2].Action.(models.ParallelAction)
+			Ω(ok).Should(BeTrue())
 
-		monitorAction, ok := parallelAction.Actions[1].Action.(models.MonitorAction)
-		Ω(ok).Should(BeTrue())
+			runAction, ok := parallelAction.Actions[0].Action.(models.RunAction)
+			Ω(ok).Should(BeTrue())
 
-		Ω(monitorAction.Action.Action).Should(Equal(models.RunAction{
-			Path: "/tmp/circus/spy",
-			Args: []string{"-addr=:8080"},
-		}))
+			monitorAction, ok := parallelAction.Actions[1].Action.(models.MonitorAction)
+			Ω(ok).Should(BeTrue())
 
-		Ω(monitorAction.HealthyHook).Should(Equal(models.HealthRequest{
-			Method: "PUT",
-			URL:    "http://" + repAddrRelativeToExecutor + "/lrp_running/the-app-guid-the-app-version/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-		}))
+			Ω(monitorAction.Action.Action).Should(Equal(models.RunAction{
+				Path: "/tmp/circus/spy",
+				Args: []string{"-addr=:8080"},
+			}))
 
-		Ω(monitorAction.HealthyThreshold).ShouldNot(BeZero())
-		Ω(monitorAction.UnhealthyThreshold).ShouldNot(BeZero())
+			Ω(monitorAction.HealthyHook).Should(Equal(models.HealthRequest{
+				Method: "PUT",
+				URL:    "http://" + repAddrRelativeToExecutor + "/lrp_running/the-app-guid-the-app-version/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
+			}))
 
-		Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
-		Ω(runAction.Args).Should(Equal([]string{"/app", "the-start-command"}))
+			Ω(monitorAction.HealthyThreshold).ShouldNot(BeZero())
+			Ω(monitorAction.UnhealthyThreshold).ShouldNot(BeZero())
 
-		numFiles := uint64(32)
-		Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
-			Nofile: &numFiles,
-		}))
+			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
+			Ω(runAction.Args).Should(Equal([]string{"/app", "the-start-command"}))
 
-		Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-			Name:  "foo",
-			Value: "bar",
-		}))
+			numFiles := uint64(32)
+			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
+				Nofile: &numFiles,
+			}))
 
-		Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-			Name:  "PORT",
-			Value: "8080",
-		}))
+			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+				Name:  "foo",
+				Value: "bar",
+			}))
 
-		Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-			Name:  "VCAP_APP_PORT",
-			Value: "8080",
-		}))
+			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+				Name:  "PORT",
+				Value: "8080",
+			}))
 
-		Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-			Name:  "VCAP_APP_HOST",
-			Value: "0.0.0.0",
-		}))
+			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+				Name:  "VCAP_APP_PORT",
+				Value: "8080",
+			}))
+
+			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+				Name:  "VCAP_APP_HOST",
+				Value: "0.0.0.0",
+			}))
+		})
+	})
+
+	Context("when there is a docker image url instead of a droplet uri", func() {
+		BeforeEach(func() {
+			desiredAppReq.DockerImageUrl = "http://docker.com/docker"
+			desiredAppReq.DropletUri = ""
+		})
+
+		It("does not error", func() {
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		It("converts the docker image url into a root fs path", func() {
+			Ω(desiredLRP.RootFSPath).Should(Equal("docker://docker.com/docker"))
+		})
+	})
+
+	Context("when there is a docker image url AND a droplet uri", func() {
+		BeforeEach(func() {
+			desiredAppReq.DockerImageUrl = "http://docker.com/docker"
+			desiredAppReq.DropletUri = "http://the-droplet.uri.com"
+		})
+
+		It("should error", func() {
+			Ω(err).Should(MatchError(ErrMultipleAppSources))
+		})
+	})
+
+	Context("when there is NEITHER a docker image url NOR a droplet uri", func() {
+		BeforeEach(func() {
+			desiredAppReq.DockerImageUrl = ""
+			desiredAppReq.DropletUri = ""
+		})
+
+		It("should error", func() {
+			Ω(err).Should(MatchError(ErrAppSourceMissing))
+		})
 	})
 
 	Context("when there is no file descriptor limit", func() {
 		BeforeEach(func() {
-			desiredLRP.FileDescriptors = 0
+			desiredAppReq.FileDescriptors = 0
+		})
+
+		It("does not error", func() {
+			Ω(err).ShouldNot(HaveOccurred())
 		})
 
 		It("does not set any FD limit on the run action", func() {
-			auction, err := builder.Build(desiredLRP)
-			Ω(err).ShouldNot(HaveOccurred())
+			Ω(desiredLRP.Actions).Should(HaveLen(3))
 
-			Ω(auction.Actions).Should(HaveLen(3))
-
-			parallelAction, ok := auction.Actions[2].Action.(models.ParallelAction)
+			parallelAction, ok := desiredLRP.Actions[2].Action.(models.ParallelAction)
 			Ω(ok).Should(BeTrue())
 
 			runAction, ok := parallelAction.Actions[0].Action.(models.RunAction)
@@ -155,13 +202,11 @@ var _ = Describe("Recipe Builder", func() {
 
 	Context("when requesting a stack with no associated health-check", func() {
 		BeforeEach(func() {
-			desiredLRP.Stack = "some-other-stack"
+			desiredAppReq.Stack = "some-other-stack"
 		})
 
 		It("should error", func() {
-			auction, err := builder.Build(desiredLRP)
 			Ω(err).Should(MatchError(ErrNoCircusDefined))
-			Ω(auction).Should(BeZero())
 		})
 	})
 })
