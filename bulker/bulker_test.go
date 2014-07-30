@@ -181,6 +181,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
 				ProcessGuid: "process-guid-1",
+				Domain:      "cf-apps",
 				Instances:   42,
 				Stack:       "some-stack",
 				Actions: []models.ExecutorAction{
@@ -246,6 +247,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
 				ProcessGuid: "process-guid-2",
+				Domain:      "cf-apps",
 				Instances:   4,
 				Stack:       "some-stack",
 				Actions: []models.ExecutorAction{
@@ -310,6 +312,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			nofile = 8
 			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
 				ProcessGuid: "process-guid-3",
+				Domain:      "cf-apps",
 				Instances:   4,
 				Stack:       "some-stack",
 				Actions: []models.ExecutorAction{
@@ -368,6 +371,37 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Routes: []string{},
 				Log:    models.LogConfig{Guid: "log-guid-3", SourceName: "App"},
 			}))
+		})
+
+		Context("when LRPs in a different domain exist", func() {
+			var otherDomainDesired models.DesiredLRP
+
+			BeforeEach(func() {
+				otherDomainDesired = models.DesiredLRP{
+					ProcessGuid: "some-other-lrp",
+					Domain:      "some-domain",
+					Stack:       "some-stack",
+					Actions: []models.ExecutorAction{
+						{
+							Action: models.RunAction{
+								Path: "reboot",
+							},
+						},
+					},
+				}
+
+				err := bbs.DesireLRP(otherDomainDesired)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			It("leaves them alone", func() {
+				Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(4))
+
+				nowDesired, err := bbs.GetAllDesiredLRPs()
+				Ω(err).ShouldNot(HaveOccurred())
+
+				Ω(nowDesired).Should(ContainElement(otherDomainDesired))
+			})
 		})
 	})
 })

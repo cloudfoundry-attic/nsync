@@ -16,6 +16,7 @@ import (
 )
 
 const DockerScheme = "docker"
+const LRPDomain = "cf-apps"
 
 var ErrNoCircusDefined = errors.New("no lifecycle binary bundle defined for stack")
 var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and docker_image_url; exactly one is required.")
@@ -145,6 +146,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		}))
 
 	return models.DesiredLRP{
+		Domain: "cf-apps",
+
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,
 		Routes:      desiredApp.Routes,

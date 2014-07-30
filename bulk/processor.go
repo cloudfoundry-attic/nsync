@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
@@ -52,7 +53,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 		processLog.Info("getting-desired-lrps-from-bbs")
 
-		existing, err := p.bbs.GetAllDesiredLRPs()
+		existing, err := p.bbs.GetAllDesiredLRPsByDomain(recipebuilder.LRPDomain)
 		if err != nil {
 			p.logger.Error("failed-to-get-desired-lrps", err)
 			select {
