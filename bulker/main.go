@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry/gunk/timeprovider"
@@ -86,6 +87,8 @@ func main() {
 
 	logger := cf_lager.New("nsync.bulker")
 	bbs := initializeBbs(logger)
+
+	cf_debug_server.Run()
 
 	var circuseDownloadURLs map[string]string
 	err := json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
