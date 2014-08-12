@@ -26,13 +26,15 @@ type RecipeBuilder struct {
 	repAddrRelativeToExecutor string
 	logger                    lager.Logger
 	circuses                  map[string]string
+	dockerCircusPath          string
 }
 
-func New(repAddrRelativeToExecutor string, circuses map[string]string, logger lager.Logger) *RecipeBuilder {
+func New(repAddrRelativeToExecutor string, circuses map[string]string, dockerCircusPath string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
 		repAddrRelativeToExecutor: repAddrRelativeToExecutor,
 		circuses:                  circuses,
 		logger:                    logger,
+		dockerCircusPath:          dockerCircusPath,
 	}
 }
 
@@ -52,6 +54,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	}
 
 	rootFSPath := ""
+	circusURL := ""
 
 	if desiredApp.DockerImageUrl != "" {
 		dockerUrl, err := url.Parse(desiredApp.DockerImageUrl)
@@ -60,16 +63,19 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 			return models.DesiredLRP{}, err
 		}
 		dockerUrl.Scheme = DockerScheme
+		circusURL = b.circusDownloadURL(b.dockerCircusPath, "PLACEHOLDER_FILESERVER_URL")
 		rootFSPath = dockerUrl.String()
-	}
+	} else {
 
-	circusURL, err := b.circusDownloadURL(desiredApp.Stack, "PLACEHOLDER_FILESERVER_URL")
-	if err != nil {
-		buildLogger.Error("construct-circus-download-url-failed", err, lager.Data{
-			"stack": desiredApp.Stack,
-		})
+		circusPath, ok := b.circuses[desiredApp.Stack]
+		if !ok {
+			buildLogger.Error("unknown-stack", ErrNoCircusDefined, lager.Data{
+				"stack": desiredApp.Stack,
+			})
 
-		return models.DesiredLRP{}, err
+			return models.DesiredLRP{}, ErrNoCircusDefined
+		}
+		circusURL = b.circusDownloadURL(circusPath, "PLACEHOLDER_FILESERVER_URL")
 	}
 
 	var numFiles *uint64
@@ -172,18 +178,13 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	}, nil
 }
 
-func (b RecipeBuilder) circusDownloadURL(stack string, fileServerURL string) (string, error) {
-	checkPath, ok := b.circuses[stack]
-	if !ok {
-		return "", ErrNoCircusDefined
-	}
-
+func (b RecipeBuilder) circusDownloadURL(circusPath string, fileServerURL string) string {
 	staticRoute, ok := SchemaRouter.NewFileServerRoutes().RouteForHandler(SchemaRouter.FS_STATIC)
 	if !ok {
-		return "", errors.New("couldn't generate the download path for the bundle of app lifecycle binaries")
+		panic("couldn't generate the download path for the bundle of app lifecycle binaries")
 	}
 
-	return urljoiner.Join(fileServerURL, staticRoute.Path, checkPath), nil
+	return urljoiner.Join(fileServerURL, staticRoute.Path, circusPath)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {

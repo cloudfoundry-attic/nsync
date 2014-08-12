@@ -42,6 +42,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			"-pollingInterval", "100ms",
 			"-bulkBatchSize", "10",
 			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
+			"-dockerCircusPath", "the/docker/circus/path.tgz",
 		)
 	})
 
@@ -101,6 +102,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			builder := recipebuilder.New(
 				"some.rep.address",
 				map[string]string{"some-stack": "some-health-check.tar.gz"},
+				"the/docker/circus/path.tgz",
 				lagertest.NewTestLogger("test"),
 			)
 

@@ -36,6 +36,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 			"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
 			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
+			"-dockerCircusPath", "the/docker/circus/path.tgz",
 		)
 
 		process = ifrit.Envoke(run)

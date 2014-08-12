@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"strings"
@@ -58,6 +59,12 @@ var circuses = flag.String(
 	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
 )
 
+var dockerCircusPath = flag.String(
+	"dockerCircusPath",
+	"",
+	"path for downloading docker circus from file server",
+)
+
 func main() {
 	flag.Parse()
 
@@ -69,11 +76,16 @@ func main() {
 
 	var circuseDownloadURLs map[string]string
 	err := json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
+
+	if *dockerCircusPath == "" {
+		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
+	}
+
 	if err != nil {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, logger)
+	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
 
 	group := grouper.EnvokeGroup(grouper.RunGroup{
 		"listener": listen.Listen{

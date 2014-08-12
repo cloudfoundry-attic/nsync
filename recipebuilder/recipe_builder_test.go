@@ -30,7 +30,7 @@ var _ = Describe("Recipe Builder", func() {
 			"some-stack": "some-circus.tgz",
 		}
 
-		builder = New(repAddrRelativeToExecutor, circuses, logger)
+		builder = New(repAddrRelativeToExecutor, circuses, "the/docker/circus/path.tgz", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "the-app-guid-the-app-version",
@@ -151,6 +151,14 @@ var _ = Describe("Recipe Builder", func() {
 
 		It("converts the docker image url into a root fs path", func() {
 			Ω(desiredLRP.RootFSPath).Should(Equal("docker://docker.com/docker"))
+		})
+
+		It("uses the docker circus", func() {
+			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
+				From:    "PLACEHOLDER_FILESERVER_URL/v1/static/the/docker/circus/path.tgz",
+				To:      "/tmp/circus",
+				Extract: true,
+			}))
 		})
 	})
 
