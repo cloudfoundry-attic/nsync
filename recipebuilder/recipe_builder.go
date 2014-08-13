@@ -19,8 +19,8 @@ const DockerScheme = "docker"
 const LRPDomain = "cf-apps"
 
 var ErrNoCircusDefined = errors.New("no lifecycle binary bundle defined for stack")
-var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and docker_image_url; exactly one is required.")
-var ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image_url; exactly one is required.")
+var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
+var ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
 
 type RecipeBuilder struct {
 	repAddrRelativeToExecutor string
