@@ -57,16 +57,10 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	circusURL := ""
 
 	if desiredApp.DockerImageUrl != "" {
-		dockerUrl, err := url.Parse(desiredApp.DockerImageUrl)
-		if err != nil {
-			buildLogger.Error("docker-url-invalid", err, lager.Data{"docker-url": desiredApp.DockerImageUrl})
-			return models.DesiredLRP{}, err
-		}
-		dockerUrl.Scheme = DockerScheme
 		circusURL = b.circusDownloadURL(b.dockerCircusPath, "PLACEHOLDER_FILESERVER_URL")
-		rootFSPath = dockerUrl.String()
-	} else {
 
+		rootFSPath = convertDockerURI(desiredApp.DockerImageUrl)
+	} else {
 		circusPath, ok := b.circuses[desiredApp.Stack]
 		if !ok {
 			buildLogger.Error("unknown-stack", ErrNoCircusDefined, lager.Data{
@@ -75,6 +69,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 
 			return models.DesiredLRP{}, ErrNoCircusDefined
 		}
+
 		circusURL = b.circusDownloadURL(circusPath, "PLACEHOLDER_FILESERVER_URL")
 	}
 
@@ -192,4 +187,28 @@ func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable
 	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_PORT", Value: "8080"})
 	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_HOST", Value: "0.0.0.0"})
 	return env
+}
+
+func convertDockerURI(dockerURI string) string {
+	repo, tag := parseDockerRepositoryTag(dockerURI)
+
+	return (&url.URL{
+		Scheme:   DockerScheme,
+		Path:     "/" + repo,
+		Fragment: tag,
+	}).String()
+}
+
+// via https://github.com/docker/docker/blob/4398108/pkg/parsers/parsers.go#L72
+func parseDockerRepositoryTag(repos string) (string, string) {
+	n := strings.LastIndex(repos, ":")
+	if n < 0 {
+		return repos, ""
+	}
+
+	if tag := repos[n+1:]; !strings.Contains(tag, "/") {
+		return repos[:n], tag
+	}
+
+	return repos, ""
 }

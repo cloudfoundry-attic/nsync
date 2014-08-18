@@ -141,7 +141,7 @@ var _ = Describe("Recipe Builder", func() {
 
 	Context("when there is a docker image url instead of a droplet uri", func() {
 		BeforeEach(func() {
-			desiredAppReq.DockerImageUrl = "http://docker.com/docker"
+			desiredAppReq.DockerImageUrl = "user/repo:tag"
 			desiredAppReq.DropletUri = ""
 		})
 
@@ -150,7 +150,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("converts the docker image url into a root fs path", func() {
-			Ω(desiredLRP.RootFSPath).Should(Equal("docker://docker.com/docker"))
+			Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo#tag"))
 		})
 
 		It("uses the docker circus", func() {
@@ -160,11 +160,21 @@ var _ = Describe("Recipe Builder", func() {
 				Extract: true,
 			}))
 		})
+
+		Context("and the docker image url has no tag", func() {
+			BeforeEach(func() {
+				desiredAppReq.DockerImageUrl = "user/repo"
+			})
+
+			It("does not specify a url fragment for the tag, assumes warden-linux sets a default", func() {
+				Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo"))
+			})
+		})
 	})
 
 	Context("when there is a docker image url AND a droplet uri", func() {
 		BeforeEach(func() {
-			desiredAppReq.DockerImageUrl = "http://docker.com/docker"
+			desiredAppReq.DockerImageUrl = "user/repo:tag"
 			desiredAppReq.DropletUri = "http://the-droplet.uri.com"
 		})
 
