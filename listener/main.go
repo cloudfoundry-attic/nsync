@@ -16,7 +16,6 @@ import (
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/nsync/listen"
@@ -87,18 +86,16 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
 
-	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"listener": listen.Listen{
-			NATSClient:    natsClient,
-			BBS:           bbs,
-			Logger:        logger,
-			RecipeBuilder: recipeBuilder,
-		},
-	})
+	runner := listen.Listen{
+		NATSClient:    natsClient,
+		BBS:           bbs,
+		Logger:        logger,
+		RecipeBuilder: recipeBuilder,
+	}
+
+	monitor := ifrit.Envoke(sigmon.New(runner))
 
 	logger.Info("started")
-
-	monitor := ifrit.Envoke(sigmon.New(group))
 
 	err = <-monitor.Wait()
 	if err != nil {

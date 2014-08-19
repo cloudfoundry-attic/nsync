@@ -16,7 +16,6 @@ import (
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
@@ -109,27 +108,25 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
 
-	group := grouper.EnvokeGroup(grouper.RunGroup{
-		"bulk": bulk.NewProcessor(
-			bbs,
-			*pollingInterval,
-			*ccFetchTimeout,
-			*bulkBatchSize,
-			*skipCertVerify,
-			logger,
-			&bulk.CCFetcher{
-				BaseURI:   *ccBaseURL,
-				BatchSize: *bulkBatchSize,
-				Username:  *ccUsername,
-				Password:  *ccPassword,
-			},
-			bulk.NewDiffer(recipeBuilder, logger),
-		),
-	})
+	runner := bulk.NewProcessor(
+		bbs,
+		*pollingInterval,
+		*ccFetchTimeout,
+		*bulkBatchSize,
+		*skipCertVerify,
+		logger,
+		&bulk.CCFetcher{
+			BaseURI:   *ccBaseURL,
+			BatchSize: *bulkBatchSize,
+			Username:  *ccUsername,
+			Password:  *ccPassword,
+		},
+		bulk.NewDiffer(recipeBuilder, logger),
+	)
+
+	monitor := ifrit.Envoke(sigmon.New(runner))
 
 	logger.Info("started")
-
-	monitor := ifrit.Envoke(sigmon.New(group))
 
 	err = <-monitor.Wait()
 	if err != nil {
