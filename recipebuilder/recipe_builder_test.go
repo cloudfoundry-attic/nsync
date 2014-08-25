@@ -36,7 +36,7 @@ var _ = Describe("Recipe Builder", func() {
 			ProcessGuid:  "the-app-guid-the-app-version",
 			DropletUri:   "http://the-droplet.uri.com",
 			Stack:        "some-stack",
-			StartCommand: "the-start-command",
+			StartCommand: "the-start-command with-arguments",
 			Environment: cc_messages.Environment{
 				{Name: "foo", Value: "bar"},
 			},
@@ -110,7 +110,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(monitorAction.UnhealthyThreshold).ShouldNot(BeZero())
 
 			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
-			Ω(runAction.Args).Should(Equal([]string{"/app", "the-start-command"}))
+			Ω(runAction.Args).Should(Equal([]string{"/app", "the-start-command with-arguments"}))
 
 			numFiles := uint64(32)
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
