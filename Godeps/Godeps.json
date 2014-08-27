@@ -23,15 +23,19 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/rep/routes",
-			"Rev": "9b8ed282d46c4c74cb765580b6334ebcbce958f6"
+			"Rev": "3767ee235d516cd74078d0244b52a7fe7fc10894"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
+			"Rev": "8f515e807d2a319697a2222900b58e471e5707de"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/cc_messages",
-			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
+			"Rev": "8f515e807d2a319697a2222900b58e471e5707de"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/heartbeater",
+			"Rev": "8f515e807d2a319697a2222900b58e471e5707de"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/heartbeater",
@@ -39,11 +43,11 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
+			"Rev": "8f515e807d2a319697a2222900b58e471e5707de"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "4664f1dff19485bee39602bf645711ba2a4d14fd"
+			"Rev": "8f515e807d2a319697a2222900b58e471e5707de"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
@@ -86,11 +90,11 @@
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/lager",
-			"Rev": "ada65d2c262ba5474d357bf57bc0f8b8deaa9196"
+			"Rev": "24bc7249ba26ad2f1493363b9dcedf86023f47d7"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
-			"Rev": "82dbb8f9b53dba16c9d5c3e0c74fa581d65f8579"
+			"Rev": "0addc90d7dcebcf87ef0fc89240c58bd1c475d8f"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/rata",
