@@ -58,6 +58,12 @@ var pollingInterval = flag.Duration(
 	"interval at which to poll bulk API",
 )
 
+var freshnessTTL = flag.Duration(
+	"freshnessTTL",
+	2*time.Minute,
+	"duration of the freshness of the desired state; bumped on every bulk sync",
+)
+
 var bulkBatchSize = flag.Uint(
 	"bulkBatchSize",
 	500,
@@ -112,6 +118,7 @@ func main() {
 		bbs,
 		*pollingInterval,
 		*ccFetchTimeout,
+		*freshnessTTL,
 		*bulkBatchSize,
 		*skipCertVerify,
 		logger,

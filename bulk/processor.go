@@ -16,6 +16,7 @@ type Processor struct {
 	bbs             bbs.NsyncBBS
 	pollingInterval time.Duration
 	ccFetchTimeout  time.Duration
+	freshnessTTL    time.Duration
 	bulkBatchSize   uint
 	skipCertVerify  bool
 	logger          lager.Logger
@@ -27,6 +28,7 @@ func NewProcessor(
 	bbs bbs.NsyncBBS,
 	pollingInterval time.Duration,
 	ccFetchTimeout time.Duration,
+	freshnessTTL time.Duration,
 	bulkBatchSize uint,
 	skipCertVerify bool,
 	logger lager.Logger,
@@ -37,6 +39,7 @@ func NewProcessor(
 		bbs:             bbs,
 		pollingInterval: pollingInterval,
 		ccFetchTimeout:  ccFetchTimeout,
+		freshnessTTL:    freshnessTTL,
 		bulkBatchSize:   bulkBatchSize,
 		skipCertVerify:  skipCertVerify,
 		logger:          logger,
@@ -94,6 +97,11 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			case <-signals:
 				return nil
 			}
+		}
+
+		err = p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
+		if err != nil {
+			processLog.Error("failed-to-bump-freshness", err)
 		}
 
 		select {

@@ -2,8 +2,10 @@ package main_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,6 +29,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		run     ifrit.Runner
 		process ifrit.Process
+
+		freshnessTTL time.Duration
 	)
 
 	BeforeEach(func() {
@@ -34,12 +38,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		fakeCC = ghttp.NewServer()
 
+		freshnessTTL = 1 * time.Second
+
 		run = runner.NewRunner(
 			"nsync.bulker.started",
 			bulkerPath,
 			"-ccBaseURL", fakeCC.URL(),
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 			"-pollingInterval", "100ms",
+			"-freshnessTTL", freshnessTTL.String(),
 			"-bulkBatchSize", "10",
 			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 			"-dockerCircusPath", "the/docker/circus/path.tgz",
@@ -173,206 +180,241 @@ var _ = Describe("Syncing desired state with CC", func() {
 			))
 		})
 
-		It("gets the desired state of all apps from the CC", func() {
-			Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(3))
+		Context("once the state has been synced with CC", func() {
+			JustBeforeEach(func() {
+				Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(3))
+			})
 
-			nowDesired, err := bbs.GetAllDesiredLRPs()
-			Ω(err).ShouldNot(HaveOccurred())
+			It("it (adds), (updates), and (removes extra) LRPs", func() {
+				nowDesired, err := bbs.GetAllDesiredLRPs()
+				Ω(err).ShouldNot(HaveOccurred())
 
-			nofile := uint64(16)
+				nofile := uint64(16)
 
-			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
-				ProcessGuid: "process-guid-1",
-				Domain:      "cf-apps",
-				Instances:   42,
-				Stack:       "some-stack",
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.DownloadAction{
-							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							Extract:  true,
-							CacheKey: "",
-						},
-					},
-					{
-						Action: models.DownloadAction{
-							From:     "source-url-1",
-							To:       ".",
-							Extract:  true,
-							CacheKey: "droplets-process-guid-1",
-						},
-					},
-					models.Parallel(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/circus/soldier",
-								Args: []string{"/app", "start-command-1"},
-								Env: []models.EnvironmentVariable{
-									{Name: "env-key-1", Value: "env-value-1"},
-									{Name: "env-key-2", Value: "env-value-2"},
-									{Name: "PORT", Value: "8080"},
-									{Name: "VCAP_APP_PORT", Value: "8080"},
-									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-								},
-								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+				Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+					ProcessGuid: "process-guid-1",
+					Domain:      "cf-apps",
+					Instances:   42,
+					Stack:       "some-stack",
+					Actions: []models.ExecutorAction{
+						{
+							Action: models.DownloadAction{
+								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								To:       "/tmp/circus",
+								Extract:  true,
+								CacheKey: "",
 							},
 						},
-						models.ExecutorAction{
-							models.MonitorAction{
-								Action: models.ExecutorAction{
-									Action: models.RunAction{
-										Path: "/tmp/circus/spy",
-										Args: []string{"-addr=:8080"},
+						{
+							Action: models.DownloadAction{
+								From:     "source-url-1",
+								To:       ".",
+								Extract:  true,
+								CacheKey: "droplets-process-guid-1",
+							},
+						},
+						models.Parallel(
+							models.ExecutorAction{
+								models.RunAction{
+									Path: "/tmp/circus/soldier",
+									Args: []string{"/app", "start-command-1"},
+									Env: []models.EnvironmentVariable{
+										{Name: "env-key-1", Value: "env-value-1"},
+										{Name: "env-key-2", Value: "env-value-2"},
+										{Name: "PORT", Value: "8080"},
+										{Name: "VCAP_APP_PORT", Value: "8080"},
+										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 									},
+									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 								},
-								HealthyHook: models.HealthRequest{
-									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-								},
-								HealthyThreshold:   1,
-								UnhealthyThreshold: 1,
 							},
-						},
-					),
-				},
-				DiskMB:   1024,
-				MemoryMB: 256,
-				Ports: []models.PortMapping{
-					{ContainerPort: 8080, HostPort: 0},
-				},
-				Routes: []string{"route-1", "route-2", "new-route"},
-				Log:    models.LogConfig{Guid: "log-guid-1", SourceName: "App"},
-			}))
-
-			nofile = 32
-
-			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
-				ProcessGuid: "process-guid-2",
-				Domain:      "cf-apps",
-				Instances:   4,
-				Stack:       "some-stack",
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.DownloadAction{
-							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							Extract:  true,
-							CacheKey: "",
-						},
-					},
-					{
-						Action: models.DownloadAction{
-							From:     "source-url-2",
-							To:       ".",
-							Extract:  true,
-							CacheKey: "droplets-process-guid-2",
-						},
-					},
-					models.Parallel(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/circus/soldier",
-								Args: []string{"/app", "start-command-2"},
-								Env: []models.EnvironmentVariable{
-									{Name: "env-key-3", Value: "env-value-3"},
-									{Name: "env-key-4", Value: "env-value-4"},
-									{Name: "PORT", Value: "8080"},
-									{Name: "VCAP_APP_PORT", Value: "8080"},
-									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-								},
-								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
-							},
-						},
-						models.ExecutorAction{
-							models.MonitorAction{
-								Action: models.ExecutorAction{
-									Action: models.RunAction{
-										Path: "/tmp/circus/spy",
-										Args: []string{"-addr=:8080"},
+							models.ExecutorAction{
+								models.MonitorAction{
+									Action: models.ExecutorAction{
+										Action: models.RunAction{
+											Path: "/tmp/circus/spy",
+											Args: []string{"-addr=:8080"},
+										},
 									},
-								},
-								HealthyHook: models.HealthRequest{
-									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-								},
-								HealthyThreshold:   1,
-								UnhealthyThreshold: 1,
-							},
-						},
-					),
-				},
-				DiskMB:   2048,
-				MemoryMB: 512,
-				Ports: []models.PortMapping{
-					{ContainerPort: 8080, HostPort: 0},
-				},
-				Routes: []string{"route-3", "route-4"},
-				Log:    models.LogConfig{Guid: "log-guid-2", SourceName: "App"},
-			}))
-
-			nofile = 8
-			Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
-				ProcessGuid: "process-guid-3",
-				Domain:      "cf-apps",
-				Instances:   4,
-				Stack:       "some-stack",
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.DownloadAction{
-							From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							Extract:  true,
-							CacheKey: "",
-						},
-					},
-					{
-						Action: models.DownloadAction{
-							From:     "source-url-3",
-							To:       ".",
-							Extract:  true,
-							CacheKey: "droplets-process-guid-3",
-						},
-					},
-					models.Parallel(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/circus/soldier",
-								Args: []string{"/app", "start-command-3"},
-								Env: []models.EnvironmentVariable{
-									{Name: "PORT", Value: "8080"},
-									{Name: "VCAP_APP_PORT", Value: "8080"},
-									{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-								},
-								ResourceLimits: models.ResourceLimits{Nofile: &nofile},
-							},
-						},
-						models.ExecutorAction{
-							models.MonitorAction{
-								Action: models.ExecutorAction{
-									Action: models.RunAction{
-										Path: "/tmp/circus/spy",
-										Args: []string{"-addr=:8080"},
+									HealthyHook: models.HealthRequest{
+										Method: "PUT",
+										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
 									},
+									HealthyThreshold:   1,
+									UnhealthyThreshold: 1,
 								},
-								HealthyHook: models.HealthRequest{
-									Method: "PUT",
-									URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-								},
-								HealthyThreshold:   1,
-								UnhealthyThreshold: 1,
+							},
+						),
+					},
+					DiskMB:   1024,
+					MemoryMB: 256,
+					Ports: []models.PortMapping{
+						{ContainerPort: 8080, HostPort: 0},
+					},
+					Routes: []string{"route-1", "route-2", "new-route"},
+					Log:    models.LogConfig{Guid: "log-guid-1", SourceName: "App"},
+				}))
+
+				nofile = 32
+
+				Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+					ProcessGuid: "process-guid-2",
+					Domain:      "cf-apps",
+					Instances:   4,
+					Stack:       "some-stack",
+					Actions: []models.ExecutorAction{
+						{
+							Action: models.DownloadAction{
+								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								To:       "/tmp/circus",
+								Extract:  true,
+								CacheKey: "",
 							},
 						},
-					),
-				},
-				DiskMB:   512,
-				MemoryMB: 128,
-				Ports: []models.PortMapping{
-					{ContainerPort: 8080, HostPort: 0},
-				},
-				Routes: []string{},
-				Log:    models.LogConfig{Guid: "log-guid-3", SourceName: "App"},
-			}))
+						{
+							Action: models.DownloadAction{
+								From:     "source-url-2",
+								To:       ".",
+								Extract:  true,
+								CacheKey: "droplets-process-guid-2",
+							},
+						},
+						models.Parallel(
+							models.ExecutorAction{
+								models.RunAction{
+									Path: "/tmp/circus/soldier",
+									Args: []string{"/app", "start-command-2"},
+									Env: []models.EnvironmentVariable{
+										{Name: "env-key-3", Value: "env-value-3"},
+										{Name: "env-key-4", Value: "env-value-4"},
+										{Name: "PORT", Value: "8080"},
+										{Name: "VCAP_APP_PORT", Value: "8080"},
+										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+									},
+									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+								},
+							},
+							models.ExecutorAction{
+								models.MonitorAction{
+									Action: models.ExecutorAction{
+										Action: models.RunAction{
+											Path: "/tmp/circus/spy",
+											Args: []string{"-addr=:8080"},
+										},
+									},
+									HealthyHook: models.HealthRequest{
+										Method: "PUT",
+										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
+									},
+									HealthyThreshold:   1,
+									UnhealthyThreshold: 1,
+								},
+							},
+						),
+					},
+					DiskMB:   2048,
+					MemoryMB: 512,
+					Ports: []models.PortMapping{
+						{ContainerPort: 8080, HostPort: 0},
+					},
+					Routes: []string{"route-3", "route-4"},
+					Log:    models.LogConfig{Guid: "log-guid-2", SourceName: "App"},
+				}))
+
+				nofile = 8
+				Ω(nowDesired).Should(ContainElement(models.DesiredLRP{
+					ProcessGuid: "process-guid-3",
+					Domain:      "cf-apps",
+					Instances:   4,
+					Stack:       "some-stack",
+					Actions: []models.ExecutorAction{
+						{
+							Action: models.DownloadAction{
+								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								To:       "/tmp/circus",
+								Extract:  true,
+								CacheKey: "",
+							},
+						},
+						{
+							Action: models.DownloadAction{
+								From:     "source-url-3",
+								To:       ".",
+								Extract:  true,
+								CacheKey: "droplets-process-guid-3",
+							},
+						},
+						models.Parallel(
+							models.ExecutorAction{
+								models.RunAction{
+									Path: "/tmp/circus/soldier",
+									Args: []string{"/app", "start-command-3"},
+									Env: []models.EnvironmentVariable{
+										{Name: "PORT", Value: "8080"},
+										{Name: "VCAP_APP_PORT", Value: "8080"},
+										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+									},
+									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+								},
+							},
+							models.ExecutorAction{
+								models.MonitorAction{
+									Action: models.ExecutorAction{
+										Action: models.RunAction{
+											Path: "/tmp/circus/spy",
+											Args: []string{"-addr=:8080"},
+										},
+									},
+									HealthyHook: models.HealthRequest{
+										Method: "PUT",
+										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
+									},
+									HealthyThreshold:   1,
+									UnhealthyThreshold: 1,
+								},
+							},
+						),
+					},
+					DiskMB:   512,
+					MemoryMB: 128,
+					Ports: []models.PortMapping{
+						{ContainerPort: 8080, HostPort: 0},
+					},
+					Routes: []string{},
+					Log:    models.LogConfig{Guid: "log-guid-3", SourceName: "App"},
+				}))
+			})
+
+			Describe("the freshness", func() {
+				It("is bumped", func() {
+					err := bbs.CheckFreshness("cf-apps")
+					Ω(err).ShouldNot(HaveOccurred())
+				})
+
+				Context("after the data has not been synced for longer than the freshness TTL", func() {
+					BeforeEach(func() {
+						fakeCC.AllowUnhandledRequests = true
+
+						fakeCC.AppendHandlers(func(w http.ResponseWriter, r *http.Request) {
+							fakeCC.HTTPTestServer.CloseClientConnections()
+						})
+					})
+
+					JustBeforeEach(func() {
+						time.Sleep(2 * freshnessTTL)
+					})
+
+					It("expires", func() {
+						err := bbs.CheckFreshness("cf-apps")
+						Ω(err).Should(HaveOccurred())
+					})
+				})
+			})
+
+			It("does not bump freshness so long as the desired state cannot be synced", func() {
+				err := bbs.CheckFreshness("cf-apps")
+				Ω(err).ShouldNot(HaveOccurred())
+			})
 		})
 
 		Context("when LRPs in a different domain exist", func() {
