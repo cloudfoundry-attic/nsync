@@ -395,8 +395,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					BeforeEach(func() {
 						fakeCC.AllowUnhandledRequests = true
 
+						localFakeCC := fakeCC
 						fakeCC.AppendHandlers(func(w http.ResponseWriter, r *http.Request) {
-							fakeCC.HTTPTestServer.CloseClientConnections()
+							localFakeCC.HTTPTestServer.CloseClientConnections()
 						})
 					})
 
