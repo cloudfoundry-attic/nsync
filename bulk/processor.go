@@ -80,7 +80,11 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 		processLog.Info("fetching-desired-from-cc")
 
-		go p.fetcher.Fetch(fromCC, httpClient)
+		fetchErrs := make(chan error)
+
+		go func() {
+			fetchErrs <- p.fetcher.Fetch(fromCC, httpClient)
+		}()
 
 		changes := p.differ.Diff(existing, fromCC)
 
@@ -99,9 +103,14 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			}
 		}
 
-		err = p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
-		if err != nil {
-			processLog.Error("failed-to-bump-freshness", err)
+		fetchErr := <-fetchErrs
+		if fetchErr != nil {
+			processLog.Error("failed-to-fetch", fetchErr)
+		} else {
+			err := p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
+			if err != nil {
+				processLog.Error("failed-to-bump-freshness", err)
+			}
 		}
 
 		select {
