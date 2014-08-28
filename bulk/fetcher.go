@@ -23,6 +23,10 @@ type CCFetcher struct {
 const initialBulkToken = "{}"
 
 func (fetcher *CCFetcher) Fetch(resultChan chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+	// ensure this happens regardless of success or failure;
+	// don't do this in fetchBatch as fetchBatch is recursive
+	defer close(resultChan)
+
 	return fetcher.fetchBatch(initialBulkToken, resultChan, httpClient)
 }
 
@@ -65,7 +69,6 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- cc_messages
 	}
 
 	if uint(len(response.Apps)) < fetcher.BatchSize {
-		close(resultChan)
 		return nil
 	}
 

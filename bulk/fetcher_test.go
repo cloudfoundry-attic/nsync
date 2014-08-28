@@ -157,9 +157,12 @@ var _ = Describe("Fetcher", func() {
 	})
 
 	Context("when the API times out", func() {
+		ccResponseTime := 100 * time.Millisecond
+
 		BeforeEach(func() {
 			fakeCC.AppendHandlers(func(w http.ResponseWriter, req *http.Request) {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(ccResponseTime)
+
 				w.Write([]byte(`{
 						"token": {"id":"another-token-id"},
 						"apps": [
@@ -183,9 +186,16 @@ var _ = Describe("Fetcher", func() {
 
 		It("returns an error", func() {
 			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
-			httpClient := &http.Client{Timeout: 50 * time.Millisecond}
+			httpClient := &http.Client{Timeout: ccResponseTime / 2}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).Should(HaveOccurred())
+		})
+
+		It("closes the results channel", func() {
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			httpClient := &http.Client{Timeout: ccResponseTime / 2}
+			go fetcher.Fetch(results, httpClient)
+			Eventually(results).Should(BeClosed())
 		})
 	})
 
@@ -199,6 +209,12 @@ var _ = Describe("Fetcher", func() {
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
+
+		It("closes the results channel", func() {
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			go fetcher.Fetch(results, http.DefaultClient)
+			Eventually(results).Should(BeClosed())
+		})
 	})
 
 	Context("when the server responds with invalid JSON", func() {
@@ -210,6 +226,12 @@ var _ = Describe("Fetcher", func() {
 			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
+		})
+
+		It("closes the results channel", func() {
+			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			go fetcher.Fetch(results, http.DefaultClient)
+			Eventually(results).Should(BeClosed())
 		})
 	})
 })
