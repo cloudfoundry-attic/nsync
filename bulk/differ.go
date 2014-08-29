@@ -9,7 +9,7 @@ import (
 )
 
 type Differ interface {
-	Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange
+	Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange
 }
 
 type RecipeBuilder interface {
@@ -28,37 +28,34 @@ func NewDiffer(builder RecipeBuilder, logger lager.Logger) Differ {
 	}
 }
 
-func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange {
-	changeChan := make(chan models.DesiredLRPChange)
+func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange {
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
-	go func() {
-		diffLog := d.logger.Session("diff")
+	diffLog := d.logger.Session("diff")
 
-		for fromCC := range newChan {
-			change := d.changeForDesiredLRP(diffLog, existingLRPs, fromCC)
+	changes := []models.DesiredLRPChange{}
 
-			delete(existingLRPs, fromCC.ProcessGuid)
+	for fromCC := range newChan {
+		change := d.changeForDesiredLRP(diffLog, existingLRPs, fromCC)
 
-			if change != nil {
-				changeChan <- *change
-			}
+		delete(existingLRPs, fromCC.ProcessGuid)
+
+		if change != nil {
+			changes = append(changes, *change)
 		}
+	}
 
-		for _, lrp := range existingLRPs {
-			deletedLRP := lrp
+	for _, lrp := range existingLRPs {
+		deletedLRP := lrp
 
-			diffLog.Info("found-extra-desired-lrp", lager.Data{
-				"guid": lrp.ProcessGuid,
-			})
+		diffLog.Info("found-extra-desired-lrp", lager.Data{
+			"guid": lrp.ProcessGuid,
+		})
 
-			changeChan <- models.DesiredLRPChange{Before: &deletedLRP}
-		}
+		changes = append(changes, models.DesiredLRPChange{Before: &deletedLRP})
+	}
 
-		close(changeChan)
-	}()
-
-	return changeChan
+	return changes
 }
 
 func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]models.DesiredLRP, fromCC cc_messages.DesireAppRequestFromCC) *models.DesiredLRPChange {

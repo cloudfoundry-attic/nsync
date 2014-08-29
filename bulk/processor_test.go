@@ -94,6 +94,7 @@ var _ = Describe("Processor", func() {
 				results <- cc_messages.DesireAppRequestFromCC{}
 				results <- cc_messages.DesireAppRequestFromCC{}
 				results <- cc_messages.DesireAppRequestFromCC{}
+				close(results)
 				return nil
 			}
 		})

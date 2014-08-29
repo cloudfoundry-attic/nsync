@@ -2,26 +2,26 @@
 package fakes
 
 import (
-	"sync"
-
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+
+	"sync"
 )
 
 type FakeDiffer struct {
-	DiffStub        func(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange
+	DiffStub        func(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange
 	diffMutex       sync.RWMutex
 	diffArgsForCall []struct {
 		existing []models.DesiredLRP
 		newChan  <-chan cc_messages.DesireAppRequestFromCC
 	}
 	diffReturns struct {
-		result1 <-chan models.DesiredLRPChange
+		result1 []models.DesiredLRPChange
 	}
 }
 
-func (fake *FakeDiffer) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) <-chan models.DesiredLRPChange {
+func (fake *FakeDiffer) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange {
 	fake.diffMutex.Lock()
 	defer fake.diffMutex.Unlock()
 	fake.diffArgsForCall = append(fake.diffArgsForCall, struct {
@@ -47,9 +47,9 @@ func (fake *FakeDiffer) DiffArgsForCall(i int) ([]models.DesiredLRP, <-chan cc_m
 	return fake.diffArgsForCall[i].existing, fake.diffArgsForCall[i].newChan
 }
 
-func (fake *FakeDiffer) DiffReturns(result1 <-chan models.DesiredLRPChange) {
+func (fake *FakeDiffer) DiffReturns(result1 []models.DesiredLRPChange) {
 	fake.diffReturns = struct {
-		result1 <-chan models.DesiredLRPChange
+		result1 []models.DesiredLRPChange
 	}{result1}
 }
 

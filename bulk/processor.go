@@ -88,18 +88,13 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 		changes := p.differ.Diff(existing, fromCC)
 
-	dance:
-		for {
+		for _, change := range changes {
 			select {
-			case change, ok := <-changes:
-				if !ok {
-					changes = nil
-					break dance
-				}
-
-				p.bbs.ChangeDesiredLRP(change)
 			case <-signals:
+				// allow interruption while processing changes
 				return nil
+			default:
+				p.bbs.ChangeDesiredLRP(change)
 			}
 		}
 

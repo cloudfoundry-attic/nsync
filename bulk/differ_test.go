@@ -12,9 +12,9 @@ import (
 )
 
 var _ = Describe("Differ", func() {
-	var desired chan<- cc_messages.DesireAppRequestFromCC
-	var changes <-chan models.DesiredLRPChange
-	var existingLRPs []models.DesiredLRP
+	var existingLRP models.DesiredLRP
+	var desired chan cc_messages.DesireAppRequestFromCC
+	var changes []models.DesiredLRPChange
 
 	var builder *fakes.FakeRecipeBuilder
 
@@ -23,33 +23,17 @@ var _ = Describe("Differ", func() {
 	BeforeEach(func() {
 		desired = nil
 
-		existingLRPs = []models.DesiredLRP{
-			{
-				ProcessGuid: "process-guid-1",
+		existingLRP = models.DesiredLRP{
+			ProcessGuid: "process-guid-1",
 
-				Instances: 2,
-				Stack:     "stack-1",
+			Instances: 1,
+			Stack:     "stack-1",
 
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.DownloadAction{
-							From: "http://example.com",
-							To:   "/tmp/internet",
-						},
-					},
-				},
-			},
-			{
-				ProcessGuid: "process-guid-2",
-
-				Instances: 1,
-				Stack:     "stack-2",
-
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.RunAction{
-							Path: "reboot",
-						},
+			Actions: []models.ExecutorAction{
+				{
+					Action: models.DownloadAction{
+						From: "http://example.com",
+						To:   "/tmp/internet",
 					},
 				},
 			},
@@ -58,39 +42,30 @@ var _ = Describe("Differ", func() {
 		builder = new(fakes.FakeRecipeBuilder)
 
 		differ = NewDiffer(builder, lagertest.NewTestLogger("test"))
+
+		desired = make(chan cc_messages.DesireAppRequestFromCC, 1)
 	})
 
 	JustBeforeEach(func() {
-		desiredChan := make(chan cc_messages.DesireAppRequestFromCC)
-
-		desired = desiredChan
-
-		changes = differ.Diff(existingLRPs, desiredChan)
+		close(desired)
+		changes = differ.Diff([]models.DesiredLRP{existingLRP}, desired)
 	})
 
-	AfterEach(func() {
-		// consume from changes channel
-		for _ = range changes {
-		}
-	})
-
-	Context("when a desired LRP comes in from CC", func() {
+	Context("when a desired App comes in from CC", func() {
 		var newlyDesiredApp cc_messages.DesireAppRequestFromCC
 
 		BeforeEach(func() {
 			newlyDesiredApp = cc_messages.DesireAppRequestFromCC{
-				ProcessGuid:  "new-process-guid",
+				ProcessGuid:  "new-app-process-guid",
 				NumInstances: 1,
 				DropletUri:   "http://example.com",
 				Stack:        "some-stack",
 			}
-		})
 
-		JustBeforeEach(func() {
 			desired <- newlyDesiredApp
 		})
 
-		Context("and it is not in the desired set", func() {
+		Context("and it is not in the desired LRPs set", func() {
 			newlyDesiredLRP := models.DesiredLRP{
 				ProcessGuid: "new-process-guid",
 
@@ -110,36 +85,24 @@ var _ = Describe("Differ", func() {
 				builder.BuildReturns(newlyDesiredLRP, nil)
 			})
 
-			AfterEach(func() {
-				close(desired)
-			})
-
-			It("emits a change no before, but an after", func() {
-				Eventually(changes).Should(Receive(Equal(models.DesiredLRPChange{
+			It("contains a change with no before, but an after", func() {
+				Ω(changes).Should(ContainElement(models.DesiredLRPChange{
 					Before: nil,
 					After:  &newlyDesiredLRP,
-				})))
+				}))
 
 				Ω(builder.BuildArgsForCall(0)).Should(Equal(newlyDesiredApp))
 			})
 		})
 
-		Context("and it is in the desired set", func() {
+		Context("and it is in the desired LRPs set", func() {
 			BeforeEach(func() {
-				newlyDesiredApp.ProcessGuid = existingLRPs[1].ProcessGuid
-			})
-
-			AfterEach(func() {
-				close(desired)
+				existingLRP.ProcessGuid = newlyDesiredApp.ProcessGuid
 			})
 
 			Context("with the same values", func() {
-				BeforeEach(func() {
-					builder.BuildReturns(existingLRPs[1], nil)
-				})
-
-				It("does not emit any change", func() {
-					Consistently(changes, 0.2).ShouldNot(Receive())
+				It("does not contain any change", func() {
+					Ω(changes).Should(BeEmpty())
 				})
 			})
 
@@ -147,47 +110,30 @@ var _ = Describe("Differ", func() {
 				var changedLRP models.DesiredLRP
 
 				BeforeEach(func() {
-					newlyDesiredApp.NumInstances = 42
+					changedLRP = existingLRP
+					changedLRP.Instances = 1
 
-					changedLRP = existingLRPs[1]
-					changedLRP.Instances = 42
+					existingLRP.Instances = 42
 
 					builder.BuildReturns(changedLRP, nil)
 				})
 
-				It("emits a change with before and after", func() {
-					Eventually(changes).Should(Receive(Equal(models.DesiredLRPChange{
-						Before: &existingLRPs[1],
+				It("contains a change with before and after", func() {
+					Ω(changes).Should(ContainElement(models.DesiredLRPChange{
+						Before: &existingLRP,
 						After:  &changedLRP,
-					})))
+					}))
 				})
 			})
 		})
+	})
 
-		Context("and the desired stream ends", func() {
-			JustBeforeEach(func() {
-				close(desired)
-			})
-
-			It("closes the desired changes channel", func() {
-				Eventually(changes).Should(BeClosed())
-			})
-
-			Context("and there were extras in the existing desired set", func() {
-				BeforeEach(func() {
-					builder.BuildReturns(existingLRPs[1], nil)
-				})
-
-				It("emits a change for each with before, but no after", func() {
-					Eventually(changes).Should(Receive(Equal(models.DesiredLRPChange{
-						Before: &existingLRPs[0],
-					})))
-				})
-
-				It("closes the desired changes channel", func() {
-					Eventually(changes).Should(BeClosed())
-				})
-			})
+	Context("when the existing LRP is not in the CC's set of desired Apps", func() {
+		It("contains a change to remove the extra LRP", func() {
+			Ω(changes).Should(ContainElement(models.DesiredLRPChange{
+				Before: &existingLRP,
+				After:  nil,
+			}))
 		})
 	})
 })
