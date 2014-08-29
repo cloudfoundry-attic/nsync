@@ -107,4 +107,20 @@ var _ = Describe("Processor", func() {
 			Eventually(bbs.ChangeDesiredLRPCallCount).Should(Equal(3))
 		})
 	})
+
+	Context("when fetching the desired Apps only partially succeeds", func() {
+		BeforeEach(func() {
+			fetcher.FetchStub = func(results chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+				results <- cc_messages.DesireAppRequestFromCC{}
+				results <- cc_messages.DesireAppRequestFromCC{}
+				results <- cc_messages.DesireAppRequestFromCC{}
+				close(results)
+				return errors.New("oh no!")
+			}
+		})
+
+		It("does not apply any changes", func() {
+			Consistently(bbs.ChangeDesiredLRPCallCount).Should(Equal(0))
+		})
+	})
 })

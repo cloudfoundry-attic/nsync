@@ -87,21 +87,20 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		}()
 
 		changes := p.differ.Diff(existing, fromCC)
-
-		for _, change := range changes {
-			select {
-			case <-signals:
-				// allow interruption while processing changes
-				return nil
-			default:
-				p.bbs.ChangeDesiredLRP(change)
-			}
-		}
-
 		fetchErr := <-fetchErrs
 		if fetchErr != nil {
 			processLog.Error("failed-to-fetch", fetchErr)
 		} else {
+			for _, change := range changes {
+				select {
+				case <-signals:
+					// allow interruption while processing changes
+					return nil
+				default:
+					p.bbs.ChangeDesiredLRP(change)
+				}
+			}
+
 			err := p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
 			if err != nil {
 				processLog.Error("failed-to-bump-freshness", err)
