@@ -18,15 +18,14 @@ func TestBulker(t *testing.T) {
 	RunSpecs(t, "Bulker Suite")
 }
 
-var _ = BeforeSuite(func() {
-	var err error
-
-	bulkerPath, err = gexec.Build("github.com/cloudfoundry-incubator/nsync/bulker", "-race")
+var _ = SynchronizedBeforeSuite(func() []byte {
+	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/bulker", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
-
+	return []byte(bulker)
+}, func(bulker []byte) {
 	etcdPort := 5001 + GinkgoParallelNode()
-
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	bulkerPath = string(bulker)
 })
 
 var _ = BeforeEach(func() {
@@ -37,6 +36,8 @@ var _ = AfterEach(func() {
 	etcdRunner.Stop()
 })
 
-var _ = AfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {
+	etcdRunner.Stop()
+}, func() {
 	gexec.CleanupBuildArtifacts()
 })

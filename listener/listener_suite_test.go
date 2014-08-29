@@ -21,11 +21,12 @@ func TestListener(t *testing.T) {
 	RunSpecs(t, "Listener Suite")
 }
 
-var _ = BeforeSuite(func() {
-	var err error
-
-	listenerPath, err = gexec.Build("github.com/cloudfoundry-incubator/nsync/listener", "-race")
+var _ = SynchronizedBeforeSuite(func() []byte {
+	listener, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/listener", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
+	return []byte(listener)
+}, func(listener []byte) {
+	listenerPath = string(listener)
 
 	etcdPort := 5001 + GinkgoParallelNode()
 	natsPort = 4001 + GinkgoParallelNode()
@@ -44,6 +45,9 @@ var _ = AfterEach(func() {
 	natsRunner.Stop()
 })
 
-var _ = AfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {
+	etcdRunner.Stop()
+	natsRunner.Stop()
+}, func() {
 	gexec.CleanupBuildArtifacts()
 })
