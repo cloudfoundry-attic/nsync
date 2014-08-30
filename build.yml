@@ -1,0 +1,8 @@
+---
+image: docker:///cloudfoundry/diego-ci
+
+paths:
+  nsync: gopath/src/github.com/cloudfoundry-incubator/nsync
+
+run:
+  path: gopath/src/github.com/cloudfoundry-incubator/nsync/scripts/concourse-test
