@@ -386,9 +386,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			Describe("the freshness", func() {
-				It("is bumped", func() {
-					err := bbs.CheckFreshness("cf-apps")
-					Ω(err).ShouldNot(HaveOccurred())
+				It("is soon bumped", func() {
+					Eventually(func() error {
+						return bbs.CheckFreshness("cf-apps")
+					}).ShouldNot(HaveOccurred())
 				})
 
 				Context("after the data has not been synced for longer than the freshness TTL", func() {
