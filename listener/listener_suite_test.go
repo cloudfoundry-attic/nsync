@@ -37,17 +37,14 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = BeforeEach(func() {
 	etcdRunner.Start()
-	natsRunner.Start()
 })
 
 var _ = AfterEach(func() {
 	etcdRunner.Stop()
-	natsRunner.Stop()
 })
 
 var _ = SynchronizedAfterSuite(func() {
 	etcdRunner.Stop()
-	natsRunner.Stop()
 }, func() {
 	gexec.CleanupBuildArtifacts()
 })

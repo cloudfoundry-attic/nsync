@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
@@ -121,12 +122,17 @@ func initializeNatsClient(logger lager.Logger) yagnats.NATSClient {
 		)
 	}
 
-	err := natsClient.Connect(&yagnats.ConnectionCluster{
-		Members: natsMembers,
-	})
+	for {
+		err := natsClient.Connect(&yagnats.ConnectionCluster{
+			Members: natsMembers,
+		})
+		if err != nil {
+			logger.Error("failed-to-connect-to-nats", err)
+			time.Sleep(time.Second)
+			continue
+		}
 
-	if err != nil {
-		logger.Fatal("connecting-to-nats-failed", err)
+		break
 	}
 
 	return natsClient
