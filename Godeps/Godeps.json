@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/rep/routes",
-			"Rev": "fee2306879b7587c7914d6357d1480dd8d2b98a2"
+			"Rev": "ea4c3c12d141e53735e1d24509876ba30a23dd5d"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
@@ -55,15 +55,15 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
-			"Rev": "d3d2d94e738fb19b5ae6504be161fd0eacc3f22d"
+			"Rev": "48b03ff5d4d966a0954af043646abe60a04f6934"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
-			"Rev": "d3d2d94e738fb19b5ae6504be161fd0eacc3f22d"
+			"Rev": "48b03ff5d4d966a0954af043646abe60a04f6934"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
-			"Rev": "d3d2d94e738fb19b5ae6504be161fd0eacc3f22d"
+			"Rev": "48b03ff5d4d966a0954af043646abe60a04f6934"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
@@ -98,7 +98,7 @@
 		},
 		{
 			"ImportPath": "github.com/tedsuo/ifrit",
-			"Rev": "0addc90d7dcebcf87ef0fc89240c58bd1c475d8f"
+			"Rev": "8084b96f4d9e395019d2208322e062bbf3046378"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/rata",
