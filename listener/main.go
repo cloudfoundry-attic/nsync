@@ -21,6 +21,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	_ "github.com/cloudfoundry/dropsonde/autowire"
 )
 
 var etcdCluster = flag.String(
