@@ -33,10 +33,11 @@ var _ = Describe("Recipe Builder", func() {
 		builder = New(repAddrRelativeToExecutor, circuses, "the/docker/circus/path.tgz", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
-			ProcessGuid:  "the-app-guid-the-app-version",
-			DropletUri:   "http://the-droplet.uri.com",
-			Stack:        "some-stack",
-			StartCommand: "the-start-command with-arguments",
+			ProcessGuid:       "the-app-guid-the-app-version",
+			DropletUri:        "http://the-droplet.uri.com",
+			Stack:             "some-stack",
+			StartCommand:      "the-start-command with-arguments",
+			ExecutionMetadata: "the-execution-metadata",
 			Environment: cc_messages.Environment{
 				{Name: "foo", Value: "bar"},
 			},
@@ -110,7 +111,11 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(monitorAction.UnhealthyThreshold).ShouldNot(BeZero())
 
 			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
-			Ω(runAction.Args).Should(Equal([]string{"/app", "the-start-command with-arguments"}))
+			Ω(runAction.Args).Should(Equal([]string{
+				"/app",
+				"the-start-command with-arguments",
+				"the-execution-metadata",
+			}))
 
 			numFiles := uint64(32)
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{

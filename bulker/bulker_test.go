@@ -84,7 +84,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"routes": [ "route-1", "route-2" ],
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
-				"start_command": "start-command-1"
+				"start_command": "start-command-1",
+				"execution_metadata": "execution-metadata-1"
 			}`), &existing1)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -102,7 +103,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"routes": [ "route-1", "route-2" ],
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
-				"start_command": "start-command-1"
+				"start_command": "start-command-1",
+				"execution_metadata": "execution-metadata-1"
 			}`), &existing2)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -144,7 +146,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"routes": [ "route-1", "route-2", "new-route" ],
 							"droplet_uri": "source-url-1",
 							"stack": "some-stack",
-							"start_command": "start-command-1"
+							"start_command": "start-command-1",
+							"execution_metadata": "execution-metadata-1"
 						},
 						{
 							"disk_mb": 2048,
@@ -160,7 +163,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"routes": [ "route-3", "route-4" ],
 							"droplet_uri": "source-url-2",
 							"stack": "some-stack",
-							"start_command": "start-command-2"
+							"start_command": "start-command-2",
+							"execution_metadata": "execution-metadata-2"
 						},
 						{
 							"disk_mb": 512,
@@ -173,7 +177,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"routes": [],
 							"droplet_uri": "source-url-3",
 							"stack": "some-stack",
-							"start_command": "start-command-3"
+							"start_command": "start-command-3",
+							"execution_metadata": "execution-metadata-3"
 						}
 					]
 				}`),
@@ -217,7 +222,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							models.ExecutorAction{
 								models.RunAction{
 									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-1"},
+									Args: []string{"/app", "start-command-1", "execution-metadata-1"},
 									Env: []models.EnvironmentVariable{
 										{Name: "env-key-1", Value: "env-value-1"},
 										{Name: "env-key-2", Value: "env-value-2"},
@@ -283,7 +288,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							models.ExecutorAction{
 								models.RunAction{
 									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-2"},
+									Args: []string{"/app", "start-command-2", "execution-metadata-2"},
 									Env: []models.EnvironmentVariable{
 										{Name: "env-key-3", Value: "env-value-3"},
 										{Name: "env-key-4", Value: "env-value-4"},
@@ -348,7 +353,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							models.ExecutorAction{
 								models.RunAction{
 									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-3"},
+									Args: []string{"/app", "start-command-3", "execution-metadata-3"},
 									Env: []models.EnvironmentVariable{
 										{Name: "PORT", Value: "8080"},
 										{Name: "VCAP_APP_PORT", Value: "8080"},

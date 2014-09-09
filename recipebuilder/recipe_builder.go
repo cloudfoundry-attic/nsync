@@ -124,14 +124,10 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 				Path: "/tmp/circus/soldier",
 				Args: append(
 					[]string{"/app"},
-
-					// the start command is passed along wholesale; it is assumed that
-					// the receiving end will evaluate it as a script in the appropriate shell
 					desiredApp.StartCommand,
+					desiredApp.ExecutionMetadata,
 				),
-
 				Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
-
 				ResourceLimits: models.ResourceLimits{
 					Nofile: numFiles,
 				},
