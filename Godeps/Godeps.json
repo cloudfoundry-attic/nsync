@@ -31,23 +31,23 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "a9a3fc068132d884988ddbd47743c4825121360b"
+			"Rev": "0c0b066206f07e8a375dede2f5d031a8fb4e1661"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/cc_messages",
-			"Rev": "a9a3fc068132d884988ddbd47743c4825121360b"
+			"Rev": "0c0b066206f07e8a375dede2f5d031a8fb4e1661"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/heartbeater",
-			"Rev": "a9a3fc068132d884988ddbd47743c4825121360b"
+			"Rev": "0c0b066206f07e8a375dede2f5d031a8fb4e1661"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "a9a3fc068132d884988ddbd47743c4825121360b"
+			"Rev": "0c0b066206f07e8a375dede2f5d031a8fb4e1661"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "a9a3fc068132d884988ddbd47743c4825121360b"
+			"Rev": "0c0b066206f07e8a375dede2f5d031a8fb4e1661"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/dropsonde",
