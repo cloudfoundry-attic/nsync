@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"encoding/json"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -58,6 +57,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	AfterEach(func() {
+		defer fakeCC.Close()
 		process.Signal(os.Interrupt)
 		Eventually(process.Wait(), 5).Should(Receive())
 	})
@@ -391,36 +391,25 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			Describe("the freshness", func() {
-				It("is soon bumped", func() {
-					Eventually(func() error {
-						return bbs.CheckFreshness("cf-apps")
-					}).ShouldNot(HaveOccurred())
-				})
+				var checkFreshness = func() []string {
+					domains, err := bbs.GetAllFreshness()
+					Ω(err).ShouldNot(HaveOccurred())
+					return domains
+				}
 
-				Context("after the data has not been synced for longer than the freshness TTL", func() {
-					BeforeEach(func() {
-						fakeCC.AllowUnhandledRequests = true
-
-						localFakeCC := fakeCC
-						fakeCC.AppendHandlers(func(w http.ResponseWriter, r *http.Request) {
-							localFakeCC.HTTPTestServer.CloseClientConnections()
-						})
-					})
-
-					JustBeforeEach(func() {
-						time.Sleep(2 * freshnessTTL)
-					})
-
-					It("expires", func() {
-						err := bbs.CheckFreshness("cf-apps")
-						Ω(err).Should(HaveOccurred())
+				Context("when cc is available", func() {
+					It("bumps the freshness", func() {
+						Eventually(checkFreshness).Should(ContainElement("cf-apps"))
 					})
 				})
-			})
 
-			It("does not bump freshness so long as the desired state cannot be synced", func() {
-				err := bbs.CheckFreshness("cf-apps")
-				Ω(err).ShouldNot(HaveOccurred())
+				Context("when cc stops being available", func() {
+					It("stops bumping the freshness", func() {
+						Eventually(checkFreshness).Should(ContainElement("cf-apps"))
+						fakeCC.HTTPTestServer.Close()
+						Eventually(checkFreshness, 2*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
+					})
+				})
 			})
 		})
 

@@ -51,68 +51,71 @@ func NewProcessor(
 func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	close(ready)
 
+	stop := p.sync(signals)
+
 	for {
-		processLog := p.logger.Session("processor")
-
-		processLog.Info("getting-desired-lrps-from-bbs")
-
-		existing, err := p.bbs.GetAllDesiredLRPsByDomain(recipebuilder.LRPDomain)
-		if err != nil {
-			p.logger.Error("failed-to-get-desired-lrps", err)
-			select {
-			case <-signals:
-				return nil
-			case <-time.After(p.pollingInterval):
-				continue
-			}
+		if stop {
+			return nil
 		}
-
-		fromCC := make(chan cc_messages.DesireAppRequestFromCC)
-
-		httpClient := &http.Client{
-			Timeout: p.ccFetchTimeout,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: p.skipCertVerify,
-				},
-			},
-		}
-
-		processLog.Info("fetching-desired-from-cc")
-
-		fetchErrs := make(chan error)
-
-		go func() {
-			fetchErrs <- p.fetcher.Fetch(fromCC, httpClient)
-		}()
-
-		changes := p.differ.Diff(existing, fromCC)
-		fetchErr := <-fetchErrs
-		if fetchErr != nil {
-			processLog.Error("failed-to-fetch", fetchErr)
-		} else {
-			for _, change := range changes {
-				select {
-				case <-signals:
-					// allow interruption while processing changes
-					return nil
-				default:
-					p.bbs.ChangeDesiredLRP(change)
-				}
-			}
-
-			err := p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
-			if err != nil {
-				processLog.Error("failed-to-bump-freshness", err)
-			}
-		}
-
 		select {
 		case <-signals:
 			return nil
 		case <-time.After(p.pollingInterval):
+			stop = p.sync(signals)
+		}
+	}
+}
+
+func (p *Processor) sync(signals <-chan os.Signal) bool {
+	processLog := p.logger.Session("processor")
+
+	processLog.Info("getting-desired-lrps-from-bbs")
+
+	existing, err := p.bbs.GetAllDesiredLRPsByDomain(recipebuilder.LRPDomain)
+	if err != nil {
+		p.logger.Error("failed-to-get-desired-lrps", err)
+		return false
+	}
+
+	fromCC := make(chan cc_messages.DesireAppRequestFromCC)
+
+	httpClient := &http.Client{
+		Timeout: p.ccFetchTimeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: p.skipCertVerify,
+			},
+		},
+	}
+
+	processLog.Info("fetching-desired-from-cc")
+
+	fetchErrs := make(chan error)
+
+	go func() {
+		fetchErrs <- p.fetcher.Fetch(fromCC, httpClient)
+	}()
+
+	changes := p.differ.Diff(existing, fromCC)
+	fetchErr := <-fetchErrs
+	if fetchErr != nil {
+		processLog.Error("failed-to-fetch", fetchErr)
+		return false
+	}
+
+	for _, change := range changes {
+		select {
+		case <-signals:
+			// allow interruption while processing changes
+			return true
+		default:
+			p.bbs.ChangeDesiredLRP(change)
 		}
 	}
 
-	panic("unreachable")
+	err = p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
+	if err != nil {
+		processLog.Error("failed-to-bump-freshness", err)
+	}
+	return false
 }
