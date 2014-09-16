@@ -9,7 +9,12 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/pivotal-golang/lager"
+)
+
+const (
+	syncDesiredLRPsDuration = metric.Duration("nsync.sync-desired-lrps.duration")
 )
 
 type Processor struct {
@@ -67,6 +72,12 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (p *Processor) sync(signals <-chan os.Signal) bool {
+	start := time.Now()
+	duration := time.Duration(0)
+	defer func() {
+		syncDesiredLRPsDuration.Send(duration)
+	}()
+
 	processLog := p.logger.Session("processor")
 
 	processLog.Info("getting-desired-lrps-from-bbs")
@@ -117,5 +128,7 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 	if err != nil {
 		processLog.Error("failed-to-bump-freshness", err)
 	}
+
+	duration = time.Now().Sub(start)
 	return false
 }

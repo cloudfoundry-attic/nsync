@@ -7,6 +7,7 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
@@ -15,6 +16,7 @@ import (
 const (
 	DesireAppTopic       = "diego.desire.app"
 	DesireDockerAppTopic = "diego.docker.desire.app"
+	desiredLRPCounter    = metric.Counter("desired-lrp")
 )
 
 type desireAppChan chan cc_messages.DesireAppRequestFromCC
@@ -101,5 +103,7 @@ func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFrom
 			requestLogger.Error("failed", err)
 			return
 		}
+
+		desiredLRPCounter.Increment()
 	}
 }
