@@ -98,12 +98,11 @@ func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFrom
 			return
 		}
 
+		desiredLRPCounter.Increment()
 		err = listen.BBS.DesireLRP(desiredLRP)
 		if err != nil {
 			requestLogger.Error("failed", err)
 			return
 		}
-
-		desiredLRPCounter.Increment()
 	}
 }
