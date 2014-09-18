@@ -5,12 +5,12 @@ import (
 	"os"
 	"sync"
 
+	"github.com/apcera/nats"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats"
-	"github.com/apcera/nats"
 	"github.com/pivotal-golang/lager"
 )
 
