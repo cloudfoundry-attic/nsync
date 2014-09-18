@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/apcera/nats"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -21,9 +22,9 @@ const (
 
 type desireAppChan chan cc_messages.DesireAppRequestFromCC
 
-func (desiredApps desireAppChan) sendDesireAppRequest(message *yagnats.Message, logger lager.Logger) {
+func (desiredApps desireAppChan) sendDesireAppRequest(message *nats.Msg, logger lager.Logger) {
 	desireAppMessage := cc_messages.DesireAppRequestFromCC{}
-	err := json.Unmarshal(message.Payload, &desireAppMessage)
+	err := json.Unmarshal(message.Data, &desireAppMessage)
 	if err != nil {
 		logger.Error("parse-nats-message-failed", err)
 		return
@@ -38,7 +39,7 @@ type RecipeBuilder interface {
 
 type Listen struct {
 	RecipeBuilder RecipeBuilder
-	NATSClient    yagnats.NATSClient
+	NATSClient    yagnats.ApceraWrapperNATSClient
 	BBS           Bbs.NsyncBBS
 	Logger        lager.Logger
 }
@@ -47,8 +48,25 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 	wg := new(sync.WaitGroup)
 	desiredApps := make(chan cc_messages.DesireAppRequestFromCC)
 
-	listen.listenForDesiredApps(desiredApps)
-	listen.listenForDesiredDockerApps(desiredApps)
+	var desiredAppsSub, desiredDockerSub *nats.Subscription
+	defer func() {
+		if desiredAppsSub != nil {
+			desiredAppsSub.Unsubscribe()
+		}
+		if desiredDockerSub != nil {
+			desiredDockerSub.Unsubscribe()
+		}
+	}()
+
+	var err error
+	desiredAppsSub, err = listen.listenForDesiredApps(desiredApps)
+	if err != nil {
+		return err
+	}
+	desiredDockerSub, err = listen.listenForDesiredDockerApps(desiredApps)
+	if err != nil {
+		return err
+	}
 
 	close(ready)
 
@@ -61,21 +79,20 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 				listen.desireApp(msg)
 			}()
 		case <-signals:
-			listen.NATSClient.UnsubscribeAll(DesireAppTopic)
 			wg.Wait()
 			return nil
 		}
 	}
 }
 
-func (listen Listen) listenForDesiredApps(desiredApps desireAppChan) {
-	listen.NATSClient.Subscribe(DesireAppTopic, func(message *yagnats.Message) {
+func (listen Listen) listenForDesiredApps(desiredApps desireAppChan) (*nats.Subscription, error) {
+	return listen.NATSClient.Subscribe(DesireAppTopic, func(message *nats.Msg) {
 		desiredApps.sendDesireAppRequest(message, listen.Logger)
 	})
 }
 
-func (listen Listen) listenForDesiredDockerApps(desiredApps desireAppChan) {
-	listen.NATSClient.Subscribe(DesireDockerAppTopic, func(message *yagnats.Message) {
+func (listen Listen) listenForDesiredDockerApps(desiredApps desireAppChan) (*nats.Subscription, error) {
+	return listen.NATSClient.Subscribe(DesireDockerAppTopic, func(message *nats.Msg) {
 		desiredApps.sendDesireAppRequest(message, listen.Logger)
 	})
 }

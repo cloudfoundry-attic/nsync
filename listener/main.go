@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -108,25 +109,20 @@ func main() {
 	logger.Info("exited")
 }
 
-func initializeNatsClient(logger lager.Logger) yagnats.NATSClient {
-	natsClient := yagnats.NewClient()
-
-	natsMembers := []yagnats.ConnectionProvider{}
+func initializeNatsClient(logger lager.Logger) yagnats.ApceraWrapperNATSClient {
+	natsMembers := []string{}
 	for _, addr := range strings.Split(*natsAddresses, ",") {
-		natsMembers = append(
-			natsMembers,
-			&yagnats.ConnectionInfo{
-				Addr:     addr,
-				Username: *natsUsername,
-				Password: *natsPassword,
-			},
-		)
+		uri := url.URL{
+			Scheme: "nats",
+			User:   url.UserPassword(*natsUsername, *natsPassword),
+			Host:   addr,
+		}
+		natsMembers = append(natsMembers, uri.String())
 	}
+	natsClient := yagnats.NewApceraClientWrapper(natsMembers)
 
 	for {
-		err := natsClient.Connect(&yagnats.ConnectionCluster{
-			Members: natsMembers,
-		})
+		err := natsClient.Connect()
 		if err != nil {
 			logger.Error("failed-to-connect-to-nats", err)
 			time.Sleep(time.Second)

@@ -22,7 +22,7 @@ import (
 var _ = Describe("Listen", func() {
 	var (
 		builder          *fakes.FakeRecipeBuilder
-		fakenats         *fakeyagnats.FakeYagnats
+		fakenats         *fakeyagnats.FakeApceraWrapper
 		desireAppRequest cc_messages.DesireAppRequestFromCC
 		logger           *lagertest.TestLogger
 		bbs              *fake_bbs.FakeNsyncBBS
@@ -33,7 +33,7 @@ var _ = Describe("Listen", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 
-		fakenats = fakeyagnats.New()
+		fakenats = fakeyagnats.NewApceraClientWrapper()
 
 		bbs = new(fake_bbs.FakeNsyncBBS)
 
