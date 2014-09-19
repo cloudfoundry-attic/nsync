@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	syncDesiredLRPsDuration = metric.Duration("nsync.sync-desired-lrps.duration")
+	syncDesiredLRPsDuration = metric.Duration("desired-lrps-sync-duration")
 )
 
 type Processor struct {
