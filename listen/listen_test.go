@@ -10,6 +10,8 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry/dropsonde/autowire/metrics"
+	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
@@ -28,6 +30,8 @@ var _ = Describe("Listen", func() {
 		bbs              *fake_bbs.FakeNsyncBBS
 
 		process ifrit.Process
+
+		metricSender *fake.FakeMetricSender
 	)
 
 	BeforeEach(func() {
@@ -62,6 +66,9 @@ var _ = Describe("Listen", func() {
 			Routes:          []string{"route1", "route2"},
 			LogGuid:         "some-log-guid",
 		}
+
+		metricSender = fake.NewFakeMetricSender()
+		metrics.Initialize(metricSender)
 
 		process = ifrit.Envoke(runner)
 	})
@@ -104,6 +111,12 @@ var _ = Describe("Listen", func() {
 			Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
 
 			Ω(builder.BuildArgsForCall(0)).Should(Equal(desireAppRequest))
+		})
+
+		It("increments the desired LRPs counter", func() {
+			Eventually(func() uint64 {
+				return metricSender.GetCounter("desired-lrp")
+			}).Should(Equal(uint64(1)))
 		})
 
 		Context("when the number of desired app instances is zero", func() {

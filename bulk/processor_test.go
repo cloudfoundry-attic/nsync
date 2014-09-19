@@ -11,6 +11,9 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry/dropsonde/autowire/metrics"
+	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
+	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
@@ -26,11 +29,24 @@ var _ = Describe("Processor", func() {
 
 		processor ifrit.Runner
 
-		process ifrit.Process
+		process      ifrit.Process
+		syncDuration time.Duration
+		metricSender *fake.FakeMetricSender
+		timeProvider *faketimeprovider.FakeTimeProvider
 	)
 
 	BeforeEach(func() {
+		metricSender = fake.NewFakeMetricSender()
+		metrics.Initialize(metricSender)
+		syncDuration = 900900
+		timeProvider = faketimeprovider.New(time.Now())
+
 		bbs = new(fake_bbs.FakeNsyncBBS)
+		bbs.BumpFreshnessStub = func(string, time.Duration) error {
+			timeProvider.Increment(syncDuration)
+			return nil
+		}
+
 		fetcher = new(fakes.FakeFetcher)
 		differ = NewDiffer(new(fakes.FakeRecipeBuilder), lagertest.NewTestLogger("test"))
 
@@ -44,6 +60,7 @@ var _ = Describe("Processor", func() {
 			lager.NewLogger("test"),
 			fetcher,
 			differ,
+			timeProvider,
 		)
 	})
 
@@ -54,6 +71,24 @@ var _ = Describe("Processor", func() {
 	AfterEach(func() {
 		process.Signal(os.Interrupt)
 		Eventually(process.Wait()).Should(Receive())
+	})
+
+	Context("when fetching succeeds", func() {
+		BeforeEach(func() {
+			fetcher.FetchStub = func(results chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+				close(results)
+				return nil
+			}
+		})
+
+		It("emits the total time taken to talk to CC and then updated desired state", func() {
+			Eventually(bbs.BumpFreshnessCallCount, 5).Should(Equal(1))
+
+			Ω(metricSender.GetValue("nsync.sync-desired-lrps.duration")).Should(Equal(fake.Metric{
+				Value: float64(syncDuration),
+				Unit:  "nanos",
+			}))
+		})
 	})
 
 	Describe("when getting all desired LRPs fails", func() {

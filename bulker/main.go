@@ -130,6 +130,7 @@ func main() {
 			Password:  *ccPassword,
 		},
 		bulk.NewDiffer(recipeBuilder, logger),
+		timeprovider.NewTimeProvider(),
 	)
 
 	monitor := ifrit.Envoke(sigmon.New(runner))

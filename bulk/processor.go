@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -27,6 +28,7 @@ type Processor struct {
 	logger          lager.Logger
 	fetcher         Fetcher
 	differ          Differ
+	timeProvider    timeprovider.TimeProvider
 }
 
 func NewProcessor(
@@ -39,6 +41,7 @@ func NewProcessor(
 	logger lager.Logger,
 	fetcher Fetcher,
 	differ Differ,
+	timeProvider timeprovider.TimeProvider,
 ) *Processor {
 	return &Processor{
 		bbs:             bbs,
@@ -50,6 +53,7 @@ func NewProcessor(
 		logger:          logger,
 		fetcher:         fetcher,
 		differ:          differ,
+		timeProvider:    timeProvider,
 	}
 }
 
@@ -72,7 +76,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (p *Processor) sync(signals <-chan os.Signal) bool {
-	start := time.Now()
+	start := p.timeProvider.Time()
 	duration := time.Duration(0)
 	defer func() {
 		syncDesiredLRPsDuration.Send(duration)
@@ -129,6 +133,6 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 		processLog.Error("failed-to-bump-freshness", err)
 	}
 
-	duration = time.Now().Sub(start)
+	duration = p.timeProvider.Time().Sub(start)
 	return false
 }
