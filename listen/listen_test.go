@@ -115,7 +115,7 @@ var _ = Describe("Listen", func() {
 
 		It("increments the desired LRPs counter", func() {
 			Eventually(func() uint64 {
-				return metricSender.GetCounter("desired-lrp")
+				return metricSender.GetCounter("LRPsDesired")
 			}).Should(Equal(uint64(1)))
 		})
 
