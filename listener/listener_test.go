@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		natsClient yagnats.ApceraWrapperNATSClient
+		natsClient yagnats.NATSConn
 		bbs        *Bbs.BBS
 
 		run     ifrit.Runner

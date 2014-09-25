@@ -24,7 +24,7 @@ import (
 var _ = Describe("Listen", func() {
 	var (
 		builder          *fakes.FakeRecipeBuilder
-		fakenats         *fakeyagnats.FakeApceraWrapper
+		fakenats         *fakeyagnats.FakeNATSConn
 		desireAppRequest cc_messages.DesireAppRequestFromCC
 		logger           *lagertest.TestLogger
 		bbs              *fake_bbs.FakeNsyncBBS
@@ -37,7 +37,7 @@ var _ = Describe("Listen", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 
-		fakenats = fakeyagnats.NewApceraClientWrapper()
+		fakenats = fakeyagnats.Connect()
 
 		bbs = new(fake_bbs.FakeNsyncBBS)
 

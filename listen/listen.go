@@ -39,7 +39,7 @@ type RecipeBuilder interface {
 
 type Listen struct {
 	RecipeBuilder RecipeBuilder
-	NATSClient    yagnats.ApceraWrapperNATSClient
+	NATSClient    yagnats.NATSConn
 	BBS           Bbs.NsyncBBS
 	Logger        lager.Logger
 }

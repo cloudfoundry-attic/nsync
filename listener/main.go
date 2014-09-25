@@ -109,7 +109,7 @@ func main() {
 	logger.Info("exited")
 }
 
-func initializeNatsClient(logger lager.Logger) yagnats.ApceraWrapperNATSClient {
+func initializeNatsClient(logger lager.Logger) yagnats.NATSConn {
 	natsMembers := []string{}
 	for _, addr := range strings.Split(*natsAddresses, ",") {
 		uri := url.URL{
@@ -119,17 +119,12 @@ func initializeNatsClient(logger lager.Logger) yagnats.ApceraWrapperNATSClient {
 		}
 		natsMembers = append(natsMembers, uri.String())
 	}
-	natsClient := yagnats.NewApceraClientWrapper(natsMembers)
 
-	for {
-		err := natsClient.Connect()
-		if err != nil {
-			logger.Error("failed-to-connect-to-nats", err)
-			time.Sleep(time.Second)
-			continue
-		}
-
-		break
+	natsClient, err := yagnats.Connect(natsMembers)
+	for err != nil {
+		logger.Error("failed-to-connect-to-nats", err)
+		time.Sleep(time.Second)
+		natsClient, err = yagnats.Connect(natsMembers)
 	}
 
 	return natsClient
