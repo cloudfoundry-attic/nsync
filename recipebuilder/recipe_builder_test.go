@@ -171,7 +171,7 @@ var _ = Describe("Recipe Builder", func() {
 				desiredAppReq.DockerImageUrl = "user/repo"
 			})
 
-			It("does not specify a url fragment for the tag, assumes warden-linux sets a default", func() {
+			It("does not specify a url fragment for the tag, assumes garden-linux sets a default", func() {
 				Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo"))
 			})
 		})
