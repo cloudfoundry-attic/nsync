@@ -11,11 +11,14 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
+	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
@@ -27,6 +30,12 @@ var etcdCluster = flag.String(
 	"etcdCluster",
 	"http://127.0.0.1:4001",
 	"comma-separated list of etcd addresses (http://ip:port)",
+)
+
+var heartbeatInterval = flag.Duration(
+	"heartbeatInterval",
+	lock_bbs.HEARTBEAT_INTERVAL,
+	"the interval between heartbeats to the lock",
 )
 
 var ccBaseURL = flag.String(
@@ -103,8 +112,13 @@ func main() {
 
 	cf_debug_server.Run()
 
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		logger.Fatal("Couldn't generate uuid", err)
+	}
+
 	var circuseDownloadURLs map[string]string
-	err := json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
+	err = json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
 	if err != nil {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
@@ -114,6 +128,8 @@ func main() {
 	}
 
 	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
+
+	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 
 	runner := bulk.NewProcessor(
 		bbs,
@@ -133,9 +149,16 @@ func main() {
 		timeprovider.NewTimeProvider(),
 	)
 
-	monitor := ifrit.Envoke(sigmon.New(runner))
+	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
+		{"heartbeater", heartbeater},
+		{"runner", runner},
+	})
 
-	logger.Info("started")
+	logger.Info("started-waiting-for-lock")
+
+	monitor := ifrit.Invoke(sigmon.New(group))
+
+	logger.Info("acquired-lock")
 
 	err = <-monitor.Wait()
 	if err != nil {

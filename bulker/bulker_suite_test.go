@@ -3,6 +3,7 @@ package main_test
 import (
 	"testing"
 
+	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,7 @@ import (
 var bulkerPath string
 
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
+var etcdClient storeadapter.StoreAdapter
 
 func TestBulker(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -26,6 +28,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	etcdPort := 5001 + GinkgoParallelNode()
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 	bulkerPath = string(bulker)
+	etcdClient = etcdRunner.Adapter()
 })
 
 var _ = BeforeEach(func() {

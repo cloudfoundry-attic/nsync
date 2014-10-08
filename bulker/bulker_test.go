@@ -8,14 +8,17 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/storeadapter"
 
 	"github.com/cloudfoundry-incubator/nsync/integration/runner"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -30,30 +33,107 @@ var _ = Describe("Syncing desired state with CC", func() {
 		process ifrit.Process
 
 		freshnessTTL time.Duration
+
+		bulkerLockName    = "nsync_bulker_lock"
+		pollingInterval   = time.Second
+		heartbeatInterval time.Duration
 	)
 
+	startBulker := func() {
+		process = ifrit.Invoke(run)
+		// time.Sleep(pollingInterval)
+	}
+
+	checkFreshness := func() []string {
+		domains, err := bbs.GetAllFreshness()
+		Ω(err).ShouldNot(HaveOccurred())
+		return domains
+	}
+
+	itIsNotFresh := func() {
+		It("is not fresh", func() {
+			Eventually(checkFreshness, 2*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
+		})
+	}
+
 	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
+		bbs = Bbs.NewBBS(etcdClient, timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 
 		fakeCC = ghttp.NewServer()
 
 		freshnessTTL = 1 * time.Second
+		heartbeatInterval = 30 * time.Second
 
+		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
+			ghttp.RespondWith(200, `{
+					"token": {},
+					"apps": [
+						{
+							"disk_mb": 1024,
+							"environment": [
+								{ "name": "env-key-1", "value": "env-value-1" },
+								{ "name": "env-key-2", "value": "env-value-2" }
+							],
+							"file_descriptors": 16,
+							"num_instances": 42,
+							"log_guid": "log-guid-1",
+							"memory_mb": 256,
+							"process_guid": "process-guid-1",
+							"routes": [ "route-1", "route-2", "new-route" ],
+							"droplet_uri": "source-url-1",
+							"stack": "some-stack",
+							"start_command": "start-command-1",
+							"execution_metadata": "execution-metadata-1"
+						},
+						{
+							"disk_mb": 2048,
+							"environment": [
+								{ "name": "env-key-3", "value": "env-value-3" },
+								{ "name": "env-key-4", "value": "env-value-4" }
+							],
+							"file_descriptors": 32,
+							"num_instances": 4,
+							"log_guid": "log-guid-2",
+							"memory_mb": 512,
+							"process_guid": "process-guid-2",
+							"routes": [ "route-3", "route-4" ],
+							"droplet_uri": "source-url-2",
+							"stack": "some-stack",
+							"start_command": "start-command-2",
+							"execution_metadata": "execution-metadata-2"
+						},
+						{
+							"disk_mb": 512,
+							"environment": [],
+							"file_descriptors": 8,
+							"num_instances": 4,
+							"log_guid": "log-guid-3",
+							"memory_mb": 128,
+							"process_guid": "process-guid-3",
+							"routes": [],
+							"droplet_uri": "source-url-3",
+							"stack": "some-stack",
+							"start_command": "start-command-3",
+							"execution_metadata": "execution-metadata-3"
+						}
+					]
+				}`),
+		)
+	})
+
+	JustBeforeEach(func() {
 		run = runner.NewRunner(
 			"nsync.bulker.started",
 			bulkerPath,
 			"-ccBaseURL", fakeCC.URL(),
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
-			"-pollingInterval", "100ms",
+			"-pollingInterval", pollingInterval.String(),
 			"-freshnessTTL", freshnessTTL.String(),
 			"-bulkBatchSize", "10",
 			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 			"-dockerCircusPath", "the/docker/circus/path.tgz",
+			"-heartbeatInterval", heartbeatInterval.String(),
 		)
-	})
-
-	JustBeforeEach(func() {
-		process = ifrit.Envoke(run)
 	})
 
 	AfterEach(func() {
@@ -64,6 +144,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	Describe("when the CC polling interval elapses", func() {
 		var desired1, desired2 models.DesiredLRP
+
+		JustBeforeEach(func() {
+			startBulker()
+		})
 
 		BeforeEach(func() {
 			var existing1 cc_messages.DesireAppRequestFromCC
@@ -126,63 +210,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			err = bbs.DesireLRP(desired2)
 			Ω(err).ShouldNot(HaveOccurred())
-
-			fakeCC.AppendHandlers(ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/internal/bulk/apps"),
-				ghttp.RespondWith(200, `{
-					"token": {},
-					"apps": [
-						{
-							"disk_mb": 1024,
-							"environment": [
-								{ "name": "env-key-1", "value": "env-value-1" },
-								{ "name": "env-key-2", "value": "env-value-2" }
-							],
-							"file_descriptors": 16,
-							"num_instances": 42,
-							"log_guid": "log-guid-1",
-							"memory_mb": 256,
-							"process_guid": "process-guid-1",
-							"routes": [ "route-1", "route-2", "new-route" ],
-							"droplet_uri": "source-url-1",
-							"stack": "some-stack",
-							"start_command": "start-command-1",
-							"execution_metadata": "execution-metadata-1"
-						},
-						{
-							"disk_mb": 2048,
-							"environment": [
-								{ "name": "env-key-3", "value": "env-value-3" },
-								{ "name": "env-key-4", "value": "env-value-4" }
-							],
-							"file_descriptors": 32,
-							"num_instances": 4,
-							"log_guid": "log-guid-2",
-							"memory_mb": 512,
-							"process_guid": "process-guid-2",
-							"routes": [ "route-3", "route-4" ],
-							"droplet_uri": "source-url-2",
-							"stack": "some-stack",
-							"start_command": "start-command-2",
-							"execution_metadata": "execution-metadata-2"
-						},
-						{
-							"disk_mb": 512,
-							"environment": [],
-							"file_descriptors": 8,
-							"num_instances": 4,
-							"log_guid": "log-guid-3",
-							"memory_mb": 128,
-							"process_guid": "process-guid-3",
-							"routes": [],
-							"droplet_uri": "source-url-3",
-							"stack": "some-stack",
-							"start_command": "start-command-3",
-							"execution_metadata": "execution-metadata-3"
-						}
-					]
-				}`),
-			))
 		})
 
 		Context("once the state has been synced with CC", func() {
@@ -391,12 +418,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			Describe("the freshness", func() {
-				var checkFreshness = func() []string {
-					domains, err := bbs.GetAllFreshness()
-					Ω(err).ShouldNot(HaveOccurred())
-					return domains
-				}
-
 				Context("when cc is available", func() {
 					It("bumps the freshness", func() {
 						Eventually(checkFreshness).Should(ContainElement("cf-apps"))
@@ -441,6 +462,63 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				Ω(nowDesired).Should(ContainElement(otherDomainDesired))
+			})
+		})
+	})
+
+	Context("when the bulker loses the lock", func() {
+		BeforeEach(func() {
+			heartbeatInterval = 1 * time.Second
+		})
+
+		JustBeforeEach(func() {
+			startBulker()
+			time.Sleep(50 * time.Millisecond)
+
+			err := etcdClient.Update(storeadapter.StoreNode{
+				Key:   shared.LockSchemaPath(bulkerLockName),
+				Value: []byte("something-else"),
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			time.Sleep(pollingInterval + 10*time.Millisecond)
+		})
+
+		itIsNotFresh()
+
+		It("exits with an error", func() {
+			Eventually(run).Should(gexec.Exit(1))
+		})
+	})
+
+	Context("when the bulker initially does not have the lock", func() {
+		BeforeEach(func() {
+			heartbeatInterval = 1 * time.Second
+			pollingInterval = 100 * time.Millisecond
+
+			err := etcdClient.Create(storeadapter.StoreNode{
+				Key:   shared.LockSchemaPath(bulkerLockName),
+				Value: []byte("something-else"),
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			startBulker()
+		})
+
+		itIsNotFresh()
+
+		Context("when the lock becomes available", func() {
+			BeforeEach(func() {
+				err := etcdClient.Delete(shared.LockSchemaPath(bulkerLockName))
+				Ω(err).ShouldNot(HaveOccurred())
+
+				time.Sleep(pollingInterval + 10*time.Millisecond)
+			})
+
+			It("is fresh", func() {
+				Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
 			})
 		})
 	})
