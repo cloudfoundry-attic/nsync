@@ -12,6 +12,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/ginkgomon"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
@@ -40,8 +41,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	)
 
 	startBulker := func() {
-		process = ifrit.Invoke(run)
-		// time.Sleep(pollingInterval)
+		process = ginkgomon.Invoke(run)
 	}
 
 	checkFreshness := func() []string {
