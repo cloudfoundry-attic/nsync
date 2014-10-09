@@ -35,7 +35,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		freshnessTTL time.Duration
 
 		bulkerLockName    = "nsync_bulker_lock"
-		pollingInterval   = time.Second
+		pollingInterval   time.Duration
 		heartbeatInterval time.Duration
 	)
 
@@ -61,6 +61,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		fakeCC = ghttp.NewServer()
 
+		pollingInterval = 500 * time.Millisecond
 		freshnessTTL = 1 * time.Second
 		heartbeatInterval = 30 * time.Second
 
@@ -473,28 +474,25 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		JustBeforeEach(func() {
 			startBulker()
-			time.Sleep(50 * time.Millisecond)
+			Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
 
 			err := etcdClient.Update(storeadapter.StoreNode{
 				Key:   shared.LockSchemaPath(bulkerLockName),
 				Value: []byte("something-else"),
 			})
 			Ω(err).ShouldNot(HaveOccurred())
-
-			time.Sleep(pollingInterval + 10*time.Millisecond)
 		})
 
 		itIsNotFresh()
 
 		It("exits with an error", func() {
-			Eventually(run).Should(gexec.Exit(1))
+			Eventually(run, 2*freshnessTTL).Should(gexec.Exit(1))
 		})
 	})
 
 	Context("when the bulker initially does not have the lock", func() {
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
-			pollingInterval = 100 * time.Millisecond
 
 			err := etcdClient.Create(storeadapter.StoreNode{
 				Key:   shared.LockSchemaPath(bulkerLockName),
