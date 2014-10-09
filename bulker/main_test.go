@@ -21,8 +21,8 @@ import (
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter"
 
-	"github.com/cloudfoundry-incubator/nsync/integration/runner"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	"github.com/cloudfoundry-incubator/nsync/testrunner"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
@@ -123,7 +123,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	JustBeforeEach(func() {
-		run = runner.NewRunner(
+		run = testrunner.NewRunner(
 			"nsync.bulker.started",
 			bulkerPath,
 			"-ccBaseURL", fakeCC.URL(),

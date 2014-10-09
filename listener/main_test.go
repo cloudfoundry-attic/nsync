@@ -14,7 +14,7 @@ import (
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 
-	"github.com/cloudfoundry-incubator/nsync/integration/runner"
+	"github.com/cloudfoundry-incubator/nsync/testrunner"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
@@ -29,7 +29,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	BeforeEach(func() {
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 
-		run = runner.NewRunner(
+		run = testrunner.NewRunner(
 			"nsync.listener.started",
 			listenerPath,
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
