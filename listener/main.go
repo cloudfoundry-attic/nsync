@@ -12,17 +12,26 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	_ "github.com/cloudfoundry/dropsonde/autowire"
+)
+
+var heartbeatInterval = flag.Duration(
+	"heartbeatInterval",
+	lock_bbs.HEARTBEAT_INTERVAL,
+	"the interval between heartbeats to the lock",
 )
 
 var etcdCluster = flag.String(
@@ -89,6 +98,13 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
 
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		logger.Fatal("Couldn't generate uuid", err)
+	}
+
+	heartbeater := bbs.NewNsyncListenerLock(uuid.String(), *heartbeatInterval)
+
 	runner := listen.Listen{
 		NATSClient:    natsClient,
 		BBS:           bbs,
@@ -96,7 +112,14 @@ func main() {
 		RecipeBuilder: recipeBuilder,
 	}
 
-	monitor := ifrit.Envoke(sigmon.New(runner))
+	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
+		{"heartbeater", heartbeater},
+		{"runner", runner},
+	})
+
+	logger.Info("waiting-for-lock")
+
+	monitor := ifrit.Envoke(sigmon.New(group))
 
 	logger.Info("started")
 

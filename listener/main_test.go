@@ -7,12 +7,15 @@ import (
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/yagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/nsync/testrunner"
 )
@@ -22,21 +25,25 @@ var _ = Describe("Syncing desired state with CC", func() {
 		natsClient yagnats.NATSConn
 		bbs        *Bbs.BBS
 
-		run     ifrit.Runner
+		runner  ifrit.Runner
 		process ifrit.Process
 	)
 
-	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
-
-		run = testrunner.NewRunner(
+	newNSyncRunner := func() *ginkgomon.Runner {
+		return testrunner.NewRunner(
 			"nsync.listener.started",
 			listenerPath,
 			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 			"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
 			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 			"-dockerCircusPath", "the/docker/circus/path.tgz",
+			"-heartbeatInterval", "1s",
 		)
+	}
+
+	BeforeEach(func() {
+		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
+		runner = newNSyncRunner()
 	})
 
 	var publishDesireWithInstances = func(nInstances int) {
@@ -69,7 +76,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("and the nsync listener is started", func() {
 			BeforeEach(func() {
-				process = ifrit.Envoke(run)
+				process = ginkgomon.Invoke(runner)
 			})
 
 			AfterEach(func() {
@@ -98,6 +105,62 @@ var _ = Describe("Syncing desired state with CC", func() {
 					})
 				})
 			})
+
+			Context("and a second nsync listener is started", func() {
+				var (
+					desiredLRPChanges <-chan models.DesiredLRPChange
+					stopWatching      chan<- bool
+
+					secondRunner  *ginkgomon.Runner
+					secondProcess ifrit.Process
+				)
+
+				BeforeEach(func() {
+					secondRunner = newNSyncRunner()
+					secondRunner.StartCheck = ""
+
+					secondProcess = ginkgomon.Invoke(secondRunner)
+
+					changes, stop, _ := bbs.WatchForDesiredLRPChanges()
+
+					desiredLRPChanges = changes
+					stopWatching = stop
+				})
+
+				AfterEach(func() {
+					close(stopWatching)
+					ginkgomon.Interrupt(secondProcess)
+				})
+
+				Describe("the second listener", func() {
+					It("does not become active", func() {
+						Consistently(secondRunner.Buffer, 5*time.Second).ShouldNot(gbytes.Say("nsync.listener.started"))
+					})
+				})
+
+				Context("and the first listener goes away", func() {
+					BeforeEach(func() {
+						ginkgomon.Interrupt(process)
+					})
+
+					Describe("the second listener", func() {
+						It("eventually becomes active", func() {
+							Eventually(secondRunner.Buffer, 5*time.Second).Should(gbytes.Say("nsync.listener.started"))
+						})
+					})
+				})
+
+				Context("and a 'diego.desire.app' message is received", func() {
+					BeforeEach(func() {
+						publishDesireWithInstances(3)
+					})
+
+					It("does not emit duplicate events", func() {
+						Eventually(desiredLRPChanges).Should(Receive())
+						Consistently(desiredLRPChanges).ShouldNot(Receive())
+					})
+				})
+			})
 		})
 	})
 
@@ -109,7 +172,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				processCh = make(chan ifrit.Process, 1)
 
 				go func() {
-					processCh <- ifrit.Envoke(run)
+					processCh <- ginkgomon.Invoke(runner)
 				}()
 			})
 

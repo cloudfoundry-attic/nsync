@@ -154,11 +154,11 @@ func main() {
 		{"runner", runner},
 	})
 
-	logger.Info("started-waiting-for-lock")
+	logger.Info("waiting-for-lock")
 
 	monitor := ifrit.Invoke(sigmon.New(group))
 
-	logger.Info("acquired-lock")
+	logger.Info("started")
 
 	err = <-monitor.Wait()
 	if err != nil {

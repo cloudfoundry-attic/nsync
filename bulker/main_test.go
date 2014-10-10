@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
@@ -30,7 +29,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 		bbs    *Bbs.BBS
 		fakeCC *ghttp.Server
 
-		run     ifrit.Runner
 		process ifrit.Process
 
 		freshnessTTL time.Duration
@@ -40,8 +38,25 @@ var _ = Describe("Syncing desired state with CC", func() {
 		heartbeatInterval time.Duration
 	)
 
-	startBulker := func() {
-		process = ginkgomon.Invoke(run)
+	startBulker := func(check bool) {
+		runner := testrunner.NewRunner(
+			"nsync.bulker.started",
+			bulkerPath,
+			"-ccBaseURL", fakeCC.URL(),
+			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
+			"-pollingInterval", pollingInterval.String(),
+			"-freshnessTTL", freshnessTTL.String(),
+			"-bulkBatchSize", "10",
+			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
+			"-dockerCircusPath", "the/docker/circus/path.tgz",
+			"-heartbeatInterval", heartbeatInterval.String(),
+		)
+
+		if !check {
+			runner.StartCheck = ""
+		}
+
+		process = ginkgomon.Invoke(runner)
 	}
 
 	checkFreshness := func() []string {
@@ -122,21 +137,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 		)
 	})
 
-	JustBeforeEach(func() {
-		run = testrunner.NewRunner(
-			"nsync.bulker.started",
-			bulkerPath,
-			"-ccBaseURL", fakeCC.URL(),
-			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
-			"-pollingInterval", pollingInterval.String(),
-			"-freshnessTTL", freshnessTTL.String(),
-			"-bulkBatchSize", "10",
-			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
-			"-dockerCircusPath", "the/docker/circus/path.tgz",
-			"-heartbeatInterval", heartbeatInterval.String(),
-		)
-	})
-
 	AfterEach(func() {
 		defer fakeCC.Close()
 		process.Signal(os.Interrupt)
@@ -147,7 +147,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		var desired1, desired2 models.DesiredLRP
 
 		JustBeforeEach(func() {
-			startBulker()
+			startBulker(true)
 		})
 
 		BeforeEach(func() {
@@ -473,7 +473,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		JustBeforeEach(func() {
-			startBulker()
+			startBulker(true)
+
 			Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
 
 			err := etcdClient.Update(storeadapter.StoreNode{
@@ -486,7 +487,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		itIsNotFresh()
 
 		It("exits with an error", func() {
-			Eventually(run, 2*freshnessTTL).Should(gexec.Exit(1))
+			Eventually(process.Wait(), 2*freshnessTTL).Should(Receive(HaveOccurred()))
 		})
 	})
 
@@ -502,7 +503,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		JustBeforeEach(func() {
-			startBulker()
+			startBulker(false)
 		})
 
 		itIsNotFresh()
