@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
-	"github.com/cloudfoundry/yagnats/fakeyagnats"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 
@@ -24,7 +24,7 @@ import (
 var _ = Describe("Listen", func() {
 	var (
 		builder          *fakes.FakeRecipeBuilder
-		fakenats         *fakeyagnats.FakeNATSConn
+		fakenats         *diegonats.FakeNATSClient
 		desireAppRequest cc_messages.DesireAppRequestFromCC
 		logger           *lagertest.TestLogger
 		bbs              *fake_bbs.FakeNsyncBBS
@@ -37,7 +37,7 @@ var _ = Describe("Listen", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 
-		fakenats = fakeyagnats.Connect()
+		fakenats = diegonats.NewFakeClient()
 
 		bbs = new(fake_bbs.FakeNsyncBBS)
 

@@ -10,7 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/yagnats"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -39,7 +39,7 @@ type RecipeBuilder interface {
 
 type Listen struct {
 	RecipeBuilder RecipeBuilder
-	NATSClient    yagnats.NATSConn
+	NATSClient    diegonats.NATSClient
 	BBS           Bbs.NsyncBBS
 	Logger        lager.Logger
 }

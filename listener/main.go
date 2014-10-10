@@ -13,10 +13,10 @@ import (
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
@@ -132,7 +132,7 @@ func main() {
 	logger.Info("exited")
 }
 
-func initializeNatsClient(logger lager.Logger) yagnats.NATSConn {
+func initializeNatsClient(logger lager.Logger) diegonats.NATSClient {
 	natsMembers := []string{}
 	for _, addr := range strings.Split(*natsAddresses, ",") {
 		uri := url.URL{
@@ -143,11 +143,12 @@ func initializeNatsClient(logger lager.Logger) yagnats.NATSConn {
 		natsMembers = append(natsMembers, uri.String())
 	}
 
-	natsClient, err := yagnats.Connect(natsMembers)
+	natsClient := diegonats.NewClient()
+	err := natsClient.Connect(natsMembers)
 	for err != nil {
 		logger.Error("failed-to-connect-to-nats", err)
 		time.Sleep(time.Second)
-		natsClient, err = yagnats.Connect(natsMembers)
+		err = natsClient.Connect(natsMembers)
 	}
 
 	return natsClient

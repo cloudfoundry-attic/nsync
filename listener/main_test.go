@@ -8,8 +8,8 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/yagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		natsClient yagnats.NATSConn
+		natsClient diegonats.NATSClient
 		bbs        *Bbs.BBS
 
 		runner  ifrit.Runner
@@ -67,7 +67,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		BeforeEach(func() {
 			natsRunner.Start()
 
-			natsClient = natsRunner.MessageBus
+			natsClient = natsRunner.Client
 		})
 
 		AfterEach(func() {
