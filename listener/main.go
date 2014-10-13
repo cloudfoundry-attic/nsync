@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
@@ -80,7 +78,6 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("nsync.listener")
-	natsClient := initializeNatsClient(logger)
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -104,7 +101,8 @@ func main() {
 	}
 
 	heartbeater := bbs.NewNsyncListenerLock(uuid.String(), *heartbeatInterval)
-
+	natsClient := diegonats.NewClient()
+	natsClientRunner := diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)
 	runner := listen.Listen{
 		NATSClient:    natsClient,
 		BBS:           bbs,
@@ -114,6 +112,7 @@ func main() {
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"heartbeater", heartbeater},
+		{"nats-client", natsClientRunner},
 		{"runner", runner},
 	})
 
@@ -130,28 +129,6 @@ func main() {
 	}
 
 	logger.Info("exited")
-}
-
-func initializeNatsClient(logger lager.Logger) diegonats.NATSClient {
-	natsMembers := []string{}
-	for _, addr := range strings.Split(*natsAddresses, ",") {
-		uri := url.URL{
-			Scheme: "nats",
-			User:   url.UserPassword(*natsUsername, *natsPassword),
-			Host:   addr,
-		}
-		natsMembers = append(natsMembers, uri.String())
-	}
-
-	natsClient := diegonats.NewClient()
-	err := natsClient.Connect(natsMembers)
-	for err != nil {
-		logger.Error("failed-to-connect-to-nats", err)
-		time.Sleep(time.Second)
-		err = natsClient.Connect(natsMembers)
-	}
-
-	return natsClient
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
