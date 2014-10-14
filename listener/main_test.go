@@ -22,12 +22,22 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		natsClient diegonats.NATSClient
-		bbs        *Bbs.BBS
+		gnatsdProcess ifrit.Process
+		natsClient    diegonats.NATSClient
+		bbs           *Bbs.BBS
 
 		runner  ifrit.Runner
 		process ifrit.Process
 	)
+
+	startNATS := func() {
+		gnatsdProcess, natsClient = diegonats.StartGnatsd(natsPort)
+	}
+
+	stopNATS := func() {
+		gnatsdProcess.Signal(os.Interrupt)
+		Eventually(gnatsdProcess.Wait(), 5).Should(Receive())
+	}
 
 	newNSyncRunner := func() *ginkgomon.Runner {
 		return testrunner.NewRunner(
@@ -65,13 +75,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	Context("when NATS is up", func() {
 		BeforeEach(func() {
-			natsRunner.Start()
-
-			natsClient = natsRunner.Client
+			startNATS()
 		})
 
 		AfterEach(func() {
-			natsRunner.Stop()
+			stopNATS()
 		})
 
 		Context("and the nsync listener is started", func() {
@@ -177,14 +185,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			AfterEach(func() {
-				natsRunner.Stop()
+				stopNATS()
 			})
 
 			It("starts only after nats comes up", func() {
 				Consistently(processCh).ShouldNot(Receive())
 
-				natsRunner.Start()
-
+				startNATS()
 				var process ifrit.Process
 				Eventually(processCh, 5*time.Second).Should(Receive(&process))
 

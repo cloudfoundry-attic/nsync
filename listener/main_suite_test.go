@@ -3,7 +3,6 @@ package main_test
 import (
 	"testing"
 
-	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,7 +12,6 @@ import (
 var listenerPath string
 
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
-var natsRunner *diegonats.NATSRunner
 var natsPort int
 
 func TestListener(t *testing.T) {
@@ -32,7 +30,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	natsPort = 4001 + GinkgoParallelNode()
 
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
-	natsRunner = diegonats.NewRunner(natsPort)
 })
 
 var _ = BeforeEach(func() {
