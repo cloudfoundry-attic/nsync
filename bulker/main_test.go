@@ -234,7 +234,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
-								Extract:  true,
 								CacheKey: "",
 							},
 						},
@@ -242,7 +241,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "source-url-1",
 								To:       ".",
-								Extract:  true,
 								CacheKey: "droplets-process-guid-1",
 							},
 						},
@@ -300,7 +298,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
-								Extract:  true,
 								CacheKey: "",
 							},
 						},
@@ -308,7 +305,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "source-url-2",
 								To:       ".",
-								Extract:  true,
 								CacheKey: "droplets-process-guid-2",
 							},
 						},
@@ -365,7 +361,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
-								Extract:  true,
 								CacheKey: "",
 							},
 						},
@@ -373,7 +368,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Action: models.DownloadAction{
 								From:     "source-url-3",
 								To:       ".",
-								Extract:  true,
 								CacheKey: "droplets-process-guid-3",
 							},
 						},

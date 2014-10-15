@@ -101,9 +101,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	actions := []models.ExecutorAction{}
 	actions = append(actions, models.ExecutorAction{
 		Action: models.DownloadAction{
-			From:    circusURL,
-			To:      "/tmp/circus",
-			Extract: true,
+			From: circusURL,
+			To:   "/tmp/circus",
 		},
 	})
 
@@ -112,7 +111,6 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 			Action: models.DownloadAction{
 				From:     desiredApp.DropletUri,
 				To:       ".",
-				Extract:  true,
 				CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
 			},
 		})

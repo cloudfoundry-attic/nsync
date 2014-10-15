@@ -76,15 +76,13 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Actions).Should(HaveLen(3))
 
 			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-				From:    "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
-				To:      "/tmp/circus",
-				Extract: true,
+				From: "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
+				To:   "/tmp/circus",
 			}))
 
 			Ω(desiredLRP.Actions[1].Action).Should(Equal(models.DownloadAction{
 				From:     "http://the-droplet.uri.com",
 				To:       ".",
-				Extract:  true,
 				CacheKey: "droplets-the-app-guid-the-app-version",
 			}))
 
@@ -160,9 +158,8 @@ var _ = Describe("Recipe Builder", func() {
 
 		It("uses the docker circus", func() {
 			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-				From:    "PLACEHOLDER_FILESERVER_URL/v1/static/the/docker/circus/path.tgz",
-				To:      "/tmp/circus",
-				Extract: true,
+				From: "PLACEHOLDER_FILESERVER_URL/v1/static/the/docker/circus/path.tgz",
+				To:   "/tmp/circus",
 			}))
 		})
 
