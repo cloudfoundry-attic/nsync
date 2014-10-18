@@ -17,7 +17,8 @@ import (
 const (
 	DesireAppTopic       = "diego.desire.app"
 	DesireDockerAppTopic = "diego.docker.desire.app"
-	desiredLRPCounter    = metric.Counter("LRPsDesired")
+
+	desiredLRPCounter = metric.Counter("LRPsDesired")
 )
 
 type desireAppChan chan cc_messages.DesireAppRequestFromCC

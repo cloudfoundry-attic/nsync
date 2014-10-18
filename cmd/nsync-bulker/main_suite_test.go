@@ -21,7 +21,7 @@ func TestBulker(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/bulker", "-race")
+	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-bulker", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
 	return []byte(bulker)
 }, func(bulker []byte) {

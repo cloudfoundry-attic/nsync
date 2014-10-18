@@ -3,6 +3,7 @@ package main_test
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/cloudfoundry/storeadapter"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/nsync/testrunner"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
@@ -39,18 +39,22 @@ var _ = Describe("Syncing desired state with CC", func() {
 	)
 
 	startBulker := func(check bool) {
-		runner := testrunner.NewRunner(
-			"nsync.bulker.started",
-			bulkerPath,
-			"-ccBaseURL", fakeCC.URL(),
-			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
-			"-pollingInterval", pollingInterval.String(),
-			"-freshnessTTL", freshnessTTL.String(),
-			"-bulkBatchSize", "10",
-			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
-			"-dockerCircusPath", "the/docker/circus/path.tgz",
-			"-heartbeatInterval", heartbeatInterval.String(),
-		)
+		runner := ginkgomon.New(ginkgomon.Config{
+			Name:          bulkerPath,
+			AnsiColorCode: "97m",
+			StartCheck:    "nsync.bulker.started",
+			Command: exec.Command(
+				bulkerPath,
+				"-ccBaseURL", fakeCC.URL(),
+				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
+				"-pollingInterval", pollingInterval.String(),
+				"-freshnessTTL", freshnessTTL.String(),
+				"-bulkBatchSize", "10",
+				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
+				"-dockerCircusPath", "the/docker/circus/path.tgz",
+				"-heartbeatInterval", heartbeatInterval.String(),
+			),
+		})
 
 		if !check {
 			runner.StartCheck = ""

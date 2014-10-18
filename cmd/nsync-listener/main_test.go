@@ -3,6 +3,7 @@ package main_test
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -16,8 +17,6 @@ import (
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
-
-	"github.com/cloudfoundry-incubator/nsync/testrunner"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
@@ -40,15 +39,19 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	newNSyncRunner := func() *ginkgomon.Runner {
-		return testrunner.NewRunner(
-			"nsync.listener.started",
-			listenerPath,
-			"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
-			"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
-			"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
-			"-dockerCircusPath", "the/docker/circus/path.tgz",
-			"-heartbeatInterval", "1s",
-		)
+		return ginkgomon.New(ginkgomon.Config{
+			Name:          listenerPath,
+			AnsiColorCode: "97m",
+			StartCheck:    "nsync.listener.started",
+			Command: exec.Command(
+				listenerPath,
+				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
+				"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
+				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
+				"-dockerCircusPath", "the/docker/circus/path.tgz",
+				"-heartbeatInterval", "1s",
+			),
+		})
 	}
 
 	BeforeEach(func() {

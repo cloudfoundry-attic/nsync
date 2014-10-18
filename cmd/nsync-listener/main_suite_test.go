@@ -20,7 +20,7 @@ func TestListener(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	listener, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/listener", "-race")
+	listener, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-listener", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
 	return []byte(listener)
 }, func(listener []byte) {
