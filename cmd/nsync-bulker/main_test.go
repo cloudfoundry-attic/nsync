@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"encoding/json"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -38,9 +37,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 		heartbeatInterval time.Duration
 	)
 
-	startBulker := func(check bool) {
+	startBulker := func(check bool) ifrit.Process {
 		runner := ginkgomon.New(ginkgomon.Config{
-			Name:          bulkerPath,
+			Name:          "nsync-bulker",
 			AnsiColorCode: "97m",
 			StartCheck:    "nsync.bulker.started",
 			Command: exec.Command(
@@ -60,7 +59,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			runner.StartCheck = ""
 		}
 
-		process = ginkgomon.Invoke(runner)
+		return ginkgomon.Invoke(runner)
 	}
 
 	checkFreshness := func() []string {
@@ -143,16 +142,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	AfterEach(func() {
 		defer fakeCC.Close()
-		process.Signal(os.Interrupt)
-		Eventually(process.Wait(), 5).Should(Receive())
 	})
 
 	Describe("when the CC polling interval elapses", func() {
 		var desired1, desired2 models.DesiredLRP
-
-		JustBeforeEach(func() {
-			startBulker(true)
-		})
 
 		BeforeEach(func() {
 			var existing1 cc_messages.DesireAppRequestFromCC
@@ -215,6 +208,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			err = bbs.DesireLRP(desired2)
 			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			process = startBulker(true)
+		})
+
+		AfterEach(func() {
+			ginkgomon.Interrupt(process)
 		})
 
 		Context("once the state has been synced with CC", func() {
@@ -471,7 +472,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		JustBeforeEach(func() {
-			startBulker(true)
+			process = startBulker(true)
 
 			Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
 
@@ -480,6 +481,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Value: []byte("something-else"),
 			})
 			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			ginkgomon.Interrupt(process)
 		})
 
 		itIsNotFresh()
@@ -501,7 +506,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		JustBeforeEach(func() {
-			startBulker(false)
+			process = startBulker(false)
+		})
+
+		AfterEach(func() {
+			ginkgomon.Interrupt(process)
 		})
 
 		itIsNotFresh()

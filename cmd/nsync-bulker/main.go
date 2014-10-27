@@ -107,7 +107,7 @@ var dockerCircusPath = flag.String(
 func main() {
 	flag.Parse()
 
-	logger := cf_lager.New("nsync.bulker")
+	logger := cf_lager.New("nsync-bulker")
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -167,6 +167,7 @@ func main() {
 	}
 
 	logger.Info("exited")
+	os.Exit(0)
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {

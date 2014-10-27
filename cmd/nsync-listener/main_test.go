@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -34,13 +33,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	stopNATS := func() {
-		gnatsdProcess.Signal(os.Interrupt)
-		Eventually(gnatsdProcess.Wait(), 5).Should(Receive())
+		ginkgomon.Kill(gnatsdProcess)
 	}
 
 	newNSyncRunner := func() *ginkgomon.Runner {
 		return ginkgomon.New(ginkgomon.Config{
-			Name:          listenerPath,
+			Name:          "nsync",
 			AnsiColorCode: "97m",
 			StartCheck:    "nsync.listener.started",
 			Command: exec.Command(
@@ -91,8 +89,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			AfterEach(func() {
-				process.Signal(os.Interrupt)
-				Eventually(process.Wait(), 5).Should(Receive())
+				ginkgomon.Interrupt(process)
 			})
 
 			Describe("and a 'diego.desire.app' message is recieved", func() {
@@ -177,29 +174,21 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	Describe("when NATS is not up", func() {
 		Context("and the nsync listener is started", func() {
-			var processCh chan ifrit.Process
 
 			BeforeEach(func() {
-				processCh = make(chan ifrit.Process, 1)
-
-				go func() {
-					processCh <- ginkgomon.Invoke(runner)
-				}()
+				process = ifrit.Background(runner)
 			})
 
 			AfterEach(func() {
-				stopNATS()
+				defer stopNATS()
+				defer ginkgomon.Interrupt(process)
 			})
 
 			It("starts only after nats comes up", func() {
-				Consistently(processCh).ShouldNot(Receive())
+				Consistently(process.Ready()).ShouldNot(BeClosed())
 
 				startNATS()
-				var process ifrit.Process
-				Eventually(processCh, 5*time.Second).Should(Receive(&process))
-
-				process.Signal(os.Interrupt)
-				Eventually(process.Wait(), 5).Should(Receive())
+				Eventually(process.Ready(), 5*time.Second).Should(BeClosed())
 			})
 		})
 	})
