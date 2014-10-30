@@ -104,6 +104,12 @@ var dockerCircusPath = flag.String(
 	"path for downloading docker circus from file server",
 )
 
+var fileServerURL = flag.String(
+	"fileServerURL",
+	"",
+	"URL of the file server",
+)
+
 func main() {
 	flag.Parse()
 
@@ -127,7 +133,7 @@ func main() {
 		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
 	}
 
-	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
+	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 

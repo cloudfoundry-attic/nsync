@@ -18,11 +18,9 @@ var _ = Describe("Recipe Builder", func() {
 		desiredAppReq             cc_messages.DesireAppRequestFromCC
 		desiredLRP                models.DesiredLRP
 		circuses                  map[string]string
-		fileServerURL             string
 	)
 
 	BeforeEach(func() {
-		fileServerURL = "http://file-server.com"
 		repAddrRelativeToExecutor = "127.0.0.1:20515"
 		logger := lager.NewLogger("fakelogger")
 
@@ -30,7 +28,7 @@ var _ = Describe("Recipe Builder", func() {
 			"some-stack": "some-circus.tgz",
 		}
 
-		builder = New(repAddrRelativeToExecutor, circuses, "the/docker/circus/path.tgz", logger)
+		builder = New(repAddrRelativeToExecutor, circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
@@ -105,7 +103,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Actions).Should(HaveLen(3))
 
 			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-				From: "PLACEHOLDER_FILESERVER_URL/v1/static/some-circus.tgz",
+				From: "http://file-server.com/v1/static/some-circus.tgz",
 				To:   "/tmp/circus",
 			}))
 
@@ -187,7 +185,7 @@ var _ = Describe("Recipe Builder", func() {
 
 		It("uses the docker circus", func() {
 			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-				From: "PLACEHOLDER_FILESERVER_URL/v1/static/the/docker/circus/path.tgz",
+				From: "http://file-server.com/v1/static/the/docker/circus/path.tgz",
 				To:   "/tmp/circus",
 			}))
 		})

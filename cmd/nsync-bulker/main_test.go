@@ -51,6 +51,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-bulkBatchSize", "10",
 				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 				"-dockerCircusPath", "the/docker/circus/path.tgz",
+				"-fileServerURL", "http://file-server.com",
 				"-heartbeatInterval", heartbeatInterval.String(),
 			),
 		})
@@ -194,6 +195,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"some.rep.address",
 				map[string]string{"some-stack": "some-health-check.tar.gz"},
 				"the/docker/circus/path.tgz",
+				"http://file-server.com",
 				lagertest.NewTestLogger("test"),
 			)
 
@@ -237,7 +239,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Actions: []models.ExecutorAction{
 						{
 							Action: models.DownloadAction{
-								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
 								CacheKey: "",
 							},
@@ -302,7 +304,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Actions: []models.ExecutorAction{
 						{
 							Action: models.DownloadAction{
-								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
 								CacheKey: "",
 							},
@@ -366,7 +368,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Actions: []models.ExecutorAction{
 						{
 							Action: models.DownloadAction{
-								From:     "PLACEHOLDER_FILESERVER_URL/v1/static/some-health-check.tar.gz",
+								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 								To:       "/tmp/circus",
 								CacheKey: "",
 							},

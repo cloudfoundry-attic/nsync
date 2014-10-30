@@ -47,6 +47,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
 				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 				"-dockerCircusPath", "the/docker/circus/path.tgz",
+				"-fileServerURL", "http://file-server.com",
 				"-heartbeatInterval", "1s",
 			),
 		})

@@ -30,14 +30,16 @@ type RecipeBuilder struct {
 	logger                    lager.Logger
 	circuses                  map[string]string
 	dockerCircusPath          string
+	fileServerURL             string
 }
 
-func New(repAddrRelativeToExecutor string, circuses map[string]string, dockerCircusPath string, logger lager.Logger) *RecipeBuilder {
+func New(repAddrRelativeToExecutor string, circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
 		repAddrRelativeToExecutor: repAddrRelativeToExecutor,
 		circuses:                  circuses,
 		logger:                    logger,
 		dockerCircusPath:          dockerCircusPath,
+		fileServerURL:             fileServerURL,
 	}
 }
 
@@ -60,7 +62,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	circusURL := ""
 
 	if desiredApp.DockerImageUrl != "" {
-		circusURL = b.circusDownloadURL(b.dockerCircusPath, "PLACEHOLDER_FILESERVER_URL")
+		circusURL = b.circusDownloadURL(b.dockerCircusPath, b.fileServerURL)
 
 		rootFSPath = convertDockerURI(desiredApp.DockerImageUrl)
 	} else {
@@ -73,7 +75,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 			return models.DesiredLRP{}, ErrNoCircusDefined
 		}
 
-		circusURL = b.circusDownloadURL(circusPath, "PLACEHOLDER_FILESERVER_URL")
+		circusURL = b.circusDownloadURL(circusPath, b.fileServerURL)
 	}
 
 	var numFiles *uint64

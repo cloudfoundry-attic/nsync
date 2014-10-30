@@ -74,6 +74,12 @@ var dockerCircusPath = flag.String(
 	"path for downloading docker circus from file server",
 )
 
+var fileServerURL = flag.String(
+	"fileServerURL",
+	"",
+	"URL of the file server",
+)
+
 func main() {
 	flag.Parse()
 
@@ -93,7 +99,7 @@ func main() {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, logger)
+	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {
