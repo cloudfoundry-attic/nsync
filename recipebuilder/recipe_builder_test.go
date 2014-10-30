@@ -54,6 +54,35 @@ var _ = Describe("Recipe Builder", func() {
 		desiredLRP, err = builder.Build(desiredAppReq)
 	})
 
+	Describe("CPU weight calculation", func() {
+		Context("when the memory limit is below the minimum value", func() {
+			BeforeEach(func() {
+				desiredAppReq.MemoryMB = MinCpuProxy - 9999
+			})
+			It("returns 1", func() {
+				Ω(desiredLRP.CPUWeight).Should(Equal(uint(1)))
+			})
+		})
+
+		Context("when the memory limit is above the maximum value", func() {
+			BeforeEach(func() {
+				desiredAppReq.MemoryMB = MaxCpuProxy + 9999
+			})
+			It("returns 100", func() {
+				Ω(desiredLRP.CPUWeight).Should(Equal(uint(100)))
+			})
+		})
+
+		Context("when the memory limit is in between the minimum and maximum value", func() {
+			BeforeEach(func() {
+				desiredAppReq.MemoryMB = (MinCpuProxy + MaxCpuProxy) / 2
+			})
+			It("returns 50", func() {
+				Ω(desiredLRP.CPUWeight).Should(Equal(uint(50)))
+			})
+		})
+	})
+
 	Context("when everything is correct", func() {
 		It("does not error", func() {
 			Ω(err).ShouldNot(HaveOccurred())

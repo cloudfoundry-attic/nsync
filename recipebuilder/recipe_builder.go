@@ -18,6 +18,9 @@ import (
 const DockerScheme = "docker"
 const LRPDomain = "cf-apps"
 
+const MinCpuProxy = 256
+const MaxCpuProxy = 8192
+
 var ErrNoCircusDefined = errors.New("no lifecycle binary bundle defined for stack")
 var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
 var ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
@@ -155,6 +158,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		Instances:   desiredApp.NumInstances,
 		Routes:      desiredApp.Routes,
 
+		CPUWeight: cpuWeight(desiredApp.MemoryMB),
+
 		MemoryMB: desiredApp.MemoryMB,
 		DiskMB:   desiredApp.DiskMB,
 
@@ -213,4 +218,18 @@ func parseDockerRepositoryTag(repos string) (string, string) {
 	}
 
 	return repos, ""
+}
+
+func cpuWeight(memoryMB int) uint {
+	cpuProxy := memoryMB
+
+	if cpuProxy > MaxCpuProxy {
+		return 100
+	}
+
+	if cpuProxy < MinCpuProxy {
+		return 1
+	}
+
+	return uint(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
 }
