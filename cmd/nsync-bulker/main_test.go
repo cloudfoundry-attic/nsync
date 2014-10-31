@@ -182,7 +182,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"num_instances": 2,
 				"log_guid": "log-guid-1",
 				"memory_mb": 256,
-				"process_guid": "process-guid-1",
+				"process_guid": "process-guid-2",
 				"routes": [ "route-1", "route-2" ],
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
@@ -447,6 +447,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ProcessGuid: "some-other-lrp",
 					Domain:      "some-domain",
 					Stack:       "some-stack",
+					Instances:   1,
 					Actions: []models.ExecutorAction{
 						{
 							Action: models.RunAction{
