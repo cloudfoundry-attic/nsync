@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
+	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -105,6 +106,10 @@ func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFrom
 
 	if desireAppMessage.NumInstances == 0 {
 		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desireAppMessage.ProcessGuid)
+		if err == storeadapter.ErrorKeyNotFound {
+			requestLogger.Info("lrp-already-deleted")
+			return
+		}
 		if err != nil {
 			requestLogger.Error("remove-failed", err)
 			return
