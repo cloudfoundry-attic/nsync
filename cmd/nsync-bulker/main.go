@@ -12,6 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-lager"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
+	"github.com/cloudfoundry/dropsonde"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	_ "github.com/cloudfoundry/dropsonde/autowire"
 )
 
 var etcdCluster = flag.String(
@@ -110,10 +110,23 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var dropsondeOrigin = flag.String(
+	"dropsondeOrigin",
+	"nsync_bulker",
+	"Origin identifier for dropsonde-emitted metrics.",
+)
+
+var dropsondeDestination = flag.String(
+	"dropsondeDestination",
+	"localhost:3457",
+	"Destination for dropsonde-emitted metrics.",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("nsync-bulker")
+	initializeDropsonde(logger)
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -174,6 +187,13 @@ func main() {
 
 	logger.Info("exited")
 	os.Exit(0)
+}
+
+func initializeDropsonde(logger lager.Logger) {
+	err := dropsonde.Initialize(*dropsondeOrigin, *dropsondeDestination)
+	if err != nil {
+		logger.Error("failed to initialize dropsonde: %v", err)
+	}
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {

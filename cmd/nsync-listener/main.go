@@ -23,7 +23,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	_ "github.com/cloudfoundry/dropsonde/autowire"
+	"github.com/cloudfoundry/dropsonde"
 )
 
 var heartbeatInterval = flag.Duration(
@@ -80,10 +80,25 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var dropsondeOrigin = flag.String(
+	"dropsondeOrigin",
+	"nsync_listener",
+	"Origin identifier for dropsonde-emitted metrics.",
+)
+
+var dropsondeDestination = flag.String(
+	"dropsondeDestination",
+	"localhost:3457",
+	"Destination for dropsonde-emitted metrics.",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("nsync-listener")
+
+	initializeDropsonde(logger)
+
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -136,6 +151,13 @@ func main() {
 
 	logger.Info("exited")
 	os.Exit(0)
+}
+
+func initializeDropsonde(logger lager.Logger) {
+	err := dropsonde.Initialize(*dropsondeOrigin, *dropsondeDestination)
+	if err != nil {
+		logger.Error("failed to initialize dropsonde: %v", err)
+	}
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
