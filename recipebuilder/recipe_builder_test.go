@@ -98,41 +98,34 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal(LRPLogSource))
 
-			Ω(desiredLRP.Actions).Should(HaveLen(3))
+			expectedSetup := models.Serial([]models.ExecutorAction{
+				{
+					models.DownloadAction{
+						From: "http://file-server.com/v1/static/some-circus.tgz",
+						To:   "/tmp/circus",
+					},
+				},
+				{
+					models.DownloadAction{
+						From:     "http://the-droplet.uri.com",
+						To:       ".",
+						CacheKey: "droplets-the-app-guid-the-app-version",
+					},
+				},
+			}...)
+			Ω(desiredLRP.Setup).Should(Equal(&expectedSetup))
 
-			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
-				From: "http://file-server.com/v1/static/some-circus.tgz",
-				To:   "/tmp/circus",
-			}))
-
-			Ω(desiredLRP.Actions[1].Action).Should(Equal(models.DownloadAction{
-				From:     "http://the-droplet.uri.com",
-				To:       ".",
-				CacheKey: "droplets-the-app-guid-the-app-version",
-			}))
-
-			parallelAction, ok := desiredLRP.Actions[2].Action.(models.ParallelAction)
+			runAction, ok := desiredLRP.Action.Action.(models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			runAction, ok := parallelAction.Actions[0].Action.(models.RunAction)
+			monitorAction, ok := desiredLRP.Monitor.Action.(models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			monitorAction, ok := parallelAction.Actions[1].Action.(models.MonitorAction)
-			Ω(ok).Should(BeTrue())
-
-			Ω(monitorAction.Action.Action).Should(Equal(models.RunAction{
+			Ω(monitorAction).Should(Equal(models.RunAction{
 				Path:      "/tmp/circus/spy",
 				Args:      []string{"-addr=:8080"},
 				LogSource: HealthLogSource,
 			}))
-
-			Ω(monitorAction.HealthyHook).Should(Equal(models.HealthRequest{
-				Method: "PUT",
-				URL:    "http://" + repAddrRelativeToExecutor + "/lrp_running/the-app-guid-the-app-version/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-			}))
-
-			Ω(monitorAction.HealthyThreshold).ShouldNot(BeZero())
-			Ω(monitorAction.UnhealthyThreshold).ShouldNot(BeZero())
 
 			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
 			Ω(runAction.Args).Should(Equal([]string{
@@ -184,7 +177,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("uses the docker circus", func() {
-			Ω(desiredLRP.Actions[0].Action).Should(Equal(models.DownloadAction{
+			Ω(desiredLRP.Setup.Action.(models.SerialAction).Actions[0].Action).Should(Equal(models.DownloadAction{
 				From: "http://file-server.com/v1/static/the/docker/circus/path.tgz",
 				To:   "/tmp/circus",
 			}))
@@ -233,12 +226,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("does not set any FD limit on the run action", func() {
-			Ω(desiredLRP.Actions).Should(HaveLen(3))
-
-			parallelAction, ok := desiredLRP.Actions[2].Action.(models.ParallelAction)
-			Ω(ok).Should(BeTrue())
-
-			runAction, ok := parallelAction.Actions[0].Action.(models.RunAction)
+			runAction, ok := desiredLRP.Action.Action.(models.RunAction)
 			Ω(ok).Should(BeTrue())
 
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{

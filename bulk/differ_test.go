@@ -29,12 +29,10 @@ var _ = Describe("Differ", func() {
 			Instances: 1,
 			Stack:     "stack-1",
 
-			Actions: []models.ExecutorAction{
-				{
-					Action: models.DownloadAction{
-						From: "http://example.com",
-						To:   "/tmp/internet",
-					},
+			Action: models.ExecutorAction{
+				Action: models.DownloadAction{
+					From: "http://example.com",
+					To:   "/tmp/internet",
 				},
 			},
 		}
@@ -72,11 +70,9 @@ var _ = Describe("Differ", func() {
 				Instances: 1,
 				Stack:     "stack-2",
 
-				Actions: []models.ExecutorAction{
-					{
-						Action: models.RunAction{
-							Path: "ls",
-						},
+				Action: models.ExecutorAction{
+					Action: models.RunAction{
+						Path: "ls",
 					},
 				},
 			}
