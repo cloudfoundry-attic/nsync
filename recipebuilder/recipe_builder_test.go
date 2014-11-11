@@ -95,10 +95,8 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.DiskMB).Should(Equal(512))
 			Ω(desiredLRP.Ports).Should(Equal([]models.PortMapping{{ContainerPort: 8080}}))
 
-			Ω(desiredLRP.Log).Should(Equal(models.LogConfig{
-				Guid:       "the-log-id",
-				SourceName: "App",
-			}))
+			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
+			Ω(desiredLRP.LogSource).Should(Equal("App"))
 
 			Ω(desiredLRP.Actions).Should(HaveLen(3))
 

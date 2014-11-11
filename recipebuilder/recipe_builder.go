@@ -173,10 +173,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 
 		Stack: desiredApp.Stack,
 
-		Log: models.LogConfig{
-			Guid:       desiredApp.LogGuid,
-			SourceName: "App",
-		},
+		LogGuid:   desiredApp.LogGuid,
+		LogSource: "App",
 
 		Actions: actions,
 	}, nil

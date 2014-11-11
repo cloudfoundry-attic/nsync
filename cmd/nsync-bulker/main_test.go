@@ -290,8 +290,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []models.PortMapping{
 						{ContainerPort: 8080, HostPort: 0},
 					},
-					Routes: []string{"route-1", "route-2", "new-route"},
-					Log:    models.LogConfig{Guid: "log-guid-1", SourceName: "App"},
+					Routes:    []string{"route-1", "route-2", "new-route"},
+					LogGuid:   "log-guid-1",
+					LogSource: "App",
 				}))
 
 				nofile = 32
@@ -355,8 +356,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []models.PortMapping{
 						{ContainerPort: 8080, HostPort: 0},
 					},
-					Routes: []string{"route-3", "route-4"},
-					Log:    models.LogConfig{Guid: "log-guid-2", SourceName: "App"},
+					Routes:    []string{"route-3", "route-4"},
+					LogGuid:   "log-guid-2",
+					LogSource: "App",
 				}))
 
 				nofile = 8
@@ -417,8 +419,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []models.PortMapping{
 						{ContainerPort: 8080, HostPort: 0},
 					},
-					Routes: []string{},
-					Log:    models.LogConfig{Guid: "log-guid-3", SourceName: "App"},
+					Routes:    []string{},
+					LogGuid:   "log-guid-3",
+					LogSource: "App",
 				}))
 			})
 
