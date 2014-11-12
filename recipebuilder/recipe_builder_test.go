@@ -96,7 +96,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Ports).Should(Equal([]models.PortMapping{{ContainerPort: 8080}}))
 
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
-			Ω(desiredLRP.LogSource).Should(Equal("App"))
+			Ω(desiredLRP.LogSource).Should(Equal(LRPLogSource))
 
 			Ω(desiredLRP.Actions).Should(HaveLen(3))
 
@@ -121,8 +121,9 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(ok).Should(BeTrue())
 
 			Ω(monitorAction.Action.Action).Should(Equal(models.RunAction{
-				Path: "/tmp/circus/spy",
-				Args: []string{"-addr=:8080"},
+				Path:      "/tmp/circus/spy",
+				Args:      []string{"-addr=:8080"},
+				LogSource: HealthLogSource,
 			}))
 
 			Ω(monitorAction.HealthyHook).Should(Equal(models.HealthRequest{
@@ -139,6 +140,7 @@ var _ = Describe("Recipe Builder", func() {
 				"the-start-command with-arguments",
 				"the-execution-metadata",
 			}))
+			Ω(runAction.LogSource).Should(Equal(AppLogSource))
 
 			numFiles := uint64(32)
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{

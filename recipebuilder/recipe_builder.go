@@ -15,15 +15,23 @@ import (
 	"github.com/tedsuo/rata"
 )
 
-const DockerScheme = "docker"
-const LRPDomain = "cf-apps"
+const (
+	DockerScheme = "docker"
+	LRPDomain    = "cf-apps"
 
-const MinCpuProxy = 256
-const MaxCpuProxy = 8192
+	MinCpuProxy = 256
+	MaxCpuProxy = 8192
 
-var ErrNoCircusDefined = errors.New("no lifecycle binary bundle defined for stack")
-var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
-var ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
+	LRPLogSource    = "CELL"
+	AppLogSource    = "APP"
+	HealthLogSource = "HEALTH"
+)
+
+var (
+	ErrNoCircusDefined    = errors.New("no lifecycle binary bundle defined for stack")
+	ErrAppSourceMissing   = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
+	ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
+)
 
 type RecipeBuilder struct {
 	repAddrRelativeToExecutor string
@@ -134,14 +142,16 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 				ResourceLimits: models.ResourceLimits{
 					Nofile: numFiles,
 				},
+				LogSource: AppLogSource,
 			},
 		},
 		models.ExecutorAction{
 			models.MonitorAction{
 				Action: models.ExecutorAction{
 					models.RunAction{
-						Path: "/tmp/circus/spy",
-						Args: []string{"-addr=:8080"},
+						Path:      "/tmp/circus/spy",
+						Args:      []string{"-addr=:8080"},
+						LogSource: HealthLogSource,
 					},
 				},
 				HealthyThreshold:   1,
@@ -174,7 +184,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		Stack: desiredApp.Stack,
 
 		LogGuid:   desiredApp.LogGuid,
-		LogSource: "App",
+		LogSource: LRPLogSource,
 
 		Actions: actions,
 	}, nil

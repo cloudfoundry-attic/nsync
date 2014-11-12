@@ -264,14 +264,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 									},
 									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+									LogSource:      recipebuilder.AppLogSource,
 								},
 							},
 							models.ExecutorAction{
 								models.MonitorAction{
 									Action: models.ExecutorAction{
 										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
+											Path:      "/tmp/circus/spy",
+											Args:      []string{"-addr=:8080"},
+											LogSource: recipebuilder.HealthLogSource,
 										},
 									},
 									HealthyHook: models.HealthRequest{
@@ -292,7 +294,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Routes:    []string{"route-1", "route-2", "new-route"},
 					LogGuid:   "log-guid-1",
-					LogSource: "App",
+					LogSource: recipebuilder.LRPLogSource,
 				}))
 
 				nofile = 32
@@ -330,14 +332,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 									},
 									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+									LogSource:      recipebuilder.AppLogSource,
 								},
 							},
 							models.ExecutorAction{
 								models.MonitorAction{
 									Action: models.ExecutorAction{
 										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
+											Path:      "/tmp/circus/spy",
+											Args:      []string{"-addr=:8080"},
+											LogSource: recipebuilder.HealthLogSource,
 										},
 									},
 									HealthyHook: models.HealthRequest{
@@ -358,7 +362,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Routes:    []string{"route-3", "route-4"},
 					LogGuid:   "log-guid-2",
-					LogSource: "App",
+					LogSource: recipebuilder.LRPLogSource,
 				}))
 
 				nofile = 8
@@ -393,14 +397,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 									},
 									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+									LogSource:      recipebuilder.AppLogSource,
 								},
 							},
 							models.ExecutorAction{
 								models.MonitorAction{
 									Action: models.ExecutorAction{
 										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
+											Path:      "/tmp/circus/spy",
+											Args:      []string{"-addr=:8080"},
+											LogSource: recipebuilder.HealthLogSource,
 										},
 									},
 									HealthyHook: models.HealthRequest{
@@ -421,7 +427,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Routes:    []string{},
 					LogGuid:   "log-guid-3",
-					LogSource: "App",
+					LogSource: recipebuilder.LRPLogSource,
 				}))
 			})
 
