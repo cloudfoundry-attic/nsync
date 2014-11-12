@@ -192,7 +192,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			builder := recipebuilder.New(
-				"some.rep.address",
 				map[string]string{"some-stack": "some-health-check.tar.gz"},
 				"the/docker/circus/path.tgz",
 				"http://file-server.com",

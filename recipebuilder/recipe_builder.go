@@ -32,20 +32,18 @@ var (
 )
 
 type RecipeBuilder struct {
-	repAddrRelativeToExecutor string
-	logger                    lager.Logger
-	circuses                  map[string]string
-	dockerCircusPath          string
-	fileServerURL             string
+	logger           lager.Logger
+	circuses         map[string]string
+	dockerCircusPath string
+	fileServerURL    string
 }
 
-func New(repAddrRelativeToExecutor string, circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
+func New(circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
-		repAddrRelativeToExecutor: repAddrRelativeToExecutor,
-		circuses:                  circuses,
-		logger:                    logger,
-		dockerCircusPath:          dockerCircusPath,
-		fileServerURL:             fileServerURL,
+		circuses:         circuses,
+		logger:           logger,
+		dockerCircusPath: dockerCircusPath,
+		fileServerURL:    fileServerURL,
 	}
 }
 

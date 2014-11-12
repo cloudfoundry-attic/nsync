@@ -86,12 +86,6 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
-var repAddrRelativeToExecutor = flag.String(
-	"repAddrRelativeToExecutor",
-	"127.0.0.1:20515",
-	"address of the rep server that should receive health status updates",
-)
-
 var circuses = flag.String(
 	"circuses",
 	"",
@@ -146,7 +140,7 @@ func main() {
 		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
 	}
 
-	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 

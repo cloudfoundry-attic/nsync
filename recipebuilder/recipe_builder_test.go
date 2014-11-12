@@ -12,23 +12,21 @@ import (
 
 var _ = Describe("Recipe Builder", func() {
 	var (
-		builder                   *RecipeBuilder
-		repAddrRelativeToExecutor string
-		err                       error
-		desiredAppReq             cc_messages.DesireAppRequestFromCC
-		desiredLRP                models.DesiredLRP
-		circuses                  map[string]string
+		builder       *RecipeBuilder
+		err           error
+		desiredAppReq cc_messages.DesireAppRequestFromCC
+		desiredLRP    models.DesiredLRP
+		circuses      map[string]string
 	)
 
 	BeforeEach(func() {
-		repAddrRelativeToExecutor = "127.0.0.1:20515"
 		logger := lager.NewLogger("fakelogger")
 
 		circuses = map[string]string{
 			"some-stack": "some-circus.tgz",
 		}
 
-		builder = New(repAddrRelativeToExecutor, circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
+		builder = New(circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",

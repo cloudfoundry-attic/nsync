@@ -56,12 +56,6 @@ var natsPassword = flag.String(
 	"Password for nats user",
 )
 
-var repAddrRelativeToExecutor = flag.String(
-	"repAddrRelativeToExecutor",
-	"127.0.0.1:20515",
-	"address of the rep server that should receive health status updates",
-)
-
 var circuses = flag.String(
 	"circuses",
 	"",
@@ -114,7 +108,7 @@ func main() {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(*repAddrRelativeToExecutor, circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {
