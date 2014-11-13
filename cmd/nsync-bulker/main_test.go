@@ -64,8 +64,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	checkFreshness := func() []string {
-		domains, err := bbs.GetAllFreshness()
+		freshnesses, err := bbs.Freshnesses()
 		Ω(err).ShouldNot(HaveOccurred())
+
+		domains := make([]string, 0, len(freshnesses))
+
+		for _, freshness := range freshnesses {
+			domains = append(domains, freshness.Domain)
+		}
+
 		return domains
 	}
 
