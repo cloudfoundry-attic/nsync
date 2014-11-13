@@ -42,7 +42,7 @@ var _ = Describe("Processor", func() {
 		timeProvider = faketimeprovider.New(time.Now())
 
 		bbs = new(fake_bbs.FakeNsyncBBS)
-		bbs.BumpFreshnessStub = func(string, time.Duration) error {
+		bbs.BumpFreshnessStub = func(models.Freshness) error {
 			timeProvider.Increment(syncDuration)
 			return nil
 		}

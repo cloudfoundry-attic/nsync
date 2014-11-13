@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager"
 )
@@ -136,7 +137,12 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 		}
 	}
 
-	err = p.bbs.BumpFreshness(recipebuilder.LRPDomain, p.freshnessTTL)
+	freshness := models.Freshness{
+		Domain:       recipebuilder.LRPDomain,
+		TTLInSeconds: int(p.freshnessTTL.Seconds()),
+	}
+
+	err = p.bbs.BumpFreshness(freshness)
 	if err != nil {
 		processLog.Error("failed-to-bump-freshness", err)
 	}
