@@ -145,8 +145,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		MemoryMB: desiredApp.MemoryMB,
 		DiskMB:   desiredApp.DiskMB,
 
-		Ports: []models.PortMapping{
-			{ContainerPort: 8080},
+		Ports: []uint32{
+			8080,
 		},
 
 		RootFSPath: rootFSPath,

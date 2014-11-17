@@ -319,8 +319,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    1024,
 					MemoryMB:  256,
 					CPUWeight: 1,
-					Ports: []models.PortMapping{
-						{ContainerPort: 8080, HostPort: 0},
+					Ports: []uint32{
+						8080,
 					},
 					Routes:    []string{"route-1", "route-2", "new-route"},
 					LogGuid:   "log-guid-1",
@@ -360,8 +360,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    2048,
 					MemoryMB:  512,
 					CPUWeight: 4,
-					Ports: []models.PortMapping{
-						{ContainerPort: 8080, HostPort: 0},
+					Ports: []uint32{
+						8080,
 					},
 					Routes:    []string{"route-3", "route-4"},
 					LogGuid:   "log-guid-2",
@@ -398,8 +398,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    512,
 					MemoryMB:  128,
 					CPUWeight: 1,
-					Ports: []models.PortMapping{
-						{ContainerPort: 8080, HostPort: 0},
+					Ports: []uint32{
+						8080,
 					},
 					Routes:    []string{},
 					LogGuid:   "log-guid-3",
