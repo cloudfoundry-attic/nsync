@@ -99,18 +99,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 				})
 
 				It("registers an app desire in etcd", func() {
-					Eventually(bbs.GetAllDesiredLRPs, 10).Should(HaveLen(1))
+					Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
 				})
 
 				Context("when an app is no longer desired", func() {
 					BeforeEach(func() {
-						Eventually(bbs.GetAllDesiredLRPs).Should(HaveLen(1))
+						Eventually(bbs.DesiredLRPs).Should(HaveLen(1))
 
 						publishDesireWithInstances(0)
 					})
 
 					It("should remove the desired state from etcd", func() {
-						Eventually(bbs.GetAllDesiredLRPs).Should(HaveLen(0))
+						Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
 					})
 				})
 			})

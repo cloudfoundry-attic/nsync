@@ -93,7 +93,7 @@ var _ = Describe("Processor", func() {
 
 	Describe("when getting all desired LRPs fails", func() {
 		BeforeEach(func() {
-			bbs.GetAllDesiredLRPsByDomainReturns(nil, errors.New("oh no!"))
+			bbs.DesiredLRPsByDomainReturns(nil, errors.New("oh no!"))
 		})
 
 		It("keeps calm and carries on", func() {
@@ -101,11 +101,11 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("tries again after the polling interval", func() {
-			Eventually(bbs.GetAllDesiredLRPsByDomainCallCount).Should(Equal(1))
+			Eventually(bbs.DesiredLRPsByDomainCallCount).Should(Equal(1))
 
 			t1 := time.Now()
 
-			Eventually(bbs.GetAllDesiredLRPsByDomainCallCount).Should(Equal(2))
+			Eventually(bbs.DesiredLRPsByDomainCallCount).Should(Equal(2))
 
 			t2 := time.Now()
 

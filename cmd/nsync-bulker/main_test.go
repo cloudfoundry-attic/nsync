@@ -228,11 +228,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("once the state has been synced with CC", func() {
 			JustBeforeEach(func() {
-				Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(3))
+				Eventually(bbs.DesiredLRPs, 5).Should(HaveLen(3))
 			})
 
 			It("it (adds), (updates), and (removes extra) LRPs", func() {
-				nowDesired, err := bbs.GetAllDesiredLRPs()
+				nowDesired, err := bbs.DesiredLRPs()
 				Ω(err).ShouldNot(HaveOccurred())
 
 				nofile := uint64(16)
@@ -445,9 +445,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			It("leaves them alone", func() {
-				Eventually(bbs.GetAllDesiredLRPs, 5).Should(HaveLen(4))
+				Eventually(bbs.DesiredLRPs, 5).Should(HaveLen(4))
 
-				nowDesired, err := bbs.GetAllDesiredLRPs()
+				nowDesired, err := bbs.DesiredLRPs()
 				Ω(err).ShouldNot(HaveOccurred())
 
 				Ω(nowDesired).Should(ContainElement(otherDomainDesired))

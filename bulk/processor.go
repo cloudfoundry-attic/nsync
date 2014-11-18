@@ -88,7 +88,7 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 
 	processLog.Info("getting-desired-lrps-from-bbs")
 
-	existing, err := p.bbs.GetAllDesiredLRPsByDomain(recipebuilder.LRPDomain)
+	existing, err := p.bbs.DesiredLRPsByDomain(recipebuilder.LRPDomain)
 	if err != nil {
 		p.logger.Error("failed-to-get-desired-lrps", err)
 		return false
