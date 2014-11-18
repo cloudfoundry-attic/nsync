@@ -87,48 +87,40 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		numFiles = &desiredApp.FileDescriptors
 	}
 
-	var setup []models.ExecutorAction
-	var action, monitor models.ExecutorAction
+	var setup []models.Action
+	var action, monitor models.Action
 
-	setup = append(setup, models.ExecutorAction{
-		Action: models.DownloadAction{
-			From: circusURL,
-			To:   "/tmp/circus",
-		},
+	setup = append(setup, &models.DownloadAction{
+		From: circusURL,
+		To:   "/tmp/circus",
 	})
 
 	if desiredApp.DropletUri != "" {
-		setup = append(setup, models.ExecutorAction{
-			Action: models.DownloadAction{
-				From:     desiredApp.DropletUri,
-				To:       ".",
-				CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
-			},
+		setup = append(setup, &models.DownloadAction{
+			From:     desiredApp.DropletUri,
+			To:       ".",
+			CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
 		})
 	}
 
-	action = models.ExecutorAction{
-		models.RunAction{
-			Path: "/tmp/circus/soldier",
-			Args: append(
-				[]string{"/app"},
-				desiredApp.StartCommand,
-				desiredApp.ExecutionMetadata,
-			),
-			Env:       createLrpEnv(desiredApp.Environment.BBSEnvironment()),
-			LogSource: AppLogSource,
-			ResourceLimits: models.ResourceLimits{
-				Nofile: numFiles,
-			},
+	action = &models.RunAction{
+		Path: "/tmp/circus/soldier",
+		Args: append(
+			[]string{"/app"},
+			desiredApp.StartCommand,
+			desiredApp.ExecutionMetadata,
+		),
+		Env:       createLrpEnv(desiredApp.Environment.BBSEnvironment()),
+		LogSource: AppLogSource,
+		ResourceLimits: models.ResourceLimits{
+			Nofile: numFiles,
 		},
 	}
 
-	monitor = models.ExecutorAction{
-		models.RunAction{
-			Path:      "/tmp/circus/spy",
-			Args:      []string{"-addr=:8080"},
-			LogSource: HealthLogSource,
-		},
+	monitor = &models.RunAction{
+		Path:      "/tmp/circus/spy",
+		Args:      []string{"-addr=:8080"},
+		LogSource: HealthLogSource,
 	}
 
 	setupAction := models.Serial(setup...)
@@ -156,9 +148,9 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		LogGuid:   desiredApp.LogGuid,
 		LogSource: LRPLogSource,
 
-		Setup:   &setupAction,
+		Setup:   setupAction,
 		Action:  action,
-		Monitor: &monitor,
+		Monitor: monitor,
 	}, nil
 }
 

@@ -96,30 +96,26 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal(LRPLogSource))
 
-			expectedSetup := models.Serial([]models.ExecutorAction{
-				{
-					models.DownloadAction{
-						From: "http://file-server.com/v1/static/some-circus.tgz",
-						To:   "/tmp/circus",
-					},
+			expectedSetup := models.Serial([]models.Action{
+				&models.DownloadAction{
+					From: "http://file-server.com/v1/static/some-circus.tgz",
+					To:   "/tmp/circus",
 				},
-				{
-					models.DownloadAction{
-						From:     "http://the-droplet.uri.com",
-						To:       ".",
-						CacheKey: "droplets-the-app-guid-the-app-version",
-					},
+				&models.DownloadAction{
+					From:     "http://the-droplet.uri.com",
+					To:       ".",
+					CacheKey: "droplets-the-app-guid-the-app-version",
 				},
 			}...)
-			Ω(desiredLRP.Setup).Should(Equal(&expectedSetup))
+			Ω(desiredLRP.Setup).Should(Equal(expectedSetup))
 
-			runAction, ok := desiredLRP.Action.Action.(models.RunAction)
+			runAction, ok := desiredLRP.Action.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			monitorAction, ok := desiredLRP.Monitor.Action.(models.RunAction)
+			monitorAction, ok := desiredLRP.Monitor.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			Ω(monitorAction).Should(Equal(models.RunAction{
+			Ω(monitorAction).Should(Equal(&models.RunAction{
 				Path:      "/tmp/circus/spy",
 				Args:      []string{"-addr=:8080"},
 				LogSource: HealthLogSource,
@@ -175,7 +171,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("uses the docker circus", func() {
-			Ω(desiredLRP.Setup.Action.(models.SerialAction).Actions[0].Action).Should(Equal(models.DownloadAction{
+			Ω(desiredLRP.Setup.(*models.SerialAction).Actions[0]).Should(Equal(&models.DownloadAction{
 				From: "http://file-server.com/v1/static/the/docker/circus/path.tgz",
 				To:   "/tmp/circus",
 			}))
@@ -224,7 +220,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("does not set any FD limit on the run action", func() {
-			runAction, ok := desiredLRP.Action.Action.(models.RunAction)
+			runAction, ok := desiredLRP.Action.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{

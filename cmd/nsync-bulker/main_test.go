@@ -238,53 +238,41 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile := uint64(16)
 
 				expectedSetupActions1 := models.Serial(
-					models.ExecutorAction{
-						models.DownloadAction{
-							From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							CacheKey: "",
-						},
+					&models.DownloadAction{
+						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+						To:       "/tmp/circus",
+						CacheKey: "",
 					},
-					models.ExecutorAction{
-						models.DownloadAction{
-							From:     "source-url-1",
-							To:       ".",
-							CacheKey: "droplets-process-guid-1",
-						},
+					&models.DownloadAction{
+						From:     "source-url-1",
+						To:       ".",
+						CacheKey: "droplets-process-guid-1",
 					},
 				)
 
 				expectedSetupActions2 := models.Serial(
-					models.ExecutorAction{
-						Action: models.DownloadAction{
-							From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							CacheKey: "",
-						},
+					&models.DownloadAction{
+						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+						To:       "/tmp/circus",
+						CacheKey: "",
 					},
-					models.ExecutorAction{
-						Action: models.DownloadAction{
-							From:     "source-url-2",
-							To:       ".",
-							CacheKey: "droplets-process-guid-2",
-						},
+					&models.DownloadAction{
+						From:     "source-url-2",
+						To:       ".",
+						CacheKey: "droplets-process-guid-2",
 					},
 				)
 
 				expectedSetupActions3 := models.Serial(
-					models.ExecutorAction{
-						Action: models.DownloadAction{
-							From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-							To:       "/tmp/circus",
-							CacheKey: "",
-						},
+					&models.DownloadAction{
+						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+						To:       "/tmp/circus",
+						CacheKey: "",
 					},
-					models.ExecutorAction{
-						Action: models.DownloadAction{
-							From:     "source-url-3",
-							To:       ".",
-							CacheKey: "droplets-process-guid-3",
-						},
+					&models.DownloadAction{
+						From:     "source-url-3",
+						To:       ".",
+						CacheKey: "droplets-process-guid-3",
 					},
 				)
 
@@ -293,28 +281,24 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   42,
 					Stack:       "some-stack",
-					Setup:       &expectedSetupActions1,
-					Action: models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/circus/soldier",
-							Args: []string{"/app", "start-command-1", "execution-metadata-1"},
-							Env: []models.EnvironmentVariable{
-								{Name: "env-key-1", Value: "env-value-1"},
-								{Name: "env-key-2", Value: "env-value-2"},
-								{Name: "PORT", Value: "8080"},
-								{Name: "VCAP_APP_PORT", Value: "8080"},
-								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-							},
-							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
-							LogSource:      recipebuilder.AppLogSource,
+					Setup:       expectedSetupActions1,
+					Action: &models.RunAction{
+						Path: "/tmp/circus/soldier",
+						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
+						Env: []models.EnvironmentVariable{
+							{Name: "env-key-1", Value: "env-value-1"},
+							{Name: "env-key-2", Value: "env-value-2"},
+							{Name: "PORT", Value: "8080"},
+							{Name: "VCAP_APP_PORT", Value: "8080"},
+							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
+						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						LogSource:      recipebuilder.AppLogSource,
 					},
-					Monitor: &models.ExecutorAction{
-						Action: models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
-						},
+					Monitor: &models.RunAction{
+						Path:      "/tmp/circus/spy",
+						Args:      []string{"-addr=:8080"},
+						LogSource: recipebuilder.HealthLogSource,
 					},
 					DiskMB:    1024,
 					MemoryMB:  256,
@@ -334,28 +318,24 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   4,
 					Stack:       "some-stack",
-					Setup:       &expectedSetupActions2,
-					Action: models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/circus/soldier",
-							Args: []string{"/app", "start-command-2", "execution-metadata-2"},
-							Env: []models.EnvironmentVariable{
-								{Name: "env-key-3", Value: "env-value-3"},
-								{Name: "env-key-4", Value: "env-value-4"},
-								{Name: "PORT", Value: "8080"},
-								{Name: "VCAP_APP_PORT", Value: "8080"},
-								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-							},
-							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
-							LogSource:      recipebuilder.AppLogSource,
+					Setup:       expectedSetupActions2,
+					Action: &models.RunAction{
+						Path: "/tmp/circus/soldier",
+						Args: []string{"/app", "start-command-2", "execution-metadata-2"},
+						Env: []models.EnvironmentVariable{
+							{Name: "env-key-3", Value: "env-value-3"},
+							{Name: "env-key-4", Value: "env-value-4"},
+							{Name: "PORT", Value: "8080"},
+							{Name: "VCAP_APP_PORT", Value: "8080"},
+							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
+						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						LogSource:      recipebuilder.AppLogSource,
 					},
-					Monitor: &models.ExecutorAction{
-						Action: models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
-						},
+					Monitor: &models.RunAction{
+						Path:      "/tmp/circus/spy",
+						Args:      []string{"-addr=:8080"},
+						LogSource: recipebuilder.HealthLogSource,
 					},
 					DiskMB:    2048,
 					MemoryMB:  512,
@@ -374,26 +354,22 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   4,
 					Stack:       "some-stack",
-					Setup:       &expectedSetupActions3,
-					Action: models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/circus/soldier",
-							Args: []string{"/app", "start-command-3", "execution-metadata-3"},
-							Env: []models.EnvironmentVariable{
-								{Name: "PORT", Value: "8080"},
-								{Name: "VCAP_APP_PORT", Value: "8080"},
-								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-							},
-							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
-							LogSource:      recipebuilder.AppLogSource,
+					Setup:       expectedSetupActions3,
+					Action: &models.RunAction{
+						Path: "/tmp/circus/soldier",
+						Args: []string{"/app", "start-command-3", "execution-metadata-3"},
+						Env: []models.EnvironmentVariable{
+							{Name: "PORT", Value: "8080"},
+							{Name: "VCAP_APP_PORT", Value: "8080"},
+							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
+						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						LogSource:      recipebuilder.AppLogSource,
 					},
-					Monitor: &models.ExecutorAction{
-						Action: models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
-						},
+					Monitor: &models.RunAction{
+						Path:      "/tmp/circus/spy",
+						Args:      []string{"-addr=:8080"},
+						LogSource: recipebuilder.HealthLogSource,
 					},
 					DiskMB:    512,
 					MemoryMB:  128,
@@ -433,10 +409,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "some-domain",
 					Stack:       "some-stack",
 					Instances:   1,
-					Action: models.ExecutorAction{
-						Action: models.RunAction{
-							Path: "reboot",
-						},
+					Action: &models.RunAction{
+						Path: "reboot",
 					},
 				}
 
