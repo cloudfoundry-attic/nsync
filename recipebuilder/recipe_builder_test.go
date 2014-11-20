@@ -1,6 +1,8 @@
 package recipebuilder_test
 
 import (
+	"time"
+
 	. "github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -112,12 +114,16 @@ var _ = Describe("Recipe Builder", func() {
 			runAction, ok := desiredLRP.Action.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			monitorAction, ok := desiredLRP.Monitor.(*models.RunAction)
+			monitorAction, ok := desiredLRP.Monitor.(*models.TimeoutAction)
 			Ω(ok).Should(BeTrue())
 
-			Ω(monitorAction).Should(Equal(&models.RunAction{
-				Path:      "/tmp/circus/spy",
-				Args:      []string{"-addr=:8080"},
+			Ω(monitorAction).Should(Equal(&models.TimeoutAction{
+				Action: &models.RunAction{
+					Path:      "/tmp/circus/spy",
+					Args:      []string{"-addr=:8080"},
+					LogSource: HealthLogSource,
+				},
+				Timeout:   30 * time.Second,
 				LogSource: HealthLogSource,
 			}))
 
