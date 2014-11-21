@@ -191,4 +191,27 @@ var _ = Describe("Listen", func() {
 			Consistently(bbs.DesireLRPCallCount).Should(Equal(0))
 		})
 	})
+
+	Describe("when a 'diego.kill.index' message is received", func() {
+		var killIndexRequest cc_messages.KillIndexRequestFromCC
+
+		JustBeforeEach(func() {
+			killIndexRequest = cc_messages.KillIndexRequestFromCC{
+				ProcessGuid: "process-guid",
+				Index:       1,
+			}
+			messagePayload, err := json.Marshal(killIndexRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			fakenats.Publish("diego.kill.index", messagePayload)
+		})
+
+		It("makes stop requests for those instances", func() {
+			Eventually(bbs.RequestStopLRPIndexCallCount).Should(Equal(1))
+
+			processGuid, stopIndex := bbs.RequestStopLRPIndexArgsForCall(0)
+			Ω(processGuid).Should(Equal(killIndexRequest.ProcessGuid))
+			Ω(stopIndex).Should(Equal(killIndexRequest.Index))
+		})
+	})
 })

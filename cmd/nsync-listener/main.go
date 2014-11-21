@@ -115,10 +115,10 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	heartbeater := bbs.NewNsyncListenerLock(uuid.String(), *heartbeatInterval)
+	nsyncLock := bbs.NewNsyncListenerLock(uuid.String(), *heartbeatInterval)
 	natsClient := diegonats.NewClient()
 	natsClientRunner := diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)
-	runner := listen.Listen{
+	listener := listen.Listen{
 		NATSClient:    natsClient,
 		BBS:           bbs,
 		Logger:        logger,
@@ -126,9 +126,9 @@ func main() {
 	}
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
-		{"heartbeater", heartbeater},
+		{"nsyncLock", nsyncLock},
 		{"nats-client", natsClientRunner},
-		{"runner", runner},
+		{"listener", listener},
 	})
 
 	logger.Info("waiting-for-lock")

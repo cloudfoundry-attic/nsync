@@ -18,6 +18,7 @@ import (
 const (
 	DesireAppTopic       = "diego.desire.app"
 	DesireDockerAppTopic = "diego.docker.desire.app"
+	KillIndexTopic       = "diego.kill.index"
 
 	desiredLRPCounter = metric.Counter("LRPsDesired")
 )
@@ -48,27 +49,26 @@ type Listen struct {
 
 func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	wg := new(sync.WaitGroup)
-	desiredApps := make(chan cc_messages.DesireAppRequestFromCC)
+	desiredApps := make(desireAppChan)
+	killIndexChan := make(chan cc_messages.KillIndexRequestFromCC)
 
-	var desiredAppsSub, desiredDockerSub *nats.Subscription
-	defer func() {
-		if desiredAppsSub != nil {
-			desiredAppsSub.Unsubscribe()
-		}
-		if desiredDockerSub != nil {
-			desiredDockerSub.Unsubscribe()
-		}
-	}()
-
-	var err error
-	desiredAppsSub, err = listen.listenForDesiredApps(desiredApps)
+	desiredAppsSub, err := listen.listenForDesiredApps(desiredApps)
 	if err != nil {
 		return err
 	}
-	desiredDockerSub, err = listen.listenForDesiredDockerApps(desiredApps)
+	defer desiredAppsSub.Unsubscribe()
+
+	desiredDockerSub, err := listen.listenForDesiredDockerApps(desiredApps)
 	if err != nil {
 		return err
 	}
+	defer desiredDockerSub.Unsubscribe()
+
+	killIndexSub, err := listen.listenForKillIndex(killIndexChan)
+	if err != nil {
+		return err
+	}
+	defer killIndexSub.Unsubscribe()
 
 	close(ready)
 
@@ -80,11 +80,43 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 				defer wg.Done()
 				listen.desireApp(msg)
 			}()
+
+		case msg := <-killIndexChan:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				listen.killIndex(msg)
+			}()
+
 		case <-signals:
 			wg.Wait()
 			return nil
 		}
 	}
+}
+
+func (listen Listen) killIndex(msg cc_messages.KillIndexRequestFromCC) {
+	err := listen.BBS.RequestStopLRPIndex(msg.ProcessGuid, msg.Index)
+	if err != nil {
+		listen.Logger.Error("request-stop-index-failed", err)
+		return
+	}
+	listen.Logger.Debug("requested-stop-index", lager.Data{
+		"process_guid": msg.ProcessGuid,
+		"index":        msg.Index,
+	})
+}
+
+func (listen Listen) listenForKillIndex(killIndexChan chan cc_messages.KillIndexRequestFromCC) (*nats.Subscription, error) {
+	return listen.NATSClient.Subscribe(KillIndexTopic, func(message *nats.Msg) {
+		killIndexReq := cc_messages.KillIndexRequestFromCC{}
+		err := json.Unmarshal(message.Data, &killIndexReq)
+		if err != nil {
+			listen.Logger.Error("unmarshal-kill-index-request-failed", err)
+			return
+		}
+		killIndexChan <- killIndexReq
+	})
 }
 
 func (listen Listen) listenForDesiredApps(desiredApps desireAppChan) (*nats.Subscription, error) {
