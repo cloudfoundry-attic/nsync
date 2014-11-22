@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -17,8 +16,6 @@ import (
 const (
 	DockerScheme = "docker"
 	LRPDomain    = "cf-apps"
-
-	MonitorTimeout = 30 * time.Second
 
 	MinCpuProxy = 256
 	MaxCpuProxy = 8192
@@ -120,13 +117,9 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		},
 	}
 
-	monitor = &models.TimeoutAction{
-		Action: &models.RunAction{
-			Path:      "/tmp/circus/spy",
-			Args:      []string{"-addr=:8080"},
-			LogSource: HealthLogSource,
-		},
-		Timeout:   MonitorTimeout,
+	monitor = &models.RunAction{
+		Path:      "/tmp/circus/spy",
+		Args:      []string{"-addr=:8080"},
 		LogSource: HealthLogSource,
 	}
 
