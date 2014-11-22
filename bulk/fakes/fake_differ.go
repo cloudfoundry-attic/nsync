@@ -2,36 +2,35 @@
 package fakes
 
 import (
-	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
-
 	"sync"
+
+	"github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type FakeDiffer struct {
-	DiffStub        func(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange
+	DiffStub        func(existing []receptor.DesiredLRPResponse, desiredChan <-chan *cc_messages.DesireAppRequestFromCC, lrpChan chan<- *receptor.DesiredLRPCreateRequest, deleteListChan chan<- []string)
 	diffMutex       sync.RWMutex
 	diffArgsForCall []struct {
-		existing []models.DesiredLRP
-		newChan  <-chan cc_messages.DesireAppRequestFromCC
-	}
-	diffReturns struct {
-		result1 []models.DesiredLRPChange
+		existing       []receptor.DesiredLRPResponse
+		desiredChan    <-chan *cc_messages.DesireAppRequestFromCC
+		lrpChan        chan<- *receptor.DesiredLRPCreateRequest
+		deleteListChan chan<- []string
 	}
 }
 
-func (fake *FakeDiffer) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange {
+func (fake *FakeDiffer) Diff(existing []receptor.DesiredLRPResponse, desiredChan <-chan *cc_messages.DesireAppRequestFromCC, lrpChan chan<- *receptor.DesiredLRPCreateRequest, deleteListChan chan<- []string) {
 	fake.diffMutex.Lock()
-	defer fake.diffMutex.Unlock()
 	fake.diffArgsForCall = append(fake.diffArgsForCall, struct {
-		existing []models.DesiredLRP
-		newChan  <-chan cc_messages.DesireAppRequestFromCC
-	}{existing, newChan})
+		existing       []receptor.DesiredLRPResponse
+		desiredChan    <-chan *cc_messages.DesireAppRequestFromCC
+		lrpChan        chan<- *receptor.DesiredLRPCreateRequest
+		deleteListChan chan<- []string
+	}{existing, desiredChan, lrpChan, deleteListChan})
+	fake.diffMutex.Unlock()
 	if fake.DiffStub != nil {
-		return fake.DiffStub(existing, newChan)
-	} else {
-		return fake.diffReturns.result1
+		fake.DiffStub(existing, desiredChan, lrpChan, deleteListChan)
 	}
 }
 
@@ -41,16 +40,10 @@ func (fake *FakeDiffer) DiffCallCount() int {
 	return len(fake.diffArgsForCall)
 }
 
-func (fake *FakeDiffer) DiffArgsForCall(i int) ([]models.DesiredLRP, <-chan cc_messages.DesireAppRequestFromCC) {
+func (fake *FakeDiffer) DiffArgsForCall(i int) ([]receptor.DesiredLRPResponse, <-chan *cc_messages.DesireAppRequestFromCC, chan<- *receptor.DesiredLRPCreateRequest, chan<- []string) {
 	fake.diffMutex.RLock()
 	defer fake.diffMutex.RUnlock()
-	return fake.diffArgsForCall[i].existing, fake.diffArgsForCall[i].newChan
-}
-
-func (fake *FakeDiffer) DiffReturns(result1 []models.DesiredLRPChange) {
-	fake.diffReturns = struct {
-		result1 []models.DesiredLRPChange
-	}{result1}
+	return fake.diffArgsForCall[i].existing, fake.diffArgsForCall[i].desiredChan, fake.diffArgsForCall[i].lrpChan, fake.diffArgsForCall[i].deleteListChan
 }
 
 var _ bulk.Differ = new(FakeDiffer)

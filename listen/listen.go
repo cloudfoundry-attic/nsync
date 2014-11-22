@@ -6,10 +6,9 @@ import (
 	"sync"
 
 	"github.com/apcera/nats"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
@@ -37,14 +36,14 @@ func (desiredApps desireAppChan) sendDesireAppRequest(message *nats.Msg, logger 
 }
 
 type RecipeBuilder interface {
-	Build(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
+	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
 }
 
 type Listen struct {
-	RecipeBuilder RecipeBuilder
-	NATSClient    diegonats.NATSClient
-	BBS           Bbs.NsyncBBS
-	Logger        lager.Logger
+	RecipeBuilder  RecipeBuilder
+	NATSClient     diegonats.NATSClient
+	ReceptorClient receptor.Client
+	Logger         lager.Logger
 }
 
 func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
@@ -96,7 +95,7 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 }
 
 func (listen Listen) killIndex(msg cc_messages.KillIndexRequestFromCC) {
-	err := listen.BBS.RequestStopLRPIndex(msg.ProcessGuid, msg.Index)
+	err := listen.ReceptorClient.KillActualLRPsByProcessGuidAndIndex(msg.ProcessGuid, msg.Index)
 	if err != nil {
 		listen.Logger.Error("request-stop-index-failed", err)
 		return
@@ -137,26 +136,26 @@ func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFrom
 	})
 
 	if desireAppMessage.NumInstances == 0 {
-		err := listen.BBS.RemoveDesiredLRPByProcessGuid(desireAppMessage.ProcessGuid)
+		err := listen.ReceptorClient.DeleteDesiredLRP(desireAppMessage.ProcessGuid)
 		if err == storeadapter.ErrorKeyNotFound {
 			requestLogger.Info("lrp-already-deleted")
 			return
 		}
 		if err != nil {
-			requestLogger.Error("remove-failed", err)
+			requestLogger.Error("failed-to-remove", err)
 			return
 		}
 	} else {
-		desiredLRP, err := listen.RecipeBuilder.Build(desireAppMessage)
+		desiredLRP, err := listen.RecipeBuilder.Build(&desireAppMessage)
 		if err != nil {
 			requestLogger.Error("failed-to-build-recipe", err)
 			return
 		}
 
 		desiredLRPCounter.Increment()
-		err = listen.BBS.DesireLRP(desiredLRP)
+		err = listen.ReceptorClient.CreateDesiredLRP(*desiredLRP)
 		if err != nil {
-			requestLogger.Error("failed", err)
+			requestLogger.Error("failed-to-create", err)
 			return
 		}
 	}

@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager"
 )
@@ -21,7 +20,7 @@ const (
 )
 
 type Processor struct {
-	bbs             bbs.NsyncBBS
+	receptorClient  receptor.Client
 	pollingInterval time.Duration
 	ccFetchTimeout  time.Duration
 	freshnessTTL    time.Duration
@@ -34,7 +33,7 @@ type Processor struct {
 }
 
 func NewProcessor(
-	bbs bbs.NsyncBBS,
+	receptorClient receptor.Client,
 	pollingInterval time.Duration,
 	ccFetchTimeout time.Duration,
 	freshnessTTL time.Duration,
@@ -46,7 +45,7 @@ func NewProcessor(
 	timeProvider timeprovider.TimeProvider,
 ) *Processor {
 	return &Processor{
-		bbs:             bbs,
+		receptorClient:  receptorClient,
 		pollingInterval: pollingInterval,
 		ccFetchTimeout:  ccFetchTimeout,
 		freshnessTTL:    freshnessTTL,
@@ -88,13 +87,13 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 
 	processLog.Info("getting-desired-lrps-from-bbs")
 
-	existing, err := p.bbs.DesiredLRPsByDomain(recipebuilder.LRPDomain)
+	existing, err := p.receptorClient.DesiredLRPsByDomain(recipebuilder.LRPDomain)
 	if err != nil {
 		p.logger.Error("failed-to-get-desired-lrps", err)
 		return false
 	}
 
-	fromCC := make(chan cc_messages.DesireAppRequestFromCC)
+	fromCC := make(chan *cc_messages.DesireAppRequestFromCC)
 
 	httpClient := &http.Client{
 		Timeout: p.ccFetchTimeout,
@@ -120,29 +119,70 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 		fetchErrs <- p.fetcher.Fetch(fromCC, httpClient)
 	}()
 
-	changes := p.differ.Diff(existing, fromCC)
+	lrpChan := make(chan *receptor.DesiredLRPCreateRequest)
+	deleteListChan := make(chan []string)
+
+	go p.differ.Diff(existing, fromCC, lrpChan, deleteListChan)
+
+	deleteList := []string{}
+
+	for deleteListChan != nil || lrpChan != nil {
+		select {
+		case deletes, ok := <-deleteListChan:
+			if !ok {
+				deleteListChan = nil
+				break
+			}
+
+			deleteList = deletes
+
+		case createReq, ok := <-lrpChan:
+			if !ok {
+				lrpChan = nil
+				break
+			}
+
+			err := p.receptorClient.CreateDesiredLRP(*createReq)
+			if err != nil {
+				processLog.Error(
+					"failed-to-create-desired-lrp",
+					err,
+					lager.Data{"create-request": createReq},
+				)
+			}
+
+		case <-signals:
+			// allow interruption while processing changes
+			return true
+		}
+	}
+
 	fetchErr := <-fetchErrs
 	if fetchErr != nil {
 		processLog.Error("failed-to-fetch", fetchErr)
 		return false
 	}
 
-	for _, change := range changes {
+	for _, deleteGuid := range deleteList {
 		select {
 		case <-signals:
-			// allow interruption while processing changes
 			return true
 		default:
-			p.bbs.ChangeDesiredLRP(change)
+			err := p.receptorClient.DeleteDesiredLRP(deleteGuid)
+			if err != nil {
+				processLog.Error("failed-to-delete-desired-lrp", err, lager.Data{
+					"delete-request": deleteGuid,
+				})
+			}
 		}
 	}
 
-	freshness := models.Freshness{
+	freshness := receptor.FreshDomainBumpRequest{
 		Domain:       recipebuilder.LRPDomain,
 		TTLInSeconds: int(p.freshnessTTL.Seconds()),
 	}
 
-	err = p.bbs.BumpFreshness(freshness)
+	err = p.receptorClient.BumpFreshDomain(freshness)
 	if err != nil {
 		processLog.Error("failed-to-bump-freshness", err)
 	}

@@ -1,8 +1,9 @@
 package bulk_test
 
 import (
-	. "github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -12,23 +13,27 @@ import (
 )
 
 var _ = Describe("Differ", func() {
-	var existingLRP models.DesiredLRP
-	var desired chan cc_messages.DesireAppRequestFromCC
-	var changes []models.DesiredLRPChange
+	var (
+		existingLRP receptor.DesiredLRPResponse
 
-	var builder *fakes.FakeRecipeBuilder
+		desiredChan    chan *cc_messages.DesireAppRequestFromCC
+		createChan     chan *receptor.DesiredLRPCreateRequest
+		deleteListChan chan []string
 
-	var differ Differ
+		builder *fakes.FakeRecipeBuilder
+
+		differ bulk.Differ
+	)
 
 	BeforeEach(func() {
-		desired = nil
+		desiredChan = nil
+		createChan = nil
+		deleteListChan = nil
 
-		existingLRP = models.DesiredLRP{
+		existingLRP = receptor.DesiredLRPResponse{
 			ProcessGuid: "process-guid-1",
-
-			Instances: 1,
-			Stack:     "stack-1",
-
+			Instances:   1,
+			Stack:       "stack-1",
 			Action: &models.DownloadAction{
 				From: "http://example.com",
 				To:   "/tmp/internet",
@@ -37,51 +42,55 @@ var _ = Describe("Differ", func() {
 
 		builder = new(fakes.FakeRecipeBuilder)
 
-		differ = NewDiffer(builder, lagertest.NewTestLogger("test"))
+		differ = bulk.NewDiffer(builder, lagertest.NewTestLogger("test"))
 
-		desired = make(chan cc_messages.DesireAppRequestFromCC, 1)
+		desiredChan = make(chan *cc_messages.DesireAppRequestFromCC, 1)
+		createChan = make(chan *receptor.DesiredLRPCreateRequest, 1)
+		deleteListChan = make(chan []string, 1)
 	})
 
 	JustBeforeEach(func() {
-		close(desired)
-		changes = differ.Diff([]models.DesiredLRP{existingLRP}, desired)
+		go differ.Diff(
+			[]receptor.DesiredLRPResponse{existingLRP},
+			desiredChan,
+			createChan,
+			deleteListChan,
+		)
+		close(desiredChan)
 	})
 
 	Context("when a desired App comes in from CC", func() {
-		var newlyDesiredApp cc_messages.DesireAppRequestFromCC
+		var newlyDesiredApp *cc_messages.DesireAppRequestFromCC
 
 		BeforeEach(func() {
-			newlyDesiredApp = cc_messages.DesireAppRequestFromCC{
+			newlyDesiredApp = &cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:  "new-app-process-guid",
 				NumInstances: 1,
 				DropletUri:   "http://example.com",
 				Stack:        "some-stack",
 			}
 
-			desired <- newlyDesiredApp
+			desiredChan <- newlyDesiredApp
 		})
 
 		Context("and it is not in the desired LRPs set", func() {
-			newlyDesiredLRP := models.DesiredLRP{
+			newCreateReq := &receptor.DesiredLRPCreateRequest{
 				ProcessGuid: "new-process-guid",
-
-				Instances: 1,
-				Stack:     "stack-2",
-
+				Instances:   1,
+				Stack:       "stack-2",
 				Action: &models.RunAction{
 					Path: "ls",
 				},
 			}
 
 			BeforeEach(func() {
-				builder.BuildReturns(newlyDesiredLRP, nil)
+				builder.BuildReturns(newCreateReq, nil)
 			})
 
-			It("contains a change with no before, but an after", func() {
-				Ω(changes).Should(ContainElement(models.DesiredLRPChange{
-					Before: nil,
-					After:  &newlyDesiredLRP,
-				}))
+			It("sends a create request", func() {
+				Eventually(deleteListChan).Should(Receive())
+				Eventually(deleteListChan).Should(BeClosed())
+				Eventually(createChan).Should(Receive(Equal(newCreateReq)))
 
 				Ω(builder.BuildArgsForCall(0)).Should(Equal(newlyDesiredApp))
 			})
@@ -93,39 +102,27 @@ var _ = Describe("Differ", func() {
 			})
 
 			Context("with the same values", func() {
-				It("does not contain any change", func() {
-					Ω(changes).Should(BeEmpty())
-				})
-			})
+				It("sends no request", func() {
+					deleteList := &[]string{}
 
-			Context("but has different values", func() {
-				var changedLRP models.DesiredLRP
+					Eventually(deleteListChan).Should(Receive(deleteList))
+					Eventually(deleteListChan).Should(BeClosed())
+					Consistently(createChan).ShouldNot(Receive())
 
-				BeforeEach(func() {
-					changedLRP = existingLRP
-					changedLRP.Instances = 1
-
-					existingLRP.Instances = 42
-
-					builder.BuildReturns(changedLRP, nil)
-				})
-
-				It("contains a change with before and after", func() {
-					Ω(changes).Should(ContainElement(models.DesiredLRPChange{
-						Before: &existingLRP,
-						After:  &changedLRP,
-					}))
+					Ω(*deleteList).Should(HaveLen(0))
 				})
 			})
 		})
 	})
 
 	Context("when the existing LRP is not in the CC's set of desired Apps", func() {
-		It("contains a change to remove the extra LRP", func() {
-			Ω(changes).Should(ContainElement(models.DesiredLRPChange{
-				Before: &existingLRP,
-				After:  nil,
-			}))
+		It("sends a delete request for the existing LRP", func() {
+			deleteList := &[]string{}
+
+			Eventually(deleteListChan).Should(Receive(deleteList))
+			Eventually(deleteListChan).Should(BeClosed())
+			Consistently(createChan).ShouldNot(Receive())
+			Ω(*deleteList).Should(ContainElement(existingLRP.ProcessGuid))
 		})
 	})
 })

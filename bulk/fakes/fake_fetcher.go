@@ -10,10 +10,10 @@ import (
 )
 
 type FakeFetcher struct {
-	FetchStub        func(chan<- cc_messages.DesireAppRequestFromCC, *http.Client) error
+	FetchStub        func(chan<- *cc_messages.DesireAppRequestFromCC, *http.Client) error
 	fetchMutex       sync.RWMutex
 	fetchArgsForCall []struct {
-		arg1 chan<- cc_messages.DesireAppRequestFromCC
+		arg1 chan<- *cc_messages.DesireAppRequestFromCC
 		arg2 *http.Client
 	}
 	fetchReturns struct {
@@ -21,13 +21,13 @@ type FakeFetcher struct {
 	}
 }
 
-func (fake *FakeFetcher) Fetch(arg1 chan<- cc_messages.DesireAppRequestFromCC, arg2 *http.Client) error {
+func (fake *FakeFetcher) Fetch(arg1 chan<- *cc_messages.DesireAppRequestFromCC, arg2 *http.Client) error {
 	fake.fetchMutex.Lock()
-	defer fake.fetchMutex.Unlock()
 	fake.fetchArgsForCall = append(fake.fetchArgsForCall, struct {
-		arg1 chan<- cc_messages.DesireAppRequestFromCC
+		arg1 chan<- *cc_messages.DesireAppRequestFromCC
 		arg2 *http.Client
 	}{arg1, arg2})
+	fake.fetchMutex.Unlock()
 	if fake.FetchStub != nil {
 		return fake.FetchStub(arg1, arg2)
 	} else {
@@ -41,13 +41,14 @@ func (fake *FakeFetcher) FetchCallCount() int {
 	return len(fake.fetchArgsForCall)
 }
 
-func (fake *FakeFetcher) FetchArgsForCall(i int) (chan<- cc_messages.DesireAppRequestFromCC, *http.Client) {
+func (fake *FakeFetcher) FetchArgsForCall(i int) (chan<- *cc_messages.DesireAppRequestFromCC, *http.Client) {
 	fake.fetchMutex.RLock()
 	defer fake.fetchMutex.RUnlock()
 	return fake.fetchArgsForCall[i].arg1, fake.fetchArgsForCall[i].arg2
 }
 
 func (fake *FakeFetcher) FetchReturns(result1 error) {
+	fake.FetchStub = nil
 	fake.fetchReturns = struct {
 		result1 error
 	}{result1}

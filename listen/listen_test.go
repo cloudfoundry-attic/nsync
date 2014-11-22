@@ -7,7 +7,8 @@ import (
 
 	. "github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/listen/fakes"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
@@ -23,11 +24,11 @@ import (
 
 var _ = Describe("Listen", func() {
 	var (
-		builder          *fakes.FakeRecipeBuilder
-		fakenats         *diegonats.FakeNATSClient
-		desireAppRequest cc_messages.DesireAppRequestFromCC
-		logger           *lagertest.TestLogger
-		bbs              *fake_bbs.FakeNsyncBBS
+		builder            *fakes.FakeRecipeBuilder
+		fakenats           *diegonats.FakeNATSClient
+		desireAppRequest   cc_messages.DesireAppRequestFromCC
+		logger             *lagertest.TestLogger
+		fakeReceptorClient *fake_receptor.FakeClient
 
 		process ifrit.Process
 
@@ -39,15 +40,14 @@ var _ = Describe("Listen", func() {
 
 		fakenats = diegonats.NewFakeClient()
 
-		bbs = new(fake_bbs.FakeNsyncBBS)
-
 		builder = new(fakes.FakeRecipeBuilder)
+		fakeReceptorClient = new(fake_receptor.FakeClient)
 
 		runner := Listen{
-			NATSClient:    fakenats,
-			BBS:           bbs,
-			Logger:        logger,
-			RecipeBuilder: builder,
+			NATSClient:     fakenats,
+			ReceptorClient: fakeReceptorClient,
+			Logger:         logger,
+			RecipeBuilder:  builder,
 		}
 
 		desireAppRequest = cc_messages.DesireAppRequestFromCC{
@@ -86,7 +86,7 @@ var _ = Describe("Listen", func() {
 			fakenats.Publish("diego.desire.app", messagePayload)
 		})
 
-		newlyDesiredLRP := models.DesiredLRP{
+		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
 			ProcessGuid: "new-process-guid",
 
 			Instances: 1,
@@ -98,15 +98,15 @@ var _ = Describe("Listen", func() {
 		}
 
 		BeforeEach(func() {
-			builder.BuildReturns(newlyDesiredLRP, nil)
+			builder.BuildReturns(&newlyDesiredLRP, nil)
 		})
 
 		It("marks the LRP desired in the bbs", func() {
-			Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
+			Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 
-			Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+			Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
 
-			Ω(builder.BuildArgsForCall(0)).Should(Equal(desireAppRequest))
+			Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
 		})
 
 		It("increments the desired LRPs counter", func() {
@@ -121,14 +121,14 @@ var _ = Describe("Listen", func() {
 			})
 
 			It("deletes the desired LRP from BBS", func() {
-				Eventually(bbs.RemoveDesiredLRPByProcessGuidCallCount).Should(Equal(1))
-				Ω(bbs.RemoveDesiredLRPByProcessGuidArgsForCall(0)).Should(Equal("some-guid"))
+				Eventually(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				Ω(fakeReceptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("some-guid"))
 			})
 		})
 
 		Describe("when building the recipe fails to build", func() {
 			BeforeEach(func() {
-				builder.BuildReturns(models.DesiredLRP{}, errors.New("oh no!"))
+				builder.BuildReturns(nil, errors.New("oh no!"))
 			})
 
 			It("logs an error", func() {
@@ -137,7 +137,7 @@ var _ = Describe("Listen", func() {
 			})
 
 			It("does not put a desired LRP into the BBS", func() {
-				Consistently(bbs.DesireLRPCallCount).Should(Equal(0))
+				Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 			})
 		})
 	})
@@ -152,7 +152,7 @@ var _ = Describe("Listen", func() {
 			fakenats.Publish("diego.docker.desire.app", messagePayload)
 		})
 
-		newlyDesiredLRP := models.DesiredLRP{
+		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
 			ProcessGuid: "new-process-guid",
 
 			Instances:  1,
@@ -164,14 +164,14 @@ var _ = Describe("Listen", func() {
 		}
 
 		BeforeEach(func() {
-			builder.BuildReturns(newlyDesiredLRP, nil)
+			builder.BuildReturns(&newlyDesiredLRP, nil)
 		})
 
 		It("marks the LRP desired in the bbs", func() {
-			Eventually(bbs.DesireLRPCallCount).Should(Equal(1))
+			Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 
-			Ω(bbs.DesireLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
-			Ω(builder.BuildArgsForCall(0)).Should(Equal(desireAppRequest))
+			Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+			Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
 		})
 	})
 
@@ -188,7 +188,7 @@ var _ = Describe("Listen", func() {
 		})
 
 		It("does not put a desired LRP into the BBS", func() {
-			Consistently(bbs.DesireLRPCallCount).Should(Equal(0))
+			Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 		})
 	})
 
@@ -207,9 +207,9 @@ var _ = Describe("Listen", func() {
 		})
 
 		It("makes stop requests for those instances", func() {
-			Eventually(bbs.RequestStopLRPIndexCallCount).Should(Equal(1))
+			Eventually(fakeReceptorClient.KillActualLRPsByProcessGuidAndIndexCallCount).Should(Equal(1))
 
-			processGuid, stopIndex := bbs.RequestStopLRPIndexArgsForCall(0)
+			processGuid, stopIndex := fakeReceptorClient.KillActualLRPsByProcessGuidAndIndexArgsForCall(0)
 			Ω(processGuid).Should(Equal(killIndexRequest.ProcessGuid))
 			Ω(stopIndex).Should(Equal(killIndexRequest.Index))
 		})

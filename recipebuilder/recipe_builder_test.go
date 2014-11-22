@@ -2,6 +2,9 @@ package recipebuilder_test
 
 import (
 	. "github.com/cloudfoundry-incubator/nsync/recipebuilder"
+
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
@@ -12,10 +15,10 @@ import (
 
 var _ = Describe("Recipe Builder", func() {
 	var (
-		builder       *RecipeBuilder
+		builder       *recipebuilder.RecipeBuilder
 		err           error
 		desiredAppReq cc_messages.DesireAppRequestFromCC
-		desiredLRP    models.DesiredLRP
+		desiredLRP    *receptor.DesiredLRPCreateRequest
 		circuses      map[string]string
 	)
 
@@ -26,7 +29,7 @@ var _ = Describe("Recipe Builder", func() {
 			"some-stack": "some-circus.tgz",
 		}
 
-		builder = New(circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
+		builder = recipebuilder.New(circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
@@ -47,13 +50,13 @@ var _ = Describe("Recipe Builder", func() {
 	})
 
 	JustBeforeEach(func() {
-		desiredLRP, err = builder.Build(desiredAppReq)
+		desiredLRP, err = builder.Build(&desiredAppReq)
 	})
 
 	Describe("CPU weight calculation", func() {
 		Context("when the memory limit is below the minimum value", func() {
 			BeforeEach(func() {
-				desiredAppReq.MemoryMB = MinCpuProxy - 9999
+				desiredAppReq.MemoryMB = recipebuilder.MinCpuProxy - 9999
 			})
 			It("returns 1", func() {
 				Ω(desiredLRP.CPUWeight).Should(Equal(uint(1)))
@@ -62,7 +65,7 @@ var _ = Describe("Recipe Builder", func() {
 
 		Context("when the memory limit is above the maximum value", func() {
 			BeforeEach(func() {
-				desiredAppReq.MemoryMB = MaxCpuProxy + 9999
+				desiredAppReq.MemoryMB = recipebuilder.MaxCpuProxy + 9999
 			})
 			It("returns 100", func() {
 				Ω(desiredLRP.CPUWeight).Should(Equal(uint(100)))
@@ -71,7 +74,7 @@ var _ = Describe("Recipe Builder", func() {
 
 		Context("when the memory limit is in between the minimum and maximum value", func() {
 			BeforeEach(func() {
-				desiredAppReq.MemoryMB = (MinCpuProxy + MaxCpuProxy) / 2
+				desiredAppReq.MemoryMB = (recipebuilder.MinCpuProxy + recipebuilder.MaxCpuProxy) / 2
 			})
 			It("returns 50", func() {
 				Ω(desiredLRP.CPUWeight).Should(Equal(uint(50)))
@@ -94,7 +97,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Ports).Should(Equal([]uint32{8080}))
 
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
-			Ω(desiredLRP.LogSource).Should(Equal(LRPLogSource))
+			Ω(desiredLRP.LogSource).Should(Equal(recipebuilder.LRPLogSource))
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
@@ -127,7 +130,7 @@ var _ = Describe("Recipe Builder", func() {
 				"the-start-command with-arguments",
 				"the-execution-metadata",
 			}))
-			Ω(runAction.LogSource).Should(Equal(AppLogSource))
+			Ω(runAction.LogSource).Should(Equal(recipebuilder.AppLogSource))
 
 			numFiles := uint64(32)
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
@@ -195,7 +198,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(ErrMultipleAppSources))
+			Ω(err).Should(MatchError(recipebuilder.ErrMultipleAppSources))
 		})
 	})
 
@@ -206,7 +209,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(ErrAppSourceMissing))
+			Ω(err).Should(MatchError(recipebuilder.ErrAppSourceMissing))
 		})
 	})
 
@@ -235,7 +238,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(ErrNoCircusDefined))
+			Ω(err).Should(MatchError(recipebuilder.ErrNoCircusDefined))
 		})
 	})
 })

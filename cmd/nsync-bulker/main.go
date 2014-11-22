@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry/dropsonde"
@@ -30,6 +31,12 @@ var etcdCluster = flag.String(
 	"etcdCluster",
 	"http://127.0.0.1:4001",
 	"comma-separated list of etcd addresses (http://ip:port)",
+)
+
+var diegoAPIURL = flag.String(
+	"diegoAPIURL",
+	"",
+	"URL of diego API",
 )
 
 var heartbeatInterval = flag.Duration(
@@ -121,6 +128,8 @@ func main() {
 
 	logger := cf_lager.New("nsync-bulker")
 	initializeDropsonde(logger)
+
+	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -145,7 +154,7 @@ func main() {
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 
 	runner := bulk.NewProcessor(
-		bbs,
+		diegoAPIClient,
 		*pollingInterval,
 		*ccFetchTimeout,
 		*freshnessTTL,

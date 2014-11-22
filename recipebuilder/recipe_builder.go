@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	SchemaRouter "github.com/cloudfoundry-incubator/runtime-schema/router"
@@ -47,19 +48,19 @@ func New(circuses map[string]string, dockerCircusPath, fileServerURL string, log
 	}
 }
 
-func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error) {
+func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
 	lrpGuid := desiredApp.ProcessGuid
 
 	buildLogger := b.logger.Session("message-builder")
 
 	if desiredApp.DropletUri == "" && desiredApp.DockerImageUrl == "" {
 		buildLogger.Error("desired-app-invalid", ErrAppSourceMissing, lager.Data{"desired-app": desiredApp})
-		return models.DesiredLRP{}, ErrAppSourceMissing
+		return nil, ErrAppSourceMissing
 	}
 
 	if desiredApp.DropletUri != "" && desiredApp.DockerImageUrl != "" {
 		buildLogger.Error("desired-app-invalid", ErrMultipleAppSources, lager.Data{"desired-app": desiredApp})
-		return models.DesiredLRP{}, ErrMultipleAppSources
+		return nil, ErrMultipleAppSources
 	}
 
 	rootFSPath := ""
@@ -76,7 +77,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 				"stack": desiredApp.Stack,
 			})
 
-			return models.DesiredLRP{}, ErrNoCircusDefined
+			return nil, ErrNoCircusDefined
 		}
 
 		circusURL = b.circusDownloadURL(circusPath, b.fileServerURL)
@@ -125,8 +126,8 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 
 	setupAction := models.Serial(setup...)
 
-	return models.DesiredLRP{
-		Domain: "cf-apps",
+	return &receptor.DesiredLRPCreateRequest{
+		Domain: LRPDomain,
 
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,

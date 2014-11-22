@@ -10,7 +10,7 @@ import (
 )
 
 type Fetcher interface {
-	Fetch(chan<- cc_messages.DesireAppRequestFromCC, *http.Client) error
+	Fetch(chan<- *cc_messages.DesireAppRequestFromCC, *http.Client) error
 }
 
 type CCFetcher struct {
@@ -22,7 +22,7 @@ type CCFetcher struct {
 
 const initialBulkToken = "{}"
 
-func (fetcher *CCFetcher) Fetch(resultChan chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+func (fetcher *CCFetcher) Fetch(resultChan chan<- *cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
 	// ensure this happens regardless of success or failure;
 	// don't do this in fetchBatch as fetchBatch is recursive
 	defer close(resultChan)
@@ -30,7 +30,7 @@ func (fetcher *CCFetcher) Fetch(resultChan chan<- cc_messages.DesireAppRequestFr
 	return fetcher.fetchBatch(initialBulkToken, resultChan, httpClient)
 }
 
-func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- *cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
 	req, err := http.NewRequest("GET", fetcher.bulkURL(token), nil)
 	if err != nil {
 		return err
@@ -64,8 +64,8 @@ func (fetcher *CCFetcher) fetchBatch(token string, resultChan chan<- cc_messages
 		return err
 	}
 
-	for _, app := range response.Apps {
-		resultChan <- app
+	for i, _ := range response.Apps {
+		resultChan <- &response.Apps[i]
 	}
 
 	if uint(len(response.Apps)) < fetcher.BatchSize {

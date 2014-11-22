@@ -9,6 +9,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -36,6 +37,12 @@ var etcdCluster = flag.String(
 	"etcdCluster",
 	"http://127.0.0.1:4001",
 	"comma-separated list of etcd addresses (http://ip:port)",
+)
+
+var diegoAPIURL = flag.String(
+	"diegoAPIURL",
+	"",
+	"URL of diego API",
 )
 
 var natsAddresses = flag.String(
@@ -93,6 +100,7 @@ func main() {
 
 	initializeDropsonde(logger)
 
+	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 	bbs := initializeBbs(logger)
 
 	cf_debug_server.Run()
@@ -119,10 +127,10 @@ func main() {
 	natsClient := diegonats.NewClient()
 	natsClientRunner := diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)
 	listener := listen.Listen{
-		NATSClient:    natsClient,
-		BBS:           bbs,
-		Logger:        logger,
-		RecipeBuilder: recipeBuilder,
+		NATSClient:     natsClient,
+		ReceptorClient: diegoAPIClient,
+		Logger:         logger,
+		RecipeBuilder:  recipeBuilder,
 	}
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{

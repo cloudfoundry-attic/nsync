@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -24,6 +25,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 		natsClient    diegonats.NATSClient
 		bbs           *Bbs.BBS
 
+		receptorProcess ifrit.Process
+
 		runner  ifrit.Runner
 		process ifrit.Process
 	)
@@ -36,6 +39,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 		ginkgomon.Kill(gnatsdProcess)
 	}
 
+	startReceptor := func() ifrit.Process {
+		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
+			Address:                  fmt.Sprintf("127.0.0.1:%d", receptorPort),
+			EtcdCluster:              strings.Join(etcdRunner.NodeURLS(), ","),
+			InitialHeartbeatInterval: 1 * time.Second,
+		}))
+	}
+
 	newNSyncRunner := func() *ginkgomon.Runner {
 		return ginkgomon.New(ginkgomon.Config{
 			Name:          "nsync",
@@ -44,6 +55,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Command: exec.Command(
 				listenerPath,
 				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
+				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
 				"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
 				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 				"-dockerCircusPath", "the/docker/circus/path.tgz",
@@ -56,7 +68,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
+		receptorProcess = startReceptor()
 		runner = newNSyncRunner()
+	})
+
+	AfterEach(func() {
+		ginkgomon.Interrupt(receptorProcess)
 	})
 
 	var publishDesireWithInstances = func(nInstances int) {

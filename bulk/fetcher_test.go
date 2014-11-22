@@ -97,14 +97,14 @@ var _ = Describe("Fetcher", func() {
 				),
 			)
 
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: time.Second}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
 
-			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(&cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-1",
 				NumInstances:    2,
 				Stack:           "stack-1",
@@ -121,7 +121,7 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-1",
 			})))
 
-			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(&cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-2",
 				NumInstances:    4,
 				Stack:           "stack-2",
@@ -138,7 +138,7 @@ var _ = Describe("Fetcher", func() {
 				LogGuid: "log-guid-2",
 			})))
 
-			Ω(results).Should(Receive(Equal(cc_messages.DesireAppRequestFromCC{
+			Ω(results).Should(Receive(Equal(&cc_messages.DesireAppRequestFromCC{
 				ProcessGuid:     "process-guid-3",
 				NumInstances:    4,
 				Stack:           "stack-3",
@@ -185,14 +185,14 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: ccResponseTime / 2}
 			err := fetcher.Fetch(results, httpClient)
 			Ω(err).Should(HaveOccurred())
 		})
 
 		It("closes the results channel", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			httpClient := &http.Client{Timeout: ccResponseTime / 2}
 			go fetcher.Fetch(results, httpClient)
 			Eventually(results).Should(BeClosed())
@@ -205,13 +205,13 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
 
 		It("closes the results channel", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			go fetcher.Fetch(results, http.DefaultClient)
 			Eventually(results).Should(BeClosed())
 		})
@@ -223,13 +223,13 @@ var _ = Describe("Fetcher", func() {
 		})
 
 		It("returns an error", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			err := fetcher.Fetch(results, http.DefaultClient)
 			Ω(err).Should(HaveOccurred())
 		})
 
 		It("closes the results channel", func() {
-			results := make(chan cc_messages.DesireAppRequestFromCC, 3)
+			results := make(chan *cc_messages.DesireAppRequestFromCC, 3)
 			go fetcher.Fetch(results, http.DefaultClient)
 			Eventually(results).Should(BeClosed())
 		})

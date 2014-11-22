@@ -1,19 +1,22 @@
 package bulk
 
 import (
-	"reflect"
-
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
 type Differ interface {
-	Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange
+	Diff(
+		existing []receptor.DesiredLRPResponse,
+		desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
+		lrpChan chan<- *receptor.DesiredLRPCreateRequest,
+		deleteListChan chan<- []string,
+	)
 }
 
 type RecipeBuilder interface {
-	Build(cc_messages.DesireAppRequestFromCC) (models.DesiredLRP, error)
+	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
 }
 
 type differ struct {
@@ -28,48 +31,50 @@ func NewDiffer(builder RecipeBuilder, logger lager.Logger) Differ {
 	}
 }
 
-func (d *differ) Diff(existing []models.DesiredLRP, newChan <-chan cc_messages.DesireAppRequestFromCC) []models.DesiredLRPChange {
+func (d *differ) Diff(
+	existing []receptor.DesiredLRPResponse,
+	desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
+	lrpChan chan<- *receptor.DesiredLRPCreateRequest,
+	deleteListChan chan<- []string,
+) {
+	defer close(deleteListChan)
+
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
 	diffLog := d.logger.Session("diff")
 
-	changes := []models.DesiredLRPChange{}
-
-	for fromCC := range newChan {
-		change := d.changeForDesiredLRP(diffLog, existingLRPs, fromCC)
+	for fromCC := range desiredChan {
+		createReq := d.createDesiredLRPRequest(diffLog, fromCC)
+		if createReq != nil {
+			lrpChan <- createReq
+		}
 
 		delete(existingLRPs, fromCC.ProcessGuid)
-
-		if change != nil {
-			changes = append(changes, *change)
-		}
 	}
 
-	for _, lrp := range existingLRPs {
-		deletedLRP := lrp
+	close(lrpChan)
 
+	deleteList := []string{}
+	for _, lrp := range existingLRPs {
 		diffLog.Info("found-extra-desired-lrp", lager.Data{
 			"guid": lrp.ProcessGuid,
 		})
-
-		changes = append(changes, models.DesiredLRPChange{Before: &deletedLRP})
+		deleteList = append(deleteList, lrp.ProcessGuid)
 	}
-
-	return changes
+	deleteListChan <- deleteList
 }
 
-func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]models.DesiredLRP, fromCC cc_messages.DesireAppRequestFromCC) *models.DesiredLRPChange {
-	var beforeLRP *models.DesiredLRP
+func (d *differ) createDesiredLRPRequest(
+	logger lager.Logger,
+	fromCC *cc_messages.DesireAppRequestFromCC,
+) *receptor.DesiredLRPCreateRequest {
+	var createReq *receptor.DesiredLRPCreateRequest
 
-	if existingLRP, ok := existing[fromCC.ProcessGuid]; ok {
-		if isInSync(existingLRP, fromCC) {
-			return nil
-		} else {
-			beforeLRP = &existingLRP
-		}
-	}
+	logger.Info("found-missing-desired-lrp", lager.Data{
+		"guid": fromCC.ProcessGuid,
+	})
 
-	desiredLRP, err := d.builder.Build(fromCC)
+	createReq, err := d.builder.Build(fromCC)
 	if err != nil {
 		logger.Error("failed-to-build-recipe", err, lager.Data{
 			"desired-by-cc": fromCC,
@@ -78,44 +83,15 @@ func (d *differ) changeForDesiredLRP(logger lager.Logger, existing map[string]mo
 		return nil
 	}
 
-	if beforeLRP == nil {
-		logger.Info("found-missing-desired-lrp", lager.Data{
-			"guid": fromCC.ProcessGuid,
-		})
-	} else {
-		logger.Info("found-out-of-sync-desired-lrp", lager.Data{
-			"guid": fromCC.ProcessGuid,
-		})
-	}
-
-	return &models.DesiredLRPChange{
-		Before: beforeLRP,
-		After:  &desiredLRP,
-	}
+	return createReq
 }
 
-func isInSync(existingLRP models.DesiredLRP, fromCC cc_messages.DesireAppRequestFromCC) bool {
-	routesA := map[string]bool{}
-	routesB := map[string]bool{}
-
-	for _, r := range existingLRP.Routes {
-		routesA[r] = true
+func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
+	result := make(map[string]*receptor.DesiredLRPResponse)
+	for _, l := range list {
+		lrp := l
+		result[lrp.ProcessGuid] = &lrp
 	}
 
-	for _, r := range existingLRP.Routes {
-		routesB[r] = true
-	}
-
-	// we only really keep the # instances and total routes in sync with the desired state.
-	// everything else should result in the app version changing, and thus a whole new process guid.
-	return fromCC.NumInstances == existingLRP.Instances &&
-		reflect.DeepEqual(routesA, routesB)
-}
-
-func organizeLRPsByProcessGuid(list []models.DesiredLRP) map[string]models.DesiredLRP {
-	result := make(map[string]models.DesiredLRP)
-	for _, lrp := range list {
-		result[lrp.ProcessGuid] = lrp
-	}
 	return result
 }
