@@ -17,7 +17,7 @@ import (
 const (
 	DesireAppTopic       = "diego.desire.app"
 	DesireDockerAppTopic = "diego.docker.desire.app"
-	KillIndexTopic       = "diego.kill.index"
+	KillIndexTopic       = "diego.stop.index"
 
 	desiredLRPCounter = metric.Counter("LRPsDesired")
 )
@@ -100,7 +100,7 @@ func (listen Listen) killIndex(msg cc_messages.KillIndexRequestFromCC) {
 		listen.Logger.Error("request-stop-index-failed", err)
 		return
 	}
-	listen.Logger.Debug("requested-stop-index", lager.Data{
+	listen.Logger.Info("requested-stop-index", lager.Data{
 		"process_guid": msg.ProcessGuid,
 		"index":        msg.Index,
 	})

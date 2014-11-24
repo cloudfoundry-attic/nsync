@@ -104,7 +104,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	var publishKillIndex = func(processGuid string, index int) {
-		err := natsClient.Publish("diego.kill.index", []byte(fmt.Sprintf(`
+		err := natsClient.Publish("diego.stop.index", []byte(fmt.Sprintf(`
       {
         "process_guid": "%s",
         "index": %d
@@ -153,7 +153,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				})
 			})
 
-			Describe("and a 'diego.kill.index' message is recieved", func() {
+			Describe("and message to stop a particular index is recieved", func() {
 				var processGuid = "process-guid"
 
 				BeforeEach(func() {

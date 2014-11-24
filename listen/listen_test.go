@@ -22,6 +22,12 @@ import (
 	"github.com/onsi/gomega/gbytes"
 )
 
+const (
+	stopIndexTopic       = "diego.stop.index"
+	desireAppTopic       = "diego.desire.app"
+	desireDockerAppTopic = "diego.docker.desire.app"
+)
+
 var _ = Describe("Listen", func() {
 	var (
 		builder            *fakes.FakeRecipeBuilder
@@ -78,12 +84,12 @@ var _ = Describe("Listen", func() {
 		Eventually(process.Wait()).Should(Receive())
 	})
 
-	Describe("when a 'diego.desire.app' message is received", func() {
+	Describe("when a desire app message is received", func() {
 		JustBeforeEach(func() {
 			messagePayload, err := json.Marshal(desireAppRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			fakenats.Publish("diego.desire.app", messagePayload)
+			fakenats.Publish(desireAppTopic, messagePayload)
 		})
 
 		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
@@ -142,14 +148,14 @@ var _ = Describe("Listen", func() {
 		})
 	})
 
-	Describe("when a 'diego.docker.desire.app' message is received", func() {
+	Describe("when a message desiring a docker app is received", func() {
 
 		JustBeforeEach(func() {
 			desireAppRequest.DockerImageUrl = "https:///docker.com/docker"
 			messagePayload, err := json.Marshal(desireAppRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			fakenats.Publish("diego.docker.desire.app", messagePayload)
+			fakenats.Publish(desireDockerAppTopic, messagePayload)
 		})
 
 		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
@@ -175,9 +181,9 @@ var _ = Describe("Listen", func() {
 		})
 	})
 
-	Describe("when a invalid 'diego.desire.app' message is received", func() {
+	Describe("when an invalid desire app message is received", func() {
 		BeforeEach(func() {
-			fakenats.Publish("diego.desire.app", []byte(`
+			fakenats.Publish(desireAppTopic, []byte(`
         {
           "some_random_key": "does not matter"
       `))
@@ -192,7 +198,7 @@ var _ = Describe("Listen", func() {
 		})
 	})
 
-	Describe("when a 'diego.kill.index' message is received", func() {
+	Describe("when a stop index message is received", func() {
 		var killIndexRequest cc_messages.KillIndexRequestFromCC
 
 		JustBeforeEach(func() {
@@ -203,7 +209,7 @@ var _ = Describe("Listen", func() {
 			messagePayload, err := json.Marshal(killIndexRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			fakenats.Publish("diego.kill.index", messagePayload)
+			fakenats.Publish(stopIndexTopic, messagePayload)
 		})
 
 		It("makes stop requests for those instances", func() {
