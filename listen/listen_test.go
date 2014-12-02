@@ -126,7 +126,7 @@ var _ = Describe("Listen", func() {
 				desireAppRequest.NumInstances = 0
 			})
 
-			It("deletes the desired LRP from BBS", func() {
+			It("deletes the desired LRP", func() {
 				Eventually(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 				Ω(fakeReceptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("some-guid"))
 			})
@@ -142,7 +142,7 @@ var _ = Describe("Listen", func() {
 				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("oh no!"))
 			})
 
-			It("does not put a desired LRP into the BBS", func() {
+			It("does not desire the LRP", func() {
 				Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 			})
 		})
@@ -173,7 +173,7 @@ var _ = Describe("Listen", func() {
 			builder.BuildReturns(&newlyDesiredLRP, nil)
 		})
 
-		It("marks the LRP desired in the bbs", func() {
+		It("desires the LRP", func() {
 			Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 
 			Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
@@ -193,7 +193,7 @@ var _ = Describe("Listen", func() {
 			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("parse-nats-message-failed"))
 		})
 
-		It("does not put a desired LRP into the BBS", func() {
+		It("does not desire the LRP", func() {
 			Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 		})
 	})
