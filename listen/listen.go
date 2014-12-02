@@ -7,10 +7,10 @@ import (
 
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/bbserrors"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry/gunk/diegonats"
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -137,7 +137,7 @@ func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFrom
 
 	if desireAppMessage.NumInstances == 0 {
 		err := listen.ReceptorClient.DeleteDesiredLRP(desireAppMessage.ProcessGuid)
-		if err == storeadapter.ErrorKeyNotFound {
+		if err == bbserrors.ErrStoreResourceNotFound {
 			requestLogger.Info("lrp-already-deleted")
 			return
 		}
