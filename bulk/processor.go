@@ -77,7 +77,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (p *Processor) sync(signals <-chan os.Signal) bool {
-	start := p.timeProvider.Time()
+	start := p.timeProvider.Now()
 	duration := time.Duration(0)
 	defer func() {
 		syncDesiredLRPsDuration.Send(duration)
@@ -187,6 +187,6 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 		processLog.Error("failed-to-bump-freshness", err)
 	}
 
-	duration = p.timeProvider.Time().Sub(start)
+	duration = p.timeProvider.Now().Sub(start)
 	return false
 }
