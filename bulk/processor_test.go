@@ -124,7 +124,7 @@ var _ = Describe("Processor", func() {
 		It("emits the total time taken to talk to CC and then updated desired state", func() {
 			Eventually(receptorClient.BumpFreshDomainCallCount, 5).Should(Equal(1))
 
-			Ω(metricSender.GetValue("DesiredLRPSyncDuration")).Should(Equal(fake.Metric{
+			Eventually(func() fake.Metric { return metricSender.GetValue("DesiredLRPSyncDuration") }).Should(Equal(fake.Metric{
 				Value: float64(syncDuration),
 				Unit:  "nanos",
 			}))
