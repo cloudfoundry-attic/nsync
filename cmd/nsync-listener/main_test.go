@@ -93,26 +93,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 	}
 
-	var createRunningInstance = func(processGuid, instanceGuid string, index int) {
-		err := bbs.ReportActualLRPAsRunning(models.ActualLRP{
-			ProcessGuid:  processGuid,
-			InstanceGuid: instanceGuid,
-			Domain:       "domain",
-			Index:        index,
-		}, "cell-0")
-		Ω(err).ShouldNot(HaveOccurred())
-	}
-
-	var publishKillIndex = func(processGuid string, index int) {
-		err := natsClient.Publish("diego.stop.index", []byte(fmt.Sprintf(`
-      {
-        "process_guid": "%s",
-        "index": %d
-      }
-    `, processGuid, index)))
-		Ω(err).ShouldNot(HaveOccurred())
-	}
-
 	Context("when NATS is up", func() {
 		BeforeEach(func() {
 			startNATS()
@@ -150,34 +130,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 					It("should remove the desired state from etcd", func() {
 						Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
 					})
-				})
-			})
-
-			Describe("and message to stop a particular index is recieved", func() {
-				var processGuid = "process-guid"
-
-				BeforeEach(func() {
-					createRunningInstance(processGuid, "instance-0", 0)
-					createRunningInstance(processGuid, "instance-1", 1)
-					createRunningInstance(processGuid, "instance-2", 1)
-					publishKillIndex(processGuid, 1)
-				})
-
-				It("requests instances at the correct index are stopped", func() {
-					Eventually(bbs.StopLRPInstances).Should(HaveLen(2))
-
-					Ω(bbs.StopLRPInstances()).Should(ConsistOf(
-						models.StopLRPInstance{
-							ProcessGuid:  processGuid,
-							InstanceGuid: "instance-1",
-							Index:        1,
-						},
-						models.StopLRPInstance{
-							ProcessGuid:  processGuid,
-							InstanceGuid: "instance-2",
-							Index:        1,
-						},
-					))
 				})
 			})
 
