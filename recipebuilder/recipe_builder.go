@@ -9,7 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	SchemaRouter "github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
@@ -156,12 +156,12 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 }
 
 func (b RecipeBuilder) circusDownloadURL(circusPath string, fileServerURL string) string {
-	staticRoute, ok := SchemaRouter.NewFileServerRoutes().RouteForHandler(SchemaRouter.FS_STATIC)
-	if !ok {
-		panic("couldn't generate the download path for the bundle of app lifecycle binaries")
+	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	if err != nil {
+		panic("couldn't generate the download path for the bundle of app lifecycle binaries: " + err.Error())
 	}
 
-	return urljoiner.Join(fileServerURL, staticRoute.Path, circusPath)
+	return urljoiner.Join(fileServerURL, staticPath, circusPath)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {
