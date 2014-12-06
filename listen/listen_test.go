@@ -213,9 +213,9 @@ var _ = Describe("Listen", func() {
 		})
 
 		It("makes stop requests for those instances", func() {
-			Eventually(fakeReceptorClient.KillActualLRPsByProcessGuidAndIndexCallCount).Should(Equal(1))
+			Eventually(fakeReceptorClient.KillActualLRPByProcessGuidAndIndexCallCount).Should(Equal(1))
 
-			processGuid, stopIndex := fakeReceptorClient.KillActualLRPsByProcessGuidAndIndexArgsForCall(0)
+			processGuid, stopIndex := fakeReceptorClient.KillActualLRPByProcessGuidAndIndexArgsForCall(0)
 			Ω(processGuid).Should(Equal(killIndexRequest.ProcessGuid))
 			Ω(stopIndex).Should(Equal(killIndexRequest.Index))
 		})

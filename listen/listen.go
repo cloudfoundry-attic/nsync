@@ -95,7 +95,7 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 }
 
 func (listen Listen) killIndex(msg cc_messages.KillIndexRequestFromCC) {
-	err := listen.ReceptorClient.KillActualLRPsByProcessGuidAndIndex(msg.ProcessGuid, msg.Index)
+	err := listen.ReceptorClient.KillActualLRPByProcessGuidAndIndex(msg.ProcessGuid, msg.Index)
 	if err != nil {
 		listen.Logger.Error("request-stop-index-failed", err)
 		return
