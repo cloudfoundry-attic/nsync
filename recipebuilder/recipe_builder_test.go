@@ -46,6 +46,7 @@ var _ = Describe("Recipe Builder", func() {
 			NumInstances:    23,
 			Routes:          []string{"route1", "route2"},
 			LogGuid:         "the-log-id",
+			HealthCheckType: cc_messages.PortHealthCheckType,
 		}
 	})
 
@@ -156,6 +157,28 @@ var _ = Describe("Recipe Builder", func() {
 				Name:  "VCAP_APP_HOST",
 				Value: "0.0.0.0",
 			}))
+		})
+
+		Context("when the 'none' health check is specified", func() {
+			BeforeEach(func() {
+				desiredAppReq.HealthCheckType = cc_messages.NoneHealthCheckType
+			})
+
+			It("does not populate the monitor action", func() {
+				Ω(desiredLRP.Monitor).Should(BeNil())
+			})
+
+			It("does not download the circus", func() {
+				downloadDestinations := []string{}
+				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
+					switch a := action.(type) {
+					case *models.DownloadAction:
+						downloadDestinations = append(downloadDestinations, a.To)
+					}
+				}
+
+				Ω(downloadDestinations).ShouldNot(ContainElement("/tmp/circus"))
+			})
 		})
 	})
 

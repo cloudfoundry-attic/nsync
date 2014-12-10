@@ -91,10 +91,18 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	var setup []models.Action
 	var action, monitor models.Action
 
-	setup = append(setup, &models.DownloadAction{
-		From: circusURL,
-		To:   "/tmp/circus",
-	})
+	if desiredApp.HealthCheckType == cc_messages.PortHealthCheckType {
+		setup = append(setup, &models.DownloadAction{
+			From: circusURL,
+			To:   "/tmp/circus",
+		})
+
+		monitor = &models.RunAction{
+			Path:      "/tmp/circus/spy",
+			Args:      []string{"-addr=:8080"},
+			LogSource: HealthLogSource,
+		}
+	}
 
 	if desiredApp.DropletUri != "" {
 		setup = append(setup, &models.DownloadAction{
@@ -116,12 +124,6 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		ResourceLimits: models.ResourceLimits{
 			Nofile: numFiles,
 		},
-	}
-
-	monitor = &models.RunAction{
-		Path:      "/tmp/circus/spy",
-		Args:      []string{"-addr=:8080"},
-		LogSource: HealthLogSource,
 	}
 
 	setupAction := models.Serial(setup...)
