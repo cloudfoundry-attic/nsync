@@ -159,6 +159,33 @@ var _ = Describe("Recipe Builder", func() {
 			}))
 		})
 
+		Context("when no health check is specified", func() {
+			BeforeEach(func() {
+				desiredAppReq.HealthCheckType = cc_messages.UnspecifiedHealthCheckType
+			})
+
+			It("sets up the port check for backwards compatibility", func() {
+				downloadDestinations := []string{}
+				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
+					switch a := action.(type) {
+					case *models.DownloadAction:
+						downloadDestinations = append(downloadDestinations, a.To)
+					}
+				}
+
+				Ω(downloadDestinations).Should(ContainElement("/tmp/circus"))
+
+				monitorAction, ok := desiredLRP.Monitor.(*models.RunAction)
+				Ω(ok).Should(BeTrue())
+
+				Ω(monitorAction).Should(Equal(&models.RunAction{
+					Path:      "/tmp/circus/spy",
+					Args:      []string{"-addr=:8080"},
+					LogSource: HealthLogSource,
+				}))
+			})
+		})
+
 		Context("when the 'none' health check is specified", func() {
 			BeforeEach(func() {
 				desiredAppReq.HealthCheckType = cc_messages.NoneHealthCheckType

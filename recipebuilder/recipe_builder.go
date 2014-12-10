@@ -91,7 +91,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	var setup []models.Action
 	var action, monitor models.Action
 
-	if desiredApp.HealthCheckType == cc_messages.PortHealthCheckType {
+	switch desiredApp.HealthCheckType {
+	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
 		setup = append(setup, &models.DownloadAction{
 			From: circusURL,
 			To:   "/tmp/circus",
