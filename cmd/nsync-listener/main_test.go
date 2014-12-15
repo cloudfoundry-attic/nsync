@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -29,6 +30,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		runner  ifrit.Runner
 		process ifrit.Process
+
+		etcdAdapter storeadapter.StoreAdapter
 	)
 
 	startNATS := func() {
@@ -67,12 +70,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
+		etcdAdapter = etcdRunner.Adapter()
+		bbs = Bbs.NewBBS(etcdAdapter, timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 		receptorProcess = startReceptor()
 		runner = newNSyncRunner()
 	})
 
 	AfterEach(func() {
+		etcdAdapter.Disconnect()
 		ginkgomon.Interrupt(receptorProcess)
 	})
 
