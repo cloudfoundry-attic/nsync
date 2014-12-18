@@ -92,7 +92,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	itIsNotFresh := func() {
 		It("is not fresh", func() {
-			Eventually(checkFreshness, 2*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
+			Eventually(checkFreshness, 5*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
