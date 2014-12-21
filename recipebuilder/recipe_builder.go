@@ -164,13 +164,12 @@ func (b RecipeBuilder) circusDownloadURL(circusPath string, fileServerURL string
 		panic("couldn't generate the download path for the bundle of app lifecycle binaries: " + err.Error())
 	}
 
+
 	return urljoiner.Join(fileServerURL, staticPath, circusPath)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {
 	env = append(env, models.EnvironmentVariable{Name: "PORT", Value: "8080"})
-	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_PORT", Value: "8080"})
-	env = append(env, models.EnvironmentVariable{Name: "VCAP_APP_HOST", Value: "0.0.0.0"})
 	return env
 }
 

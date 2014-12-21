@@ -23,7 +23,7 @@ type Processor struct {
 	receptorClient  receptor.Client
 	pollingInterval time.Duration
 	ccFetchTimeout  time.Duration
-	freshnessTTL    time.Duration
+	domainTTL       time.Duration
 	bulkBatchSize   uint
 	skipCertVerify  bool
 	logger          lager.Logger
@@ -36,7 +36,7 @@ func NewProcessor(
 	receptorClient receptor.Client,
 	pollingInterval time.Duration,
 	ccFetchTimeout time.Duration,
-	freshnessTTL time.Duration,
+	domainTTL time.Duration,
 	bulkBatchSize uint,
 	skipCertVerify bool,
 	logger lager.Logger,
@@ -48,7 +48,7 @@ func NewProcessor(
 		receptorClient:  receptorClient,
 		pollingInterval: pollingInterval,
 		ccFetchTimeout:  ccFetchTimeout,
-		freshnessTTL:    freshnessTTL,
+		domainTTL:       domainTTL,
 		bulkBatchSize:   bulkBatchSize,
 		skipCertVerify:  skipCertVerify,
 		logger:          logger,
@@ -177,14 +177,9 @@ func (p *Processor) sync(signals <-chan os.Signal) bool {
 		}
 	}
 
-	freshness := receptor.FreshDomainBumpRequest{
-		Domain:       recipebuilder.LRPDomain,
-		TTLInSeconds: int(p.freshnessTTL.Seconds()),
-	}
-
-	err = p.receptorClient.BumpFreshDomain(freshness)
+	err = p.receptorClient.UpsertDomain(recipebuilder.LRPDomain, p.domainTTL)
 	if err != nil {
-		processLog.Error("failed-to-bump-freshness", err)
+		processLog.Error("failed-to-upsert-domain", err)
 	}
 
 	duration = p.timeProvider.Now().Sub(start)

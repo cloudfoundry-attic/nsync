@@ -75,10 +75,10 @@ var pollingInterval = flag.Duration(
 	"interval at which to poll bulk API",
 )
 
-var freshnessTTL = flag.Duration(
-	"freshnessTTL",
+var domainTTL = flag.Duration(
+	"domainTTL",
 	2*time.Minute,
-	"duration of the freshness of the desired state; bumped on every bulk sync",
+	"duration of the domain; bumped on every bulk sync",
 )
 
 var bulkBatchSize = flag.Uint(
@@ -157,7 +157,7 @@ func main() {
 		diegoAPIClient,
 		*pollingInterval,
 		*ccFetchTimeout,
-		*freshnessTTL,
+		*domainTTL,
 		*bulkBatchSize,
 		*skipCertVerify,
 		logger,

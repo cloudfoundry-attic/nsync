@@ -147,16 +147,6 @@ var _ = Describe("Recipe Builder", func() {
 				Name:  "PORT",
 				Value: "8080",
 			}))
-
-			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-				Name:  "VCAP_APP_PORT",
-				Value: "8080",
-			}))
-
-			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
-				Name:  "VCAP_APP_HOST",
-				Value: "0.0.0.0",
-			}))
 		})
 
 		Context("when no health check is specified", func() {

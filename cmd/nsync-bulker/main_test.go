@@ -35,7 +35,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		receptorProcess ifrit.Process
 		process         ifrit.Process
 
-		freshnessTTL time.Duration
+		domainTTL time.Duration
 
 		bulkerLockName    = "nsync_bulker_lock"
 		pollingInterval   time.Duration
@@ -60,7 +60,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 				"-ccBaseURL", fakeCC.URL(),
 				"-pollingInterval", pollingInterval.String(),
-				"-freshnessTTL", freshnessTTL.String(),
+				"-domainTTL", domainTTL.String(),
 				"-bulkBatchSize", "10",
 				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
 				"-dockerCircusPath", "the/docker/circus/path.tgz",
@@ -77,22 +77,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 		return ginkgomon.Invoke(runner)
 	}
 
-	checkFreshness := func() []string {
-		freshnesses, err := bbs.Freshnesses()
+	checkDomains := func() []string {
+		domains, err := bbs.Domains()
 		Ω(err).ShouldNot(HaveOccurred())
-
-		domains := make([]string, 0, len(freshnesses))
-
-		for _, freshness := range freshnesses {
-			domains = append(domains, freshness.Domain)
-		}
 
 		return domains
 	}
 
-	itIsNotFresh := func() {
-		It("is not fresh", func() {
-			Eventually(checkFreshness, 5*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
+	itIsMissingDomain := func() {
+		It("is missing domain", func() {
+			Eventually(checkDomains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
@@ -105,7 +99,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		receptorClient = receptor.NewClient(fmt.Sprintf("http://127.0.0.1:%d", receptorPort))
 
 		pollingInterval = 500 * time.Millisecond
-		freshnessTTL = 1 * time.Second
+		domainTTL = 1 * time.Second
 		heartbeatInterval = 30 * time.Second
 
 		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
@@ -304,8 +298,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							{Name: "env-key-1", Value: "env-value-1"},
 							{Name: "env-key-2", Value: "env-value-2"},
 							{Name: "PORT", Value: "8080"},
-							{Name: "VCAP_APP_PORT", Value: "8080"},
-							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
@@ -340,8 +332,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 							{Name: "env-key-1", Value: "env-value-1"},
 							{Name: "env-key-2", Value: "env-value-2"},
 							{Name: "PORT", Value: "8080"},
-							{Name: "VCAP_APP_PORT", Value: "8080"},
-							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
@@ -374,8 +364,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Args: []string{"/app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
 							{Name: "PORT", Value: "8080"},
-							{Name: "VCAP_APP_PORT", Value: "8080"},
-							{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
@@ -397,18 +385,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}))
 			})
 
-			Describe("the freshness", func() {
+			Describe("domains", func() {
 				Context("when cc is available", func() {
-					It("bumps the freshness", func() {
-						Eventually(checkFreshness).Should(ContainElement("cf-apps"))
+					It("updates the domains", func() {
+						Eventually(checkDomains).Should(ContainElement("cf-apps"))
 					})
 				})
 
 				Context("when cc stops being available", func() {
-					It("stops bumping the freshness", func() {
-						Eventually(checkFreshness).Should(ContainElement("cf-apps"))
+					It("stops updating the domains", func() {
+						Eventually(checkDomains).Should(ContainElement("cf-apps"))
 						fakeCC.HTTPTestServer.Close()
-						Eventually(checkFreshness, 2*freshnessTTL).ShouldNot(ContainElement("cf-apps"))
+						Eventually(checkDomains, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
 					})
 				})
 			})
@@ -451,7 +439,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
+			Eventually(checkDomains, 2*domainTTL).Should(ContainElement("cf-apps"))
 
 			err := etcdClient.Update(storeadapter.StoreNode{
 				Key:   shared.LockSchemaPath(bulkerLockName),
@@ -464,10 +452,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 			ginkgomon.Interrupt(process)
 		})
 
-		itIsNotFresh()
+		itIsMissingDomain()
 
 		It("exits with an error", func() {
-			Eventually(process.Wait(), 2*freshnessTTL).Should(Receive(HaveOccurred()))
+			Eventually(process.Wait(), 2*domainTTL).Should(Receive(HaveOccurred()))
 		})
 	})
 
@@ -490,7 +478,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			ginkgomon.Interrupt(process)
 		})
 
-		itIsNotFresh()
+		itIsMissingDomain()
 
 		Context("when the lock becomes available", func() {
 			BeforeEach(func() {
@@ -500,8 +488,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				time.Sleep(pollingInterval + 10*time.Millisecond)
 			})
 
-			It("is fresh", func() {
-				Eventually(checkFreshness, 2*freshnessTTL).Should(ContainElement("cf-apps"))
+			It("is updated", func() {
+				Eventually(checkDomains, 2*domainTTL).Should(ContainElement("cf-apps"))
 			})
 		})
 	})

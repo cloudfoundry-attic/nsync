@@ -62,7 +62,7 @@ var _ = Describe("Processor", func() {
 
 		receptorClient = new(fake_receptor.FakeClient)
 
-		receptorClient.BumpFreshDomainStub = func(receptor.FreshDomainBumpRequest) error {
+		receptorClient.UpsertDomainStub = func(string, time.Duration) error {
 			timeProvider.Increment(syncDuration)
 			return nil
 		}
@@ -116,13 +116,13 @@ var _ = Describe("Processor", func() {
 			Consistently(differ.DiffCallCount).Should(Equal(0))
 			Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
-			Consistently(receptorClient.BumpFreshDomainCallCount).Should(Equal(0))
+			Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
 		})
 	})
 
 	Context("when fetching succeeds", func() {
 		It("emits the total time taken to talk to CC and then updated desired state", func() {
-			Eventually(receptorClient.BumpFreshDomainCallCount, 5).Should(Equal(1))
+			Eventually(receptorClient.UpsertDomainCallCount, 5).Should(Equal(1))
 
 			Eventually(func() fake.Metric { return metricSender.GetValue("DesiredLRPSyncDuration") }).Should(Equal(fake.Metric{
 				Value: float64(syncDuration),
@@ -157,19 +157,18 @@ var _ = Describe("Processor", func() {
 		})
 
 		Context("and the differ provides creates and deletes", func() {
-			It("sends them to the receptor and bumps the freshness", func() {
+			It("sends them to the receptor and updates the domain", func() {
 				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.BumpFreshDomainCallCount).Should(Equal(1))
+				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
 
 				Ω(receptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(receptor.DesiredLRPCreateRequest{}))
 
 				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("my-app-to-delete"))
 
-				Ω(receptorClient.BumpFreshDomainArgsForCall(0)).Should(Equal(receptor.FreshDomainBumpRequest{
-					Domain:       "cf-apps",
-					TTLInSeconds: 1,
-				}))
+				d, ttl := receptorClient.UpsertDomainArgsForCall(0)
+				Ω(d).Should(Equal("cf-apps"))
+				Ω(ttl).Should(Equal(1 * time.Second))
 			})
 
 			Context("and the create request fails", func() {
@@ -180,7 +179,7 @@ var _ = Describe("Processor", func() {
 				It("sends all the other updates", func() {
 					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.BumpFreshDomainCallCount).Should(Equal(1))
+					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
 				})
 			})
 
@@ -192,7 +191,7 @@ var _ = Describe("Processor", func() {
 				It("sends all the other updates", func() {
 					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.BumpFreshDomainCallCount).Should(Equal(1))
+					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
 				})
 			})
 		})
@@ -210,8 +209,8 @@ var _ = Describe("Processor", func() {
 			Consistently(process.Wait()).ShouldNot(Receive())
 		})
 
-		It("does not bump the freshness", func() {
-			Consistently(receptorClient.BumpFreshDomainCallCount).Should(Equal(0))
+		It("does not update the domain", func() {
+			Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
 		})
 
 		Context("and the differ provides creates, updates, and deletes", func() {
