@@ -185,7 +185,7 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.Monitor).Should(BeNil())
 			})
 
-			It("does not download the circus", func() {
+			It("still downloads the circus, since we need it for the soldier", func() {
 				downloadDestinations := []string{}
 				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
 					switch a := action.(type) {
@@ -194,7 +194,7 @@ var _ = Describe("Recipe Builder", func() {
 					}
 				}
 
-				Ω(downloadDestinations).ShouldNot(ContainElement("/tmp/circus"))
+				Ω(downloadDestinations).Should(ContainElement("/tmp/circus"))
 			})
 		})
 	})

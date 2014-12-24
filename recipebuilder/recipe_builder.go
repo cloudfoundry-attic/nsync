@@ -91,13 +91,13 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	var setup []models.Action
 	var action, monitor models.Action
 
+	setup = append(setup, &models.DownloadAction{
+		From: circusURL,
+		To:   "/tmp/circus",
+	})
+
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		setup = append(setup, &models.DownloadAction{
-			From: circusURL,
-			To:   "/tmp/circus",
-		})
-
 		monitor = &models.RunAction{
 			Path:      "/tmp/circus/spy",
 			Args:      []string{"-addr=:8080"},
@@ -163,7 +163,6 @@ func (b RecipeBuilder) circusDownloadURL(circusPath string, fileServerURL string
 	if err != nil {
 		panic("couldn't generate the download path for the bundle of app lifecycle binaries: " + err.Error())
 	}
-
 
 	return urljoiner.Join(fileServerURL, staticPath, circusPath)
 }
