@@ -22,7 +22,7 @@ const (
 	MaxCpuProxy = 8192
 
 	LRPLogSource    = "CELL"
-	AppLogSource    = "APP"
+	AppLogSource    = "App"
 	HealthLogSource = "HEALTH"
 )
 
