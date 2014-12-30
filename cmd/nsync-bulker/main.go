@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
@@ -63,10 +64,10 @@ var ccPassword = flag.String(
 	"basic auth password for CC bulk API",
 )
 
-var ccFetchTimeout = flag.Duration(
-	"ccFetchTimeout",
+var communicationTimeout = flag.Duration(
+	"communicationTimeout",
 	30*time.Second,
-	"how long to wait for completion of bulk app requests to CC",
+	"Timeout applied to all HTTP requests.",
 )
 
 var pollingInterval = flag.Duration(
@@ -121,6 +122,8 @@ func main() {
 	cf_lager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
+	cf_http.Initialize(*communicationTimeout)
+
 	logger := cf_lager.New("nsync-bulker")
 	initializeDropsonde(logger)
 
@@ -149,7 +152,6 @@ func main() {
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
 		*pollingInterval,
-		*ccFetchTimeout,
 		*domainTTL,
 		*bulkBatchSize,
 		*skipCertVerify,

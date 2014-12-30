@@ -123,7 +123,6 @@ var _ = Describe("Processor", func() {
 			receptorClient,
 			500*time.Millisecond,
 			time.Second,
-			time.Second,
 			10,
 			false,
 			lager.NewLogger("test"),

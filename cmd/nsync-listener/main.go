@@ -6,9 +6,11 @@ import (
 	"flag"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
@@ -81,6 +83,12 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var communicationTimeout = flag.Duration(
+	"communicationTimeout",
+	30*time.Second,
+	"Timeout applied to all HTTP requests.",
+)
+
 const (
 	dropsondeOrigin      = "nsync_listener"
 	dropsondeDestination = "localhost:3457"
@@ -91,6 +99,7 @@ func main() {
 	cf_lager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
+	cf_http.Initialize(*communicationTimeout)
 	logger := cf_lager.New("nsync-listener")
 
 	initializeDropsonde(logger)

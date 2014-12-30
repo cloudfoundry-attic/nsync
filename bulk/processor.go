@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -28,7 +29,6 @@ type RecipeBuilder interface {
 type Processor struct {
 	receptorClient  receptor.Client
 	pollingInterval time.Duration
-	ccFetchTimeout  time.Duration
 	domainTTL       time.Duration
 	bulkBatchSize   uint
 	skipCertVerify  bool
@@ -41,7 +41,6 @@ type Processor struct {
 func NewProcessor(
 	receptorClient receptor.Client,
 	pollingInterval time.Duration,
-	ccFetchTimeout time.Duration,
 	domainTTL time.Duration,
 	bulkBatchSize uint,
 	skipCertVerify bool,
@@ -53,7 +52,6 @@ func NewProcessor(
 	return &Processor{
 		receptorClient:  receptorClient,
 		pollingInterval: pollingInterval,
-		ccFetchTimeout:  ccFetchTimeout,
 		domainTTL:       domainTTL,
 		bulkBatchSize:   bulkBatchSize,
 		skipCertVerify:  skipCertVerify,
@@ -67,19 +65,17 @@ func NewProcessor(
 func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	close(ready)
 
-	httpClient := &http.Client{
-		Timeout: p.ccFetchTimeout,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout: 10 * time.Second,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: p.skipCertVerify,
-				MinVersion:         tls.VersionTLS10,
-			},
+	httpClient := cf_http.NewClient()
+	httpClient.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: p.skipCertVerify,
+			MinVersion:         tls.VersionTLS10,
 		},
 	}
 
