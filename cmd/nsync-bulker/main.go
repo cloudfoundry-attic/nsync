@@ -66,7 +66,7 @@ var ccPassword = flag.String(
 var ccFetchTimeout = flag.Duration(
 	"ccFetchTimeout",
 	30*time.Second,
-	"how long to wait for bulk app request to CC to respond",
+	"how long to wait for completion of bulk app requests to CC",
 )
 
 var pollingInterval = flag.Duration(
@@ -111,16 +111,9 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
-var dropsondeOrigin = flag.String(
-	"dropsondeOrigin",
-	"nsync_bulker",
-	"Origin identifier for dropsonde-emitted metrics.",
-)
-
-var dropsondeDestination = flag.String(
-	"dropsondeDestination",
-	"localhost:3457",
-	"Destination for dropsonde-emitted metrics.",
+const (
+	dropsondeOrigin      = "nsync_bulker"
+	dropsondeDestination = "localhost:3457"
 )
 
 func main() {
@@ -193,7 +186,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
-	err := dropsonde.Initialize(*dropsondeDestination, *dropsondeOrigin)
+	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
 	}
