@@ -44,9 +44,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	startReceptor := func() ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:                  fmt.Sprintf("127.0.0.1:%d", receptorPort),
-			EtcdCluster:              strings.Join(etcdRunner.NodeURLS(), ","),
-			InitialHeartbeatInterval: 1 * time.Second,
+			Address:     fmt.Sprintf("127.0.0.1:%d", receptorPort),
+			EtcdCluster: strings.Join(etcdRunner.NodeURLS(), ","),
 		}))
 	}
 
