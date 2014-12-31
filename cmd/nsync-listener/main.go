@@ -105,8 +105,8 @@ func main() {
 
 	cf_debug_server.Run()
 
-	var circuseDownloadURLs map[string]string
-	err := json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
+	var circusDownloadURLs map[string]string
+	err := json.Unmarshal([]byte(*circuses), &circusDownloadURLs)
 
 	if *dockerCircusPath == "" {
 		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
@@ -116,7 +116,7 @@ func main() {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(circusDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {

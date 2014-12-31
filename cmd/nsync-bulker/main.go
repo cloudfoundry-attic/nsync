@@ -139,8 +139,8 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	var circuseDownloadURLs map[string]string
-	err = json.Unmarshal([]byte(*circuses), &circuseDownloadURLs)
+	var circusDownloadURLs map[string]string
+	err = json.Unmarshal([]byte(*circuses), &circusDownloadURLs)
 	if err != nil {
 		logger.Fatal("invalid-circus-mapping", err)
 	}
@@ -149,7 +149,7 @@ func main() {
 		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
 	}
 
-	recipeBuilder := recipebuilder.New(circuseDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(circusDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 
