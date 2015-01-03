@@ -87,6 +87,7 @@ const (
 )
 
 func main() {
+	cf_debug_server.AddFlags(flag.CommandLine)
 	flag.Parse()
 
 	logger := cf_lager.New("nsync-listener")
@@ -95,8 +96,6 @@ func main() {
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 	bbs := initializeBbs(logger)
-
-	cf_debug_server.Run()
 
 	var circusDownloadURLs map[string]string
 	err := json.Unmarshal([]byte(*circuses), &circusDownloadURLs)
@@ -126,11 +125,19 @@ func main() {
 		RecipeBuilder:  recipeBuilder,
 	}
 
-	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
+	members := grouper.Members{
 		{"nsyncLock", nsyncLock},
 		{"nats-client", natsClientRunner},
 		{"listener", listener},
-	})
+	}
+
+	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
+		members = append(grouper.Members{
+			{"debug-server", cf_debug_server.Runner(dbgAddr)},
+		}, members...)
+	}
+
+	group := grouper.NewOrdered(os.Interrupt, members)
 
 	logger.Info("waiting-for-lock")
 
