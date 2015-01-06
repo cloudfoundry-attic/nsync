@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
@@ -40,6 +41,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 		bulkerLockName    = "nsync_bulker_lock"
 		pollingInterval   time.Duration
 		heartbeatInterval time.Duration
+
+		logger lager.Logger
 	)
 
 	startReceptor := func() ifrit.Process {
@@ -90,7 +93,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 	}
 
 	BeforeEach(func() {
-		bbs = Bbs.NewBBS(etcdClient, timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
+		logger = lagertest.NewTestLogger("test")
+		bbs = Bbs.NewBBS(etcdClient, timeprovider.NewTimeProvider(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
@@ -415,7 +419,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 				}
 
-				err := bbs.DesireLRP(otherDomainDesired)
+				err := bbs.DesireLRP(logger, otherDomainDesired)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
