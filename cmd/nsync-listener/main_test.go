@@ -8,7 +8,6 @@ import (
 
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter"
@@ -139,9 +138,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Context("and a second nsync listener is started", func() {
 				var (
-					desiredLRPChanges <-chan models.DesiredLRPChange
-					stopWatching      chan<- bool
-
 					secondRunner  *ginkgomon.Runner
 					secondProcess ifrit.Process
 				)
@@ -151,15 +147,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					secondRunner.StartCheck = ""
 
 					secondProcess = ginkgomon.Invoke(secondRunner)
-
-					changes, stop, _ := bbs.WatchForDesiredLRPChanges()
-
-					desiredLRPChanges = changes
-					stopWatching = stop
 				})
 
 				AfterEach(func() {
-					close(stopWatching)
 					ginkgomon.Interrupt(secondProcess)
 				})
 
@@ -178,17 +168,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 						It("eventually becomes active", func() {
 							Eventually(secondRunner.Buffer, 5*time.Second).Should(gbytes.Say("nsync.listener.started"))
 						})
-					})
-				})
-
-				Context("and a 'diego.desire.app' message is received", func() {
-					BeforeEach(func() {
-						publishDesireWithInstances(3)
-					})
-
-					It("does not emit duplicate events", func() {
-						Eventually(desiredLRPChanges).Should(Receive())
-						Consistently(desiredLRPChanges).ShouldNot(Receive())
 					})
 				})
 			})
