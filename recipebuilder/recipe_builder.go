@@ -130,6 +130,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	setupAction := models.Serial(setup...)
 
 	return &receptor.DesiredLRPCreateRequest{
+		Privileged: true,
+
 		Domain: LRPDomain,
 
 		ProcessGuid: lrpGuid,

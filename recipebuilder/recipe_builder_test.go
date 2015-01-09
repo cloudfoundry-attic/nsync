@@ -96,6 +96,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))
 			Ω(desiredLRP.DiskMB).Should(Equal(512))
 			Ω(desiredLRP.Ports).Should(Equal([]uint32{8080}))
+			Ω(desiredLRP.Privileged).Should(BeTrue())
 
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal(recipebuilder.LRPLogSource))

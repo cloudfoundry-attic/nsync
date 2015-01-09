@@ -316,9 +316,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:    []string{"route-1", "route-2", "new-route"},
-					LogGuid:   "log-guid-1",
-					LogSource: recipebuilder.LRPLogSource,
+					Routes:     []string{"route-1", "route-2", "new-route"},
+					LogGuid:    "log-guid-1",
+					LogSource:  recipebuilder.LRPLogSource,
+					Privileged: true,
 				}))
 
 				nofile = 16
@@ -350,9 +351,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:    []string{"route-3", "route-4"},
-					LogGuid:   "log-guid-1",
-					LogSource: recipebuilder.LRPLogSource,
+					Routes:     []string{"route-3", "route-4"},
+					LogGuid:    "log-guid-1",
+					LogSource:  recipebuilder.LRPLogSource,
+					Privileged: true,
 				}))
 
 				nofile = 8
@@ -382,9 +384,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:    []string{},
-					LogGuid:   "log-guid-3",
-					LogSource: recipebuilder.LRPLogSource,
+					Routes:     []string{},
+					LogGuid:    "log-guid-3",
+					LogSource:  recipebuilder.LRPLogSource,
+					Privileged: true,
 				}))
 			})
 
