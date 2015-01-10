@@ -51,6 +51,8 @@ var _ = Describe("Recipe Builder", func() {
 
 			HealthCheckType:             cc_messages.PortHealthCheckType,
 			HealthCheckTimeoutInSeconds: 123456,
+
+			ETag: "etag-updated-at",
 		}
 	})
 
@@ -96,6 +98,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
 			Ω(desiredLRP.Instances).Should(Equal(23))
 			Ω(desiredLRP.Routes).Should(Equal([]string{"route1", "route2"}))
+			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
 			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))
 			Ω(desiredLRP.DiskMB).Should(Equal(512))

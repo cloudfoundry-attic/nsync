@@ -141,6 +141,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,
 		Routes:      desiredApp.Routes,
+		Annotation:  desiredApp.ETag,
 
 		CPUWeight: cpuWeight(desiredApp.MemoryMB),
 

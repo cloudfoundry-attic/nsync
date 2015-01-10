@@ -108,60 +108,79 @@ var _ = Describe("Syncing desired state with CC", func() {
 		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
 			ghttp.RespondWith(200, `{
 					"token": {},
-					"apps": [
-						{
-							"disk_mb": 1024,
-							"environment": [
-								{ "name": "env-key-1", "value": "env-value-1" },
-								{ "name": "env-key-2", "value": "env-value-2" }
-							],
-							"file_descriptors": 16,
-							"num_instances": 42,
-							"log_guid": "log-guid-1",
-							"memory_mb": 256,
-							"process_guid": "process-guid-1",
-							"routes": [ "route-1", "route-2", "new-route" ],
-							"droplet_uri": "source-url-1",
-							"stack": "some-stack",
-							"start_command": "start-command-1",
-							"execution_metadata": "execution-metadata-1",
-							"health_check_timeout_in_seconds": 123456
-						},
-						{
-							"disk_mb": 1024,
-							"environment": [
-								{ "name": "env-key-1", "value": "env-value-1" },
-								{ "name": "env-key-2", "value": "env-value-2" }
-							],
-							"file_descriptors": 16,
-							"num_instances": 4,
-							"log_guid": "log-guid-1",
-							"memory_mb": 256,
-							"process_guid": "process-guid-2",
-							"routes": [ "route-3", "route-4" ],
-							"droplet_uri": "source-url-1",
-							"stack": "some-stack",
-							"start_command": "start-command-1",
-							"execution_metadata": "execution-metadata-1",
-							"health_check_timeout_in_seconds": 123456
-						},
-						{
-							"disk_mb": 512,
-						  "environment": [],
-						  "file_descriptors": 8,
-						  "num_instances": 4,
-						  "log_guid": "log-guid-3",
-						  "memory_mb": 128,
-						  "process_guid": "process-guid-3",
-						  "routes": [],
-						  "droplet_uri": "source-url-3",
-						  "stack": "some-stack",
-						  "start_command": "start-command-3",
-						  "execution_metadata": "execution-metadata-3",
-						  "health_check_timeout_in_seconds": 123456
-						}
+					"fingerprints": [
+							{
+								"process_guid": "process-guid-1",
+								"etag": "1.1"
+							},
+							{
+								"process_guid": "process-guid-2",
+								"etag": "2.1"
+							},
+							{
+								"process_guid": "process-guid-3",
+								"etag": "3.1"
+							}
 					]
 				}`),
+		)
+		fakeCC.RouteToHandler("POST", "/internal/bulk/apps",
+			ghttp.RespondWith(200, `[
+				{
+					"disk_mb": 1024,
+					"environment": [
+						{ "name": "env-key-1", "value": "env-value-1" },
+						{ "name": "env-key-2", "value": "env-value-2" }
+					],
+					"file_descriptors": 16,
+					"num_instances": 42,
+					"log_guid": "log-guid-1",
+					"memory_mb": 256,
+					"process_guid": "process-guid-1",
+					"routes": [ "route-1", "route-2", "new-route" ],
+					"droplet_uri": "source-url-1",
+					"stack": "some-stack",
+					"start_command": "start-command-1",
+					"execution_metadata": "execution-metadata-1",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "1.1"
+				},
+				{
+					"disk_mb": 1024,
+					"environment": [
+						{ "name": "env-key-1", "value": "env-value-1" },
+						{ "name": "env-key-2", "value": "env-value-2" }
+					],
+					"file_descriptors": 16,
+					"num_instances": 4,
+					"log_guid": "log-guid-1",
+					"memory_mb": 256,
+					"process_guid": "process-guid-2",
+					"routes": [ "route-3", "route-4" ],
+					"droplet_uri": "source-url-1",
+					"stack": "some-stack",
+					"start_command": "start-command-1",
+					"execution_metadata": "execution-metadata-1",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "2.1"
+				},
+				{
+					"disk_mb": 512,
+					"environment": [],
+					"file_descriptors": 8,
+					"num_instances": 4,
+					"log_guid": "log-guid-3",
+					"memory_mb": 128,
+					"process_guid": "process-guid-3",
+					"routes": [],
+					"droplet_uri": "source-url-3",
+					"stack": "some-stack",
+					"start_command": "start-command-3",
+					"execution_metadata": "execution-metadata-3",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "3.1"
+				}
+			]`),
 		)
 	})
 
@@ -194,7 +213,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"stack": "some-stack",
 				"start_command": "start-command-1",
 				"execution_metadata": "execution-metadata-1",
-				"health_check_timeout_in_seconds": 123456
+				"health_check_timeout_in_seconds": 123456,
+				"etag": "old-etag-1"
 			}`), &existing1)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -214,7 +234,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"stack": "some-stack",
 				"start_command": "start-command-1",
 				"execution_metadata": "execution-metadata-1",
-				"health_check_timeout_in_seconds": 123456
+				"health_check_timeout_in_seconds": 123456,
+				"etag": "old-etag-2"
 			}`), &existing2)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -329,6 +350,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					LogGuid:    "log-guid-1",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,
+					Annotation: "1.1",
 				}))
 
 				nofile = 16
@@ -368,6 +390,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					LogGuid:    "log-guid-1",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,
+					Annotation: "2.1",
 				}))
 
 				nofile = 8
@@ -405,6 +428,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					LogGuid:    "log-guid-3",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,
+					Annotation: "3.1",
 				}))
 			})
 

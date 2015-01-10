@@ -156,11 +156,12 @@ func main() {
 		logger,
 		&bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,
-			BatchSize: *bulkBatchSize,
+			BatchSize: int(*bulkBatchSize),
 			Username:  *ccUsername,
 			Password:  *ccPassword,
 		},
-		bulk.NewDiffer(recipeBuilder, logger),
+		bulk.NewDiffer(),
+		recipeBuilder,
 		timeprovider.NewTimeProvider(),
 	)
 

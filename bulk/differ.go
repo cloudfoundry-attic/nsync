@@ -6,84 +6,81 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
+//go:generate counterfeiter -o fakes/fake_differ.go . Differ
 type Differ interface {
 	Diff(
+		logger lager.Logger,
+		cancel <-chan struct{},
 		existing []receptor.DesiredLRPResponse,
-		desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
-		lrpChan chan<- *receptor.DesiredLRPCreateRequest,
-		deleteListChan chan<- []string,
-	)
+		desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+		missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
+	) []string
 }
 
-type RecipeBuilder interface {
-	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
-}
+type differ struct{}
 
-type differ struct {
-	builder RecipeBuilder
-	logger  lager.Logger
-}
-
-func NewDiffer(builder RecipeBuilder, logger lager.Logger) Differ {
-	return &differ{
-		builder: builder,
-		logger:  logger,
-	}
+func NewDiffer() Differ {
+	return &differ{}
 }
 
 func (d *differ) Diff(
+	logger lager.Logger,
+	cancel <-chan struct{},
 	existing []receptor.DesiredLRPResponse,
-	desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
-	lrpChan chan<- *receptor.DesiredLRPCreateRequest,
-	deleteListChan chan<- []string,
-) {
-	defer close(deleteListChan)
+	desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+	missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
+) []string {
+	logger = logger.Session("diff")
+	logger.Info("starting")
+	defer logger.Info("finished")
+
+	defer close(missingFingerprints)
 
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
-	diffLog := d.logger.Session("diff")
+LOOP:
+	for {
+		select {
+		case <-cancel:
+			return []string{}
 
-	for fromCC := range desiredChan {
-		createReq := d.createDesiredLRPRequest(diffLog, fromCC)
-		if createReq != nil {
-			lrpChan <- createReq
+		case desired, ok := <-desiredFingerprints:
+			if !ok {
+				break LOOP
+			}
+
+			missing := []cc_messages.CCDesiredAppFingerprint{}
+
+			for _, fingerprint := range desired {
+				if desiredLRP, ok := existingLRPs[fingerprint.ProcessGuid]; ok {
+					delete(existingLRPs, fingerprint.ProcessGuid)
+					if desiredLRP.Annotation == fingerprint.ETag {
+						continue
+					}
+				}
+
+				logger.Info("found-missing-or-stale-desired-lrp", lager.Data{
+					"guid": fingerprint.ProcessGuid,
+					"etag": fingerprint.ETag,
+				})
+
+				missing = append(missing, fingerprint)
+			}
+
+			select {
+			case missingFingerprints <- missing:
+			case <-cancel:
+				return []string{}
+			}
 		}
-
-		delete(existingLRPs, fromCC.ProcessGuid)
 	}
 
-	close(lrpChan)
-
-	deleteList := []string{}
+	deleteList := make([]string, 0, len(existingLRPs))
 	for _, lrp := range existingLRPs {
-		diffLog.Info("found-extra-desired-lrp", lager.Data{
-			"guid": lrp.ProcessGuid,
-		})
 		deleteList = append(deleteList, lrp.ProcessGuid)
 	}
-	deleteListChan <- deleteList
-}
 
-func (d *differ) createDesiredLRPRequest(
-	logger lager.Logger,
-	fromCC *cc_messages.DesireAppRequestFromCC,
-) *receptor.DesiredLRPCreateRequest {
-	var createReq *receptor.DesiredLRPCreateRequest
-
-	logger.Info("found-missing-desired-lrp", lager.Data{
-		"guid": fromCC.ProcessGuid,
-	})
-
-	createReq, err := d.builder.Build(fromCC)
-	if err != nil {
-		logger.Error("failed-to-build-recipe", err, lager.Data{
-			"desired-by-cc": fromCC,
-		})
-
-		return nil
-	}
-
-	return createReq
+	return deleteList
 }
 
 func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {

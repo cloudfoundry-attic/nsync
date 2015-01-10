@@ -25,6 +25,7 @@ var _ = Describe("Processor", func() {
 		receptorClient *fake_receptor.FakeClient
 		fetcher        *fakes.FakeFetcher
 		differ         *fakes.FakeDiffer
+		recipeBuilder  *fakes.FakeRecipeBuilder
 
 		processor ifrit.Runner
 
@@ -32,36 +33,67 @@ var _ = Describe("Processor", func() {
 		syncDuration time.Duration
 		metricSender *fake.FakeMetricSender
 		timeProvider *faketimeprovider.FakeTimeProvider
+
+		pollingInterval time.Duration
 	)
 
 	BeforeEach(func() {
 		metricSender = fake.NewFakeMetricSender()
 		metrics.Initialize(metricSender)
+
 		syncDuration = 900900
+		pollingInterval = 500 * time.Millisecond
 		timeProvider = faketimeprovider.New(time.Now())
 
 		fetcher = new(fakes.FakeFetcher)
-		fetcher.FetchStub = func(results chan<- *cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+		fetcher.FetchFingerprintsStub = func(
+			logger lager.Logger,
+			cancel <-chan struct{},
+			results chan<- []cc_messages.CCDesiredAppFingerprint,
+			httpClient *http.Client,
+		) error {
+			results <- []cc_messages.CCDesiredAppFingerprint{{}}
 			close(results)
 			return nil
 		}
 
 		differ = new(fakes.FakeDiffer)
-
 		differ.DiffStub = func(
+			logger lager.Logger,
+			cancel <-chan struct{},
 			existing []receptor.DesiredLRPResponse,
-			desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
-			createChan chan<- *receptor.DesiredLRPCreateRequest,
-			deleteListChan chan<- []string,
-		) {
-			createChan <- &receptor.DesiredLRPCreateRequest{}
-			deleteListChan <- []string{"my-app-to-delete"}
-			close(createChan)
-			close(deleteListChan)
+			desired <-chan []cc_messages.CCDesiredAppFingerprint,
+			missing chan<- []cc_messages.CCDesiredAppFingerprint,
+		) []string {
+			<-desired
+
+			missing <- []cc_messages.CCDesiredAppFingerprint{{}}
+			close(missing)
+
+			return []string{"my-app-to-delete"}
+		}
+
+		fetcher.FetchDesiredLRPsStub = func(
+			logger lager.Logger,
+			cancel <-chan struct{},
+			fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+			desired chan<- []cc_messages.DesireAppRequestFromCC,
+			httpClient *http.Client,
+		) error {
+			<-fingerprints
+
+			desired <- []cc_messages.DesireAppRequestFromCC{{}}
+			close(desired)
+
+			return nil
+		}
+
+		recipeBuilder = new(fakes.FakeRecipeBuilder)
+		recipeBuilder.BuildStub = func(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
+			return &receptor.DesiredLRPCreateRequest{}, nil
 		}
 
 		receptorClient = new(fake_receptor.FakeClient)
-
 		receptorClient.UpsertDomainStub = func(string, time.Duration) error {
 			timeProvider.Increment(syncDuration)
 			return nil
@@ -69,7 +101,7 @@ var _ = Describe("Processor", func() {
 
 		processor = bulk.NewProcessor(
 			receptorClient,
-			500*time.Millisecond,
+			pollingInterval,
 			time.Second,
 			time.Second,
 			10,
@@ -77,6 +109,7 @@ var _ = Describe("Processor", func() {
 			lager.NewLogger("test"),
 			fetcher,
 			differ,
+			recipeBuilder,
 			timeProvider,
 		)
 	})
@@ -100,108 +133,35 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("tries again after the polling interval", func() {
-			Eventually(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(1))
+			timeProvider.Increment(pollingInterval / 2)
+			Consistently(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(1))
 
-			t1 := time.Now()
-
+			timeProvider.Increment(pollingInterval)
 			Eventually(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(2))
-
-			t2 := time.Now()
-
-			Ω(t2.Sub(t1)).Should(BeNumerically("~", 500*time.Millisecond, 100*time.Millisecond))
 		})
 
 		It("does not call the differ, the fetcher, or the receptor client for updates", func() {
-			Consistently(fetcher.FetchCallCount).Should(Equal(0))
+			Consistently(fetcher.FetchFingerprintsCallCount).Should(Equal(0))
 			Consistently(differ.DiffCallCount).Should(Equal(0))
+			Consistently(fetcher.FetchDesiredLRPsCallCount).Should(Equal(0))
+			Consistently(recipeBuilder.BuildCallCount).Should(Equal(0))
 			Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
 		})
 	})
 
-	Context("when fetching succeeds", func() {
-		It("emits the total time taken to talk to CC and then updated desired state", func() {
-			Eventually(receptorClient.UpsertDomainCallCount, 5).Should(Equal(1))
-
-			Eventually(func() fake.Metric { return metricSender.GetValue("DesiredLRPSyncDuration") }).Should(Equal(fake.Metric{
-				Value: float64(syncDuration),
-				Unit:  "nanos",
-			}))
-		})
-
-		Context("and the fetcher has cc messages", func() {
-			BeforeEach(func() {
-				fetcher.FetchStub = func(results chan<- *cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
-					results <- &cc_messages.DesireAppRequestFromCC{}
-					close(results)
-					return nil
-				}
-
-				differ.DiffStub = func(
-					existing []receptor.DesiredLRPResponse,
-					desiredChan <-chan *cc_messages.DesireAppRequestFromCC,
-					createChan chan<- *receptor.DesiredLRPCreateRequest,
-					deleteListChan chan<- []string,
-				) {
-					defer GinkgoRecover()
-					Ω(desiredChan).Should(Receive(Equal(&cc_messages.DesireAppRequestFromCC{})))
-					close(createChan)
-					close(deleteListChan)
-				}
-			})
-
-			It("sends the cc messages to the differ", func() {
-				// assertion established in BeforeEach
-			})
-		})
-
-		Context("and the differ provides creates and deletes", func() {
-			It("sends them to the receptor and updates the domain", func() {
-				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
-
-				Ω(receptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(receptor.DesiredLRPCreateRequest{}))
-
-				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("my-app-to-delete"))
-
-				d, ttl := receptorClient.UpsertDomainArgsForCall(0)
-				Ω(d).Should(Equal("cf-apps"))
-				Ω(ttl).Should(Equal(1 * time.Second))
-			})
-
-			Context("and the create request fails", func() {
-				BeforeEach(func() {
-					receptorClient.CreateDesiredLRPReturns(errors.New("create failed!"))
-				})
-
-				It("sends all the other updates", func() {
-					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
-				})
-			})
-
-			Context("and the delete request fails", func() {
-				BeforeEach(func() {
-					receptorClient.DeleteDesiredLRPReturns(errors.New("delete failed!"))
-				})
-
-				It("sends all the other updates", func() {
-					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
-				})
-			})
-		})
-	})
-
-	Context("when fetching fails", func() {
+	Context("when fetching fingerprints fails", func() {
 		BeforeEach(func() {
-			fetcher.FetchStub = func(results chan<- *cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+			fetcher.FetchFingerprintsStub = func(
+				logger lager.Logger,
+				cancel <-chan struct{},
+				results chan<- []cc_messages.CCDesiredAppFingerprint,
+				httpClient *http.Client,
+			) error {
+				results <- []cc_messages.CCDesiredAppFingerprint{{}}
 				close(results)
-				return errors.New("whoops, failed to fetch")
+				return errors.New("uh oh")
 			}
 		})
 
@@ -217,6 +177,194 @@ var _ = Describe("Processor", func() {
 			It("sends the creates and updates but not the deletes", func() {
 				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 				Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
+			})
+		})
+	})
+
+	Context("when fetching fingerprints succeeds", func() {
+		It("emits the total time taken to talk to CC and then update desired state", func() {
+			Eventually(receptorClient.UpsertDomainCallCount, 5).Should(Equal(1))
+
+			Eventually(func() fake.Metric { return metricSender.GetValue("DesiredLRPSyncDuration") }).Should(Equal(fake.Metric{
+				Value: float64(syncDuration),
+				Unit:  "nanos",
+			}))
+		})
+
+		Context("and the fetcher has desired app fingerprints", func() {
+			BeforeEach(func() {
+				differ.DiffStub = func(
+					logger lager.Logger,
+					cancel <-chan struct{},
+					existing []receptor.DesiredLRPResponse,
+					desired <-chan []cc_messages.CCDesiredAppFingerprint,
+					missing chan<- []cc_messages.CCDesiredAppFingerprint,
+				) []string {
+					defer GinkgoRecover()
+
+					Eventually(desired).Should(Receive(Equal([]cc_messages.CCDesiredAppFingerprint{{}})))
+					close(missing)
+
+					return []string{}
+				}
+			})
+
+			It("sends the fingerprints to the differ", func() {
+				// make sure we get to the assertion in the Diff stub
+				Eventually(differ.DiffCallCount).Should(Equal(1))
+				Consistently(differ.DiffCallCount).Should(Equal(1))
+			})
+		})
+
+		Context("and the differ discovers desired LRPs to delete", func() {
+			It("the processor deletes them", func() {
+				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
+
+				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("my-app-to-delete"))
+			})
+
+			Context("and the delete request fails", func() {
+				BeforeEach(func() {
+					receptorClient.DeleteDesiredLRPReturns(errors.New("delete failed!"))
+				})
+
+				It("sends all the other updates", func() {
+					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
+				})
+			})
+		})
+
+		Context("and the differ discovers missing apps", func() {
+			BeforeEach(func() {
+				fetcher.FetchDesiredLRPsStub = func(
+					logger lager.Logger,
+					cancel <-chan struct{},
+					fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+					desireAppRequests chan<- []cc_messages.DesireAppRequestFromCC,
+					httpClient *http.Client,
+				) error {
+					defer GinkgoRecover()
+
+					Eventually(fingerprints).Should(Receive(Equal([]cc_messages.CCDesiredAppFingerprint{{}})))
+					Eventually(desireAppRequests).Should(BeSent([]cc_messages.DesireAppRequestFromCC{
+						{ProcessGuid: "missing-process-guid"},
+					}))
+
+					close(desireAppRequests)
+					return nil
+				}
+			})
+
+			It("sends fingerprints for the missing apps to fetcher", func() {
+				// make sure we get to the assertion in the FetchDesiredApps stub
+				Eventually(fetcher.FetchDesiredLRPsCallCount).Should(Equal(1))
+				Consistently(fetcher.FetchDesiredLRPsCallCount).Should(Equal(1))
+			})
+
+			It("uses the recipe builder to construct the create LRP request", func() {
+				Eventually(recipeBuilder.BuildCallCount).Should(Equal(1))
+				Consistently(recipeBuilder.BuildCallCount).Should(Equal(1))
+
+				Eventually(recipeBuilder.BuildArgsForCall(0)).Should(Equal(
+					&cc_messages.DesireAppRequestFromCC{
+						ProcessGuid: "missing-process-guid",
+					}))
+			})
+
+			It("creates a desired LRP for the missing app", func() {
+				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+				Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+			})
+
+			Context("when fetching desire app requests from the CC fails", func() {
+				BeforeEach(func() {
+					fetcher.FetchDesiredLRPsStub = func(
+						logger lager.Logger,
+						cancel <-chan struct{},
+						fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+						desired chan<- []cc_messages.DesireAppRequestFromCC,
+						httpClient *http.Client,
+					) error {
+						defer close(desired)
+						<-fingerprints
+
+						return errors.New("boom")
+					}
+				})
+
+				It("keeps calm and carries on", func() {
+					Consistently(process.Wait()).ShouldNot(Receive())
+				})
+
+				It("does not update the domain", func() {
+					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				})
+
+				Context("and the differ provides creates, updates, and deletes", func() {
+					It("sends the deletes but not the creates or updates", func() {
+						Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
+						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					})
+				})
+			})
+
+			Context("when building the desire LRP request fails", func() {
+				BeforeEach(func() {
+					recipeBuilder.BuildReturns(nil, errors.New("nope"))
+				})
+
+				It("keeps calm and carries on", func() {
+					Consistently(process.Wait()).ShouldNot(Receive())
+				})
+
+				It("does not update the domain", func() {
+					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				})
+
+				Context("and the differ provides creates, updates, and deletes", func() {
+					It("sends the deletes but not the creates or updates", func() {
+						Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
+						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					})
+				})
+			})
+
+			Context("when creating the missing desired LRP fails", func() {
+				BeforeEach(func() {
+					receptorClient.CreateDesiredLRPReturns(errors.New("nope"))
+				})
+
+				It("keeps calm and carries on", func() {
+					Consistently(process.Wait()).ShouldNot(Receive())
+				})
+
+				It("does not update the domain", func() {
+					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				})
+
+				Context("and the differ provides creates, updates, and deletes", func() {
+					It("continues to send the deletes", func() {
+						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					})
+				})
+			})
+		})
+
+		Context("and the differ provides creates and deletes", func() {
+			It("sends them to the receptor and updates the domain", func() {
+				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
+
+				Ω(receptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(receptor.DesiredLRPCreateRequest{}))
+				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("my-app-to-delete"))
+
+				d, ttl := receptorClient.UpsertDomainArgsForCall(0)
+				Ω(d).Should(Equal("cf-apps"))
+				Ω(ttl).Should(Equal(1 * time.Second))
 			})
 		})
 	})

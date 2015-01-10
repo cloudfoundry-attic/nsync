@@ -7,49 +7,102 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/pivotal-golang/lager"
 )
 
 type FakeFetcher struct {
-	FetchStub        func(chan<- *cc_messages.DesireAppRequestFromCC, *http.Client) error
-	fetchMutex       sync.RWMutex
-	fetchArgsForCall []struct {
-		arg1 chan<- *cc_messages.DesireAppRequestFromCC
-		arg2 *http.Client
+	FetchFingerprintsStub        func(logger lager.Logger, cancel <-chan struct{}, desiredAppFingerprints chan<- []cc_messages.CCDesiredAppFingerprint, httpClient *http.Client) error
+	fetchFingerprintsMutex       sync.RWMutex
+	fetchFingerprintsArgsForCall []struct {
+		logger                 lager.Logger
+		cancel                 <-chan struct{}
+		desiredAppFingerprints chan<- []cc_messages.CCDesiredAppFingerprint
+		httpClient             *http.Client
 	}
-	fetchReturns struct {
+	fetchFingerprintsReturns struct {
+		result1 error
+	}
+	FetchDesiredLRPsStub        func(logger lager.Logger, cancel <-chan struct{}, desiredAppFingerprints <-chan []cc_messages.CCDesiredAppFingerprint, desireAppRequestsFromCC chan<- []cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error
+	fetchDesiredLRPsMutex       sync.RWMutex
+	fetchDesiredLRPsArgsForCall []struct {
+		logger                  lager.Logger
+		cancel                  <-chan struct{}
+		desiredAppFingerprints  <-chan []cc_messages.CCDesiredAppFingerprint
+		desireAppRequestsFromCC chan<- []cc_messages.DesireAppRequestFromCC
+		httpClient              *http.Client
+	}
+	fetchDesiredLRPsReturns struct {
 		result1 error
 	}
 }
 
-func (fake *FakeFetcher) Fetch(arg1 chan<- *cc_messages.DesireAppRequestFromCC, arg2 *http.Client) error {
-	fake.fetchMutex.Lock()
-	fake.fetchArgsForCall = append(fake.fetchArgsForCall, struct {
-		arg1 chan<- *cc_messages.DesireAppRequestFromCC
-		arg2 *http.Client
-	}{arg1, arg2})
-	fake.fetchMutex.Unlock()
-	if fake.FetchStub != nil {
-		return fake.FetchStub(arg1, arg2)
+func (fake *FakeFetcher) FetchFingerprints(logger lager.Logger, cancel <-chan struct{}, desiredAppFingerprints chan<- []cc_messages.CCDesiredAppFingerprint, httpClient *http.Client) error {
+	fake.fetchFingerprintsMutex.Lock()
+	fake.fetchFingerprintsArgsForCall = append(fake.fetchFingerprintsArgsForCall, struct {
+		logger                 lager.Logger
+		cancel                 <-chan struct{}
+		desiredAppFingerprints chan<- []cc_messages.CCDesiredAppFingerprint
+		httpClient             *http.Client
+	}{logger, cancel, desiredAppFingerprints, httpClient})
+	fake.fetchFingerprintsMutex.Unlock()
+	if fake.FetchFingerprintsStub != nil {
+		return fake.FetchFingerprintsStub(logger, cancel, desiredAppFingerprints, httpClient)
 	} else {
-		return fake.fetchReturns.result1
+		return fake.fetchFingerprintsReturns.result1
 	}
 }
 
-func (fake *FakeFetcher) FetchCallCount() int {
-	fake.fetchMutex.RLock()
-	defer fake.fetchMutex.RUnlock()
-	return len(fake.fetchArgsForCall)
+func (fake *FakeFetcher) FetchFingerprintsCallCount() int {
+	fake.fetchFingerprintsMutex.RLock()
+	defer fake.fetchFingerprintsMutex.RUnlock()
+	return len(fake.fetchFingerprintsArgsForCall)
 }
 
-func (fake *FakeFetcher) FetchArgsForCall(i int) (chan<- *cc_messages.DesireAppRequestFromCC, *http.Client) {
-	fake.fetchMutex.RLock()
-	defer fake.fetchMutex.RUnlock()
-	return fake.fetchArgsForCall[i].arg1, fake.fetchArgsForCall[i].arg2
+func (fake *FakeFetcher) FetchFingerprintsArgsForCall(i int) (lager.Logger, <-chan struct{}, chan<- []cc_messages.CCDesiredAppFingerprint, *http.Client) {
+	fake.fetchFingerprintsMutex.RLock()
+	defer fake.fetchFingerprintsMutex.RUnlock()
+	return fake.fetchFingerprintsArgsForCall[i].logger, fake.fetchFingerprintsArgsForCall[i].cancel, fake.fetchFingerprintsArgsForCall[i].desiredAppFingerprints, fake.fetchFingerprintsArgsForCall[i].httpClient
 }
 
-func (fake *FakeFetcher) FetchReturns(result1 error) {
-	fake.FetchStub = nil
-	fake.fetchReturns = struct {
+func (fake *FakeFetcher) FetchFingerprintsReturns(result1 error) {
+	fake.FetchFingerprintsStub = nil
+	fake.fetchFingerprintsReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeFetcher) FetchDesiredLRPs(logger lager.Logger, cancel <-chan struct{}, desiredAppFingerprints <-chan []cc_messages.CCDesiredAppFingerprint, desireAppRequestsFromCC chan<- []cc_messages.DesireAppRequestFromCC, httpClient *http.Client) error {
+	fake.fetchDesiredLRPsMutex.Lock()
+	fake.fetchDesiredLRPsArgsForCall = append(fake.fetchDesiredLRPsArgsForCall, struct {
+		logger                  lager.Logger
+		cancel                  <-chan struct{}
+		desiredAppFingerprints  <-chan []cc_messages.CCDesiredAppFingerprint
+		desireAppRequestsFromCC chan<- []cc_messages.DesireAppRequestFromCC
+		httpClient              *http.Client
+	}{logger, cancel, desiredAppFingerprints, desireAppRequestsFromCC, httpClient})
+	fake.fetchDesiredLRPsMutex.Unlock()
+	if fake.FetchDesiredLRPsStub != nil {
+		return fake.FetchDesiredLRPsStub(logger, cancel, desiredAppFingerprints, desireAppRequestsFromCC, httpClient)
+	} else {
+		return fake.fetchDesiredLRPsReturns.result1
+	}
+}
+
+func (fake *FakeFetcher) FetchDesiredLRPsCallCount() int {
+	fake.fetchDesiredLRPsMutex.RLock()
+	defer fake.fetchDesiredLRPsMutex.RUnlock()
+	return len(fake.fetchDesiredLRPsArgsForCall)
+}
+
+func (fake *FakeFetcher) FetchDesiredLRPsArgsForCall(i int) (lager.Logger, <-chan struct{}, <-chan []cc_messages.CCDesiredAppFingerprint, chan<- []cc_messages.DesireAppRequestFromCC, *http.Client) {
+	fake.fetchDesiredLRPsMutex.RLock()
+	defer fake.fetchDesiredLRPsMutex.RUnlock()
+	return fake.fetchDesiredLRPsArgsForCall[i].logger, fake.fetchDesiredLRPsArgsForCall[i].cancel, fake.fetchDesiredLRPsArgsForCall[i].desiredAppFingerprints, fake.fetchDesiredLRPsArgsForCall[i].desireAppRequestsFromCC, fake.fetchDesiredLRPsArgsForCall[i].httpClient
+}
+
+func (fake *FakeFetcher) FetchDesiredLRPsReturns(result1 error) {
+	fake.FetchDesiredLRPsStub = nil
+	fake.fetchDesiredLRPsReturns = struct {
 		result1 error
 	}{result1}
 }
