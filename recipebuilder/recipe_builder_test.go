@@ -48,7 +48,9 @@ var _ = Describe("Recipe Builder", func() {
 			NumInstances:    23,
 			Routes:          []string{"route1", "route2"},
 			LogGuid:         "the-log-id",
-			HealthCheckType: cc_messages.PortHealthCheckType,
+
+			HealthCheckType:             cc_messages.PortHealthCheckType,
+			HealthCheckTimeoutInSeconds: 123456,
 		}
 	})
 
@@ -99,6 +101,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.DiskMB).Should(Equal(512))
 			Ω(desiredLRP.Ports).Should(Equal([]uint32{8080}))
 			Ω(desiredLRP.Privileged).Should(BeTrue())
+			Ω(desiredLRP.StartTimeout).Should(Equal(uint(123456)))
 
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal(recipebuilder.LRPLogSource))

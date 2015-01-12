@@ -161,6 +161,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		Setup:   setupAction,
 		Action:  action,
 		Monitor: monitor,
+
+		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 	}, nil
 }
 

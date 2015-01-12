@@ -124,7 +124,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"droplet_uri": "source-url-1",
 							"stack": "some-stack",
 							"start_command": "start-command-1",
-							"execution_metadata": "execution-metadata-1"
+							"execution_metadata": "execution-metadata-1",
+							"health_check_timeout_in_seconds": 123456
 						},
 						{
 							"disk_mb": 1024,
@@ -141,21 +142,23 @@ var _ = Describe("Syncing desired state with CC", func() {
 							"droplet_uri": "source-url-1",
 							"stack": "some-stack",
 							"start_command": "start-command-1",
-							"execution_metadata": "execution-metadata-1"
+							"execution_metadata": "execution-metadata-1",
+							"health_check_timeout_in_seconds": 123456
 						},
 						{
 							"disk_mb": 512,
-							"environment": [],
-							"file_descriptors": 8,
-							"num_instances": 4,
-							"log_guid": "log-guid-3",
-							"memory_mb": 128,
-							"process_guid": "process-guid-3",
-							"routes": [],
-							"droplet_uri": "source-url-3",
-							"stack": "some-stack",
-							"start_command": "start-command-3",
-							"execution_metadata": "execution-metadata-3"
+						  "environment": [],
+						  "file_descriptors": 8,
+						  "num_instances": 4,
+						  "log_guid": "log-guid-3",
+						  "memory_mb": 128,
+						  "process_guid": "process-guid-3",
+						  "routes": [],
+						  "droplet_uri": "source-url-3",
+						  "stack": "some-stack",
+						  "start_command": "start-command-3",
+						  "execution_metadata": "execution-metadata-3",
+						  "health_check_timeout_in_seconds": 123456
 						}
 					]
 				}`),
@@ -190,7 +193,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
 				"start_command": "start-command-1",
-				"execution_metadata": "execution-metadata-1"
+				"execution_metadata": "execution-metadata-1",
+				"health_check_timeout_in_seconds": 123456
 			}`), &existing1)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -209,7 +213,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
 				"start_command": "start-command-1",
-				"execution_metadata": "execution-metadata-1"
+				"execution_metadata": "execution-metadata-1",
+				"health_check_timeout_in_seconds": 123456
 			}`), &existing2)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -289,11 +294,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 				)
 
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
-					ProcessGuid: "process-guid-1",
-					Domain:      "cf-apps",
-					Instances:   42,
-					Stack:       "some-stack",
-					Setup:       expectedSetupActions1,
+					ProcessGuid:  "process-guid-1",
+					Domain:       "cf-apps",
+					Instances:    42,
+					Stack:        "some-stack",
+					Setup:        expectedSetupActions1,
+					StartTimeout: 123456,
 					Action: &models.RunAction{
 						Path: "/tmp/circus/soldier",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
@@ -327,11 +333,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 16
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
-					ProcessGuid: "process-guid-2",
-					Domain:      "cf-apps",
-					Instances:   4,
-					Stack:       "some-stack",
-					Setup:       expectedSetupActions2,
+					ProcessGuid:  "process-guid-2",
+					Domain:       "cf-apps",
+					Instances:    4,
+					Stack:        "some-stack",
+					Setup:        expectedSetupActions2,
+					StartTimeout: 123456,
 					Action: &models.RunAction{
 						Path: "/tmp/circus/soldier",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
@@ -365,11 +372,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 8
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
-					ProcessGuid: "process-guid-3",
-					Domain:      "cf-apps",
-					Instances:   4,
-					Stack:       "some-stack",
-					Setup:       expectedSetupActions3,
+					ProcessGuid:  "process-guid-3",
+					Domain:       "cf-apps",
+					Instances:    4,
+					Stack:        "some-stack",
+					Setup:        expectedSetupActions3,
+					StartTimeout: 123456,
 					Action: &models.RunAction{
 						Path: "/tmp/circus/soldier",
 						Args: []string{"/app", "start-command-3", "execution-metadata-3"},
