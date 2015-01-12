@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -98,10 +99,13 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		monitor = &models.RunAction{
-			Path:      "/tmp/circus/spy",
-			Args:      []string{"-addr=:8080"},
-			LogSource: HealthLogSource,
+		monitor = &models.TimeoutAction{
+			Timeout: 30 * time.Second,
+			Action: &models.RunAction{
+				Path:      "/tmp/circus/spy",
+				Args:      []string{"-addr=:8080"},
+				LogSource: HealthLogSource,
+			},
 		}
 	}
 

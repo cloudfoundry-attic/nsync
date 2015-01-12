@@ -1,6 +1,8 @@
 package recipebuilder_test
 
 import (
+	"time"
+
 	. "github.com/cloudfoundry-incubator/nsync/recipebuilder"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -117,13 +119,13 @@ var _ = Describe("Recipe Builder", func() {
 			runAction, ok := desiredLRP.Action.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			monitorAction, ok := desiredLRP.Monitor.(*models.RunAction)
-			Ω(ok).Should(BeTrue())
-
-			Ω(monitorAction).Should(Equal(&models.RunAction{
-				Path:      "/tmp/circus/spy",
-				Args:      []string{"-addr=:8080"},
-				LogSource: HealthLogSource,
+			Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
+				Timeout: 30 * time.Second,
+				Action: &models.RunAction{
+					Path:      "/tmp/circus/spy",
+					Args:      []string{"-addr=:8080"},
+					LogSource: HealthLogSource,
+				},
 			}))
 
 			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
@@ -166,13 +168,13 @@ var _ = Describe("Recipe Builder", func() {
 
 				Ω(downloadDestinations).Should(ContainElement("/tmp/circus"))
 
-				monitorAction, ok := desiredLRP.Monitor.(*models.RunAction)
-				Ω(ok).Should(BeTrue())
-
-				Ω(monitorAction).Should(Equal(&models.RunAction{
-					Path:      "/tmp/circus/spy",
-					Args:      []string{"-addr=:8080"},
-					LogSource: HealthLogSource,
+				Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
+					Timeout: 30 * time.Second,
+					Action: &models.RunAction{
+						Path:      "/tmp/circus/spy",
+						Args:      []string{"-addr=:8080"},
+						LogSource: HealthLogSource,
+					},
 				}))
 			})
 		})
