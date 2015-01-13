@@ -20,7 +20,7 @@ type Fetcher interface {
 		httpClient *http.Client,
 	) error
 
-	FetchDesiredLRPs(
+	FetchDesiredApps(
 		logger lager.Logger,
 		cancel <-chan struct{},
 		desiredAppFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
@@ -84,7 +84,7 @@ func (fetcher *CCFetcher) FetchFingerprints(
 	}
 }
 
-func (fetcher *CCFetcher) FetchDesiredLRPs(
+func (fetcher *CCFetcher) FetchDesiredApps(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	fingerprintCh <-chan []cc_messages.CCDesiredAppFingerprint,
@@ -94,7 +94,7 @@ func (fetcher *CCFetcher) FetchDesiredLRPs(
 	// ensure this happens regardless of success or failure;
 	defer close(desiredStateCh)
 
-	logger = logger.Session("fetch-desired-lrps-from-cc")
+	logger = logger.Session("fetch-desired-apps")
 
 	for {
 		var fingerprints []cc_messages.CCDesiredAppFingerprint
@@ -123,7 +123,7 @@ func (fetcher *CCFetcher) FetchDesiredLRPs(
 			return err
 		}
 
-		logger.Info("fetching-desired", lager.Data{"fingerprints-length": len(fingerprints)})
+		logger.Info("fetching-desired-from-cc", lager.Data{"fingerprints-length": len(fingerprints)})
 
 		req, err := http.NewRequest("POST", fetcher.desiredURL(), bytes.NewReader(payload))
 		if err != nil {

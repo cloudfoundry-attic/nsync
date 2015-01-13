@@ -163,7 +163,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := p.fetcher.FetchDesiredLRPs(logger, cancel, missingFingerprints, desireAppRequestsFromCC, httpClient)
+		err := p.fetcher.FetchDesiredApps(logger, cancel, missingFingerprints, desireAppRequestsFromCC, httpClient)
 		if err != nil {
 			notFresh <- struct{}{}
 		}

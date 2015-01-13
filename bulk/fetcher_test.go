@@ -400,7 +400,7 @@ var _ = Describe("Fetcher", func() {
 					go func() {
 						defer GinkgoRecover()
 
-						errChan <- fetcher.FetchDesiredLRPs(logger, cancel, fingerprintsChan, resultsChan, httpClient)
+						errChan <- fetcher.FetchDesiredApps(logger, cancel, fingerprintsChan, resultsChan, httpClient)
 					}()
 
 					fingerprints := []cc_messages.CCDesiredAppFingerprint{
@@ -439,7 +439,7 @@ var _ = Describe("Fetcher", func() {
 
 				JustBeforeEach(func() {
 					close(fingerprintsChan)
-					fetchErr = fetcher.FetchDesiredLRPs(logger, cancel, fingerprintsChan, resultsChan, httpClient)
+					fetchErr = fetcher.FetchDesiredApps(logger, cancel, fingerprintsChan, resultsChan, httpClient)
 				})
 
 				Context("when the fingerprint batch is empty", func() {
@@ -531,7 +531,7 @@ var _ = Describe("Fetcher", func() {
 				resultsChan = make(chan []cc_messages.DesireAppRequestFromCC)
 
 				go func() {
-					errChan <- fetcher.FetchDesiredLRPs(logger, cancel, fingerprintsChan, resultsChan, httpClient)
+					errChan <- fetcher.FetchDesiredApps(logger, cancel, fingerprintsChan, resultsChan, httpClient)
 				}()
 			})
 

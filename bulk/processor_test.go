@@ -73,7 +73,7 @@ var _ = Describe("Processor", func() {
 			return []string{"my-app-to-delete"}
 		}
 
-		fetcher.FetchDesiredLRPsStub = func(
+		fetcher.FetchDesiredAppsStub = func(
 			logger lager.Logger,
 			cancel <-chan struct{},
 			fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
@@ -143,7 +143,7 @@ var _ = Describe("Processor", func() {
 		It("does not call the differ, the fetcher, or the receptor client for updates", func() {
 			Consistently(fetcher.FetchFingerprintsCallCount).Should(Equal(0))
 			Consistently(differ.DiffCallCount).Should(Equal(0))
-			Consistently(fetcher.FetchDesiredLRPsCallCount).Should(Equal(0))
+			Consistently(fetcher.FetchDesiredAppsCallCount).Should(Equal(0))
 			Consistently(recipeBuilder.BuildCallCount).Should(Equal(0))
 			Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
@@ -239,7 +239,7 @@ var _ = Describe("Processor", func() {
 
 		Context("and the differ discovers missing apps", func() {
 			BeforeEach(func() {
-				fetcher.FetchDesiredLRPsStub = func(
+				fetcher.FetchDesiredAppsStub = func(
 					logger lager.Logger,
 					cancel <-chan struct{},
 					fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
@@ -260,8 +260,8 @@ var _ = Describe("Processor", func() {
 
 			It("sends fingerprints for the missing apps to fetcher", func() {
 				// make sure we get to the assertion in the FetchDesiredApps stub
-				Eventually(fetcher.FetchDesiredLRPsCallCount).Should(Equal(1))
-				Consistently(fetcher.FetchDesiredLRPsCallCount).Should(Equal(1))
+				Eventually(fetcher.FetchDesiredAppsCallCount).Should(Equal(1))
+				Consistently(fetcher.FetchDesiredAppsCallCount).Should(Equal(1))
 			})
 
 			It("uses the recipe builder to construct the create LRP request", func() {
@@ -281,7 +281,7 @@ var _ = Describe("Processor", func() {
 
 			Context("when fetching desire app requests from the CC fails", func() {
 				BeforeEach(func() {
-					fetcher.FetchDesiredLRPsStub = func(
+					fetcher.FetchDesiredAppsStub = func(
 						logger lager.Logger,
 						cancel <-chan struct{},
 						fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
