@@ -218,6 +218,10 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
+		It("uses an unprivileged container", func() {
+			Ω(desiredLRP.Privileged).Should(BeFalse())
+		})
+
 		It("converts the docker image url into a root fs path", func() {
 			Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo#tag"))
 		})

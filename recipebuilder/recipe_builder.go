@@ -84,6 +84,12 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		circusURL = b.circusDownloadURL(circusPath, b.fileServerURL)
 	}
 
+	privilegedContainer := false
+
+	if desiredApp.DockerImageUrl == "" {
+		privilegedContainer = true
+	}
+
 	var numFiles *uint64
 	if desiredApp.FileDescriptors != 0 {
 		numFiles = &desiredApp.FileDescriptors
@@ -134,7 +140,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	setupAction := models.Serial(setup...)
 
 	return &receptor.DesiredLRPCreateRequest{
-		Privileged: true,
+		Privileged: privilegedContainer,
 
 		Domain: LRPDomain,
 
