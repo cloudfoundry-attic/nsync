@@ -5,38 +5,51 @@ import (
 	"sync"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
 
 type FakeDiffer struct {
-	DiffStub        func(logger lager.Logger, cancel <-chan struct{}, existing []receptor.DesiredLRPResponse, desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint, missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint) []string
+	DiffStub        func(logger lager.Logger, cancel <-chan struct{}, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) <-chan error
 	diffMutex       sync.RWMutex
 	diffArgsForCall []struct {
-		logger              lager.Logger
-		cancel              <-chan struct{}
-		existing            []receptor.DesiredLRPResponse
-		desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint
-		missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint
+		logger       lager.Logger
+		cancel       <-chan struct{}
+		fingerprints <-chan []cc_messages.CCDesiredAppFingerprint
 	}
 	diffReturns struct {
-		result1 []string
+		result1 <-chan error
+	}
+	StaleStub        func() <-chan []cc_messages.CCDesiredAppFingerprint
+	staleMutex       sync.RWMutex
+	staleArgsForCall []struct{}
+	staleReturns struct {
+		result1 <-chan []cc_messages.CCDesiredAppFingerprint
+	}
+	MissingStub        func() <-chan []cc_messages.CCDesiredAppFingerprint
+	missingMutex       sync.RWMutex
+	missingArgsForCall []struct{}
+	missingReturns struct {
+		result1 <-chan []cc_messages.CCDesiredAppFingerprint
+	}
+	DeletedStub        func() <-chan []string
+	deletedMutex       sync.RWMutex
+	deletedArgsForCall []struct{}
+	deletedReturns struct {
+		result1 <-chan []string
 	}
 }
 
-func (fake *FakeDiffer) Diff(logger lager.Logger, cancel <-chan struct{}, existing []receptor.DesiredLRPResponse, desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint, missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint) []string {
+func (fake *FakeDiffer) Diff(logger lager.Logger, cancel <-chan struct{}, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) <-chan error {
 	fake.diffMutex.Lock()
 	fake.diffArgsForCall = append(fake.diffArgsForCall, struct {
-		logger              lager.Logger
-		cancel              <-chan struct{}
-		existing            []receptor.DesiredLRPResponse
-		desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint
-		missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint
-	}{logger, cancel, existing, desiredFingerprints, missingFingerprints})
+		logger       lager.Logger
+		cancel       <-chan struct{}
+		fingerprints <-chan []cc_messages.CCDesiredAppFingerprint
+	}{logger, cancel, fingerprints})
 	fake.diffMutex.Unlock()
 	if fake.DiffStub != nil {
-		return fake.DiffStub(logger, cancel, existing, desiredFingerprints, missingFingerprints)
+		return fake.DiffStub(logger, cancel, fingerprints)
 	} else {
 		return fake.diffReturns.result1
 	}
@@ -48,16 +61,88 @@ func (fake *FakeDiffer) DiffCallCount() int {
 	return len(fake.diffArgsForCall)
 }
 
-func (fake *FakeDiffer) DiffArgsForCall(i int) (lager.Logger, <-chan struct{}, []receptor.DesiredLRPResponse, <-chan []cc_messages.CCDesiredAppFingerprint, chan<- []cc_messages.CCDesiredAppFingerprint) {
+func (fake *FakeDiffer) DiffArgsForCall(i int) (lager.Logger, <-chan struct{}, <-chan []cc_messages.CCDesiredAppFingerprint) {
 	fake.diffMutex.RLock()
 	defer fake.diffMutex.RUnlock()
-	return fake.diffArgsForCall[i].logger, fake.diffArgsForCall[i].cancel, fake.diffArgsForCall[i].existing, fake.diffArgsForCall[i].desiredFingerprints, fake.diffArgsForCall[i].missingFingerprints
+	return fake.diffArgsForCall[i].logger, fake.diffArgsForCall[i].cancel, fake.diffArgsForCall[i].fingerprints
 }
 
-func (fake *FakeDiffer) DiffReturns(result1 []string) {
+func (fake *FakeDiffer) DiffReturns(result1 <-chan error) {
 	fake.DiffStub = nil
 	fake.diffReturns = struct {
-		result1 []string
+		result1 <-chan error
+	}{result1}
+}
+
+func (fake *FakeDiffer) Stale() <-chan []cc_messages.CCDesiredAppFingerprint {
+	fake.staleMutex.Lock()
+	fake.staleArgsForCall = append(fake.staleArgsForCall, struct{}{})
+	fake.staleMutex.Unlock()
+	if fake.StaleStub != nil {
+		return fake.StaleStub()
+	} else {
+		return fake.staleReturns.result1
+	}
+}
+
+func (fake *FakeDiffer) StaleCallCount() int {
+	fake.staleMutex.RLock()
+	defer fake.staleMutex.RUnlock()
+	return len(fake.staleArgsForCall)
+}
+
+func (fake *FakeDiffer) StaleReturns(result1 <-chan []cc_messages.CCDesiredAppFingerprint) {
+	fake.StaleStub = nil
+	fake.staleReturns = struct {
+		result1 <-chan []cc_messages.CCDesiredAppFingerprint
+	}{result1}
+}
+
+func (fake *FakeDiffer) Missing() <-chan []cc_messages.CCDesiredAppFingerprint {
+	fake.missingMutex.Lock()
+	fake.missingArgsForCall = append(fake.missingArgsForCall, struct{}{})
+	fake.missingMutex.Unlock()
+	if fake.MissingStub != nil {
+		return fake.MissingStub()
+	} else {
+		return fake.missingReturns.result1
+	}
+}
+
+func (fake *FakeDiffer) MissingCallCount() int {
+	fake.missingMutex.RLock()
+	defer fake.missingMutex.RUnlock()
+	return len(fake.missingArgsForCall)
+}
+
+func (fake *FakeDiffer) MissingReturns(result1 <-chan []cc_messages.CCDesiredAppFingerprint) {
+	fake.MissingStub = nil
+	fake.missingReturns = struct {
+		result1 <-chan []cc_messages.CCDesiredAppFingerprint
+	}{result1}
+}
+
+func (fake *FakeDiffer) Deleted() <-chan []string {
+	fake.deletedMutex.Lock()
+	fake.deletedArgsForCall = append(fake.deletedArgsForCall, struct{}{})
+	fake.deletedMutex.Unlock()
+	if fake.DeletedStub != nil {
+		return fake.DeletedStub()
+	} else {
+		return fake.deletedReturns.result1
+	}
+}
+
+func (fake *FakeDiffer) DeletedCallCount() int {
+	fake.deletedMutex.RLock()
+	defer fake.deletedMutex.RUnlock()
+	return len(fake.deletedArgsForCall)
+}
+
+func (fake *FakeDiffer) DeletedReturns(result1 <-chan []string) {
+	fake.DeletedStub = nil
+	fake.deletedReturns = struct {
+		result1 <-chan []string
 	}{result1}
 }
 

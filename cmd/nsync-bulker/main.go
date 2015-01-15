@@ -160,7 +160,6 @@ func main() {
 			Username:  *ccUsername,
 			Password:  *ccPassword,
 		},
-		bulk.NewDiffer(),
 		recipeBuilder,
 		timeprovider.NewTimeProvider(),
 	)

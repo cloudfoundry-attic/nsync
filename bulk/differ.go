@@ -8,79 +8,113 @@ import (
 
 //go:generate counterfeiter -o fakes/fake_differ.go . Differ
 type Differ interface {
-	Diff(
-		logger lager.Logger,
-		cancel <-chan struct{},
-		existing []receptor.DesiredLRPResponse,
-		desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
-		missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
-	) []string
+	Diff(logger lager.Logger, cancel <-chan struct{}, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) <-chan error
+
+	Stale() <-chan []cc_messages.CCDesiredAppFingerprint
+
+	Missing() <-chan []cc_messages.CCDesiredAppFingerprint
+
+	Deleted() <-chan []string
 }
 
-type differ struct{}
+type differ struct {
+	existing []receptor.DesiredLRPResponse
 
-func NewDiffer() Differ {
-	return &differ{}
+	stale   chan []cc_messages.CCDesiredAppFingerprint
+	missing chan []cc_messages.CCDesiredAppFingerprint
+	deleted chan []string
+}
+
+func NewDiffer(existing []receptor.DesiredLRPResponse) Differ {
+	return &differ{
+		existing: existing,
+
+		stale:   make(chan []cc_messages.CCDesiredAppFingerprint, 1),
+		missing: make(chan []cc_messages.CCDesiredAppFingerprint, 1),
+		deleted: make(chan []string, 1),
+	}
 }
 
 func (d *differ) Diff(
 	logger lager.Logger,
 	cancel <-chan struct{},
-	existing []receptor.DesiredLRPResponse,
-	desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
-	missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
-) []string {
+	fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+) <-chan error {
 	logger = logger.Session("diff")
-	logger.Info("starting")
-	defer logger.Info("finished")
 
-	defer close(missingFingerprints)
+	errc := make(chan error, 1)
 
-	existingLRPs := organizeLRPsByProcessGuid(existing)
+	go func() {
+		defer func() {
+			close(d.missing)
+			close(d.stale)
+			close(d.deleted)
+			close(errc)
+		}()
 
-LOOP:
-	for {
-		select {
-		case <-cancel:
-			return []string{}
+		existingLRPs := organizeLRPsByProcessGuid(d.existing)
 
-		case desired, ok := <-desiredFingerprints:
-			if !ok {
-				break LOOP
-			}
+		for {
+			select {
+			case <-cancel:
+				return
 
-			missing := []cc_messages.CCDesiredAppFingerprint{}
+			case batch, open := <-fingerprints:
+				if !open {
+					remaining := remainingProcessGuids(existingLRPs)
+					if len(remaining) > 0 {
+						d.deleted <- remaining
+					}
+					return
+				}
 
-			for _, fingerprint := range desired {
-				if desiredLRP, ok := existingLRPs[fingerprint.ProcessGuid]; ok {
-					delete(existingLRPs, fingerprint.ProcessGuid)
-					if desiredLRP.Annotation == fingerprint.ETag {
+				missing := []cc_messages.CCDesiredAppFingerprint{}
+				stale := []cc_messages.CCDesiredAppFingerprint{}
+
+				for _, fingerprint := range batch {
+					desiredLRP, found := existingLRPs[fingerprint.ProcessGuid]
+					if !found {
+						logger.Info("found-missing-desired-lrp", lager.Data{
+							"guid": fingerprint.ProcessGuid,
+							"etag": fingerprint.ETag,
+						})
+
+						missing = append(missing, fingerprint)
 						continue
+					}
+
+					delete(existingLRPs, fingerprint.ProcessGuid)
+
+					if desiredLRP.Annotation != fingerprint.ETag {
+						logger.Info("found-stale-lrp", lager.Data{
+							"guid": fingerprint.ProcessGuid,
+							"etag": fingerprint.ETag,
+						})
+
+						stale = append(stale, fingerprint)
 					}
 				}
 
-				logger.Info("found-missing-or-stale-desired-lrp", lager.Data{
-					"guid": fingerprint.ProcessGuid,
-					"etag": fingerprint.ETag,
-				})
+				if len(missing) > 0 {
+					select {
+					case d.missing <- missing:
+					case <-cancel:
+						return
+					}
+				}
 
-				missing = append(missing, fingerprint)
-			}
-
-			select {
-			case missingFingerprints <- missing:
-			case <-cancel:
-				return []string{}
+				if len(stale) > 0 {
+					select {
+					case d.stale <- stale:
+					case <-cancel:
+						return
+					}
+				}
 			}
 		}
-	}
+	}()
 
-	deleteList := make([]string, 0, len(existingLRPs))
-	for _, lrp := range existingLRPs {
-		deleteList = append(deleteList, lrp.ProcessGuid)
-	}
-
-	return deleteList
+	return errc
 }
 
 func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
@@ -91,4 +125,25 @@ func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*r
 	}
 
 	return result
+}
+
+func remainingProcessGuids(remaining map[string]*receptor.DesiredLRPResponse) []string {
+	keys := make([]string, 0, len(remaining))
+	for _, lrp := range remaining {
+		keys = append(keys, lrp.ProcessGuid)
+	}
+
+	return keys
+}
+
+func (d *differ) Stale() <-chan []cc_messages.CCDesiredAppFingerprint {
+	return d.stale
+}
+
+func (d *differ) Missing() <-chan []cc_messages.CCDesiredAppFingerprint {
+	return d.missing
+}
+
+func (d *differ) Deleted() <-chan []string {
+	return d.deleted
 }

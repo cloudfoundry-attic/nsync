@@ -34,7 +34,6 @@ type Processor struct {
 	skipCertVerify  bool
 	logger          lager.Logger
 	fetcher         Fetcher
-	differ          Differ
 	builder         RecipeBuilder
 	timeProvider    timeprovider.TimeProvider
 }
@@ -48,7 +47,6 @@ func NewProcessor(
 	skipCertVerify bool,
 	logger lager.Logger,
 	fetcher Fetcher,
-	differ Differ,
 	builder RecipeBuilder,
 	timeProvider timeprovider.TimeProvider,
 ) *Processor {
@@ -61,7 +59,6 @@ func NewProcessor(
 		skipCertVerify:  skipCertVerify,
 		logger:          logger,
 		fetcher:         fetcher,
-		differ:          differ,
 		builder:         builder,
 		timeProvider:    timeProvider,
 	}
@@ -106,166 +103,217 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool {
 	start := p.timeProvider.Now()
-	duration := time.Duration(0)
 	defer func() {
+		duration := p.timeProvider.Now().Sub(start)
 		syncDesiredLRPsDuration.Send(duration)
 	}()
 
-	logger := p.logger.Session("processor")
+	logger := p.logger.Session("sync")
 
-	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := p.receptorClient.DesiredLRPsByDomain(recipebuilder.LRPDomain)
+	existing, err := p.getDesiredLRPs(logger)
 	if err != nil {
-		p.logger.Error("failed-to-get-desired-lrps", err)
 		return false
 	}
 
-	fetchError := make(chan error, 1)
-	done := make(chan error)
+	differ := NewDiffer(existing)
 
-	fingerprintsFromCC := make(chan []cc_messages.CCDesiredAppFingerprint)
-	missingFingerprints := make(chan []cc_messages.CCDesiredAppFingerprint)
-	desireAppRequestsFromCC := make(chan []cc_messages.DesireAppRequestFromCC)
-
-	wg := &sync.WaitGroup{}
 	cancel := make(chan struct{})
-	notFresh := make(chan struct{})
 
-	wg.Add(1)
-	go func() {
-		defer close(fetchError)
-		defer wg.Done()
+	fingerprints, fingerprintErrors := p.fetcher.FetchFingerprints(
+		logger,
+		cancel,
+		httpClient,
+	)
 
-		err := p.fetcher.FetchFingerprints(logger, cancel, fingerprintsFromCC, httpClient)
-		if err != nil {
-			notFresh <- struct{}{}
-			fetchError <- err
-		}
-	}()
+	diffErrors := differ.Diff(
+		logger,
+		cancel,
+		fingerprints,
+	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	missingApps, missingAppsErrors := p.fetcher.FetchDesiredApps(
+		logger,
+		cancel,
+		httpClient,
+		differ.Missing(),
+	)
 
-		deleteList := p.differ.Diff(logger, cancel, existing, fingerprintsFromCC, missingFingerprints)
+	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps)
 
-		select {
-		case err, ok := <-fetchError:
-			if err != nil {
-				return
-			}
-			if !ok {
-				p.deleteExcess(logger, cancel, deleteList)
-			}
-		}
-	}()
+	staleApps, staleAppErrors := p.fetcher.FetchDesiredApps(
+		logger,
+		cancel,
+		httpClient,
+		differ.Stale(),
+	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := p.fetcher.FetchDesiredApps(logger, cancel, missingFingerprints, desireAppRequestsFromCC, httpClient)
-		if err != nil {
-			notFresh <- struct{}{}
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := p.createMissingDesiredLRPs(logger, cancel, desireAppRequestsFromCC)
-		if err != nil {
-			notFresh <- struct{}{}
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps)
 
 	bumpFreshness := true
+	success := true
 
-PROCESS:
+	fingerprintErrors, fingerprintErrorCount := countErrors(fingerprintErrors)
+
+	errors := mergeErrors(
+		fingerprintErrors,
+		diffErrors,
+		missingAppsErrors,
+		staleAppErrors,
+		createErrors,
+		updateErrors,
+	)
+
+process_loop:
 	for {
 		select {
-		case _, ok := <-done:
-			if !ok {
-				break PROCESS
+		case err, open := <-errors:
+			if err != nil {
+				bumpFreshness = false
 			}
-
-		case <-notFresh:
-			bumpFreshness = false
-
+			if !open {
+				break process_loop
+			}
 		case <-signals:
 			close(cancel)
-			signals = nil
 			return true
 		}
 	}
 
-	if bumpFreshness {
+	if <-fingerprintErrorCount != 0 {
+		logger.Error("failed-to-fetch-all-cc-fingerprints", nil)
+		success = false
+	}
+
+	if success {
+		deleteList := <-differ.Deleted()
+		p.deleteExcess(logger, cancel, deleteList)
+	}
+
+	if bumpFreshness && success {
 		err = p.receptorClient.UpsertDomain(recipebuilder.LRPDomain, p.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
 		}
 	}
 
-	duration = p.timeProvider.Now().Sub(start)
-	return signals == nil
+	return false
 }
 
 func (p *Processor) createMissingDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	missing <-chan []cc_messages.DesireAppRequestFromCC,
-) error {
-	var createError error
+) <-chan error {
+	logger = logger.Session("create-missing-desired-lrps")
 
-CREATE_LOOP:
-	for {
-		logger = logger.Session("create-missing-desired-lrps")
+	errc := make(chan error, 1)
 
-		var desireAppRequests []cc_messages.DesireAppRequestFromCC
-		select {
-		case <-cancel:
-			break CREATE_LOOP
-		case selected, ok := <-missing:
-			if !ok {
-				break CREATE_LOOP
+	go func() {
+		defer close(errc)
+
+		for {
+			var desireAppRequests []cc_messages.DesireAppRequestFromCC
+
+			select {
+			case <-cancel:
+				return
+
+			case selected, open := <-missing:
+				if !open {
+					return
+				}
+
+				desireAppRequests = selected
 			}
-			desireAppRequests = selected
+
+			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
+
+			for _, desireAppRequest := range desireAppRequests {
+				createReq, err := p.builder.Build(&desireAppRequest)
+				if err != nil {
+					logger.Error("failed-to-build-create-desired-lrp-request", err, lager.Data{
+						"desire-app-request": desireAppRequest,
+					})
+					errc <- err
+					continue
+				}
+
+				err = p.receptorClient.CreateDesiredLRP(*createReq)
+				if err != nil {
+					logger.Error("failed-to-create-desired-lrp", err, lager.Data{
+						"create-request": createReq,
+					})
+					errc <- err
+					continue
+				}
+			}
 		}
+	}()
 
-		logger.Info(
-			"processing-batch",
-			lager.Data{"size": len(desireAppRequests)},
-		)
+	return errc
+}
 
-		for _, desireAppRequest := range desireAppRequests {
-			createReq, err := p.builder.Build(&desireAppRequest)
-			if err != nil {
-				createError = err
-				logger.Error(
-					"failed-to-build-create-desired-lrp-request",
-					err,
-					lager.Data{"desire-app-request": desireAppRequest},
-				)
-				continue
+func (p *Processor) updateStaleDesiredLRPs(
+	logger lager.Logger,
+	cancel <-chan struct{},
+	stale <-chan []cc_messages.DesireAppRequestFromCC,
+) <-chan error {
+	logger = logger.Session("update-stale-desired-lrps")
+
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(errc)
+
+		for {
+			var staleAppRequests []cc_messages.DesireAppRequestFromCC
+
+			select {
+			case <-cancel:
+				return
+
+			case selected, open := <-stale:
+				if !open {
+					return
+				}
+
+				staleAppRequests = selected
 			}
 
-			err = p.receptorClient.CreateDesiredLRP(*createReq)
-			if err != nil {
-				createError = err
-				logger.Error(
-					"failed-to-create-desired-lrp",
-					err,
-					lager.Data{"create-request": createReq},
-				)
+			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
+
+			for _, desireAppRequest := range staleAppRequests {
+				updateReq := receptor.DesiredLRPUpdateRequest{}
+				updateReq.Instances = &desireAppRequest.NumInstances
+				updateReq.Annotation = &desireAppRequest.ETag
+				updateReq.Routes = desireAppRequest.Routes
+
+				err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
+				if err != nil {
+					logger.Error("failed-to-update-stale-lrp", err, lager.Data{
+						"update-request": updateReq,
+					})
+					errc <- err
+					continue
+				}
 			}
 		}
+	}()
+
+	return errc
+}
+
+func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]receptor.DesiredLRPResponse, error) {
+	logger.Info("getting-desired-lrps-from-bbs")
+
+	existing, err := p.receptorClient.DesiredLRPsByDomain(recipebuilder.LRPDomain)
+	if err != nil {
+		logger.Error("failed-to-get-desired-lrps", err)
+		return nil, err
 	}
 
-	return createError
+	logger.Info("got-desired-lrps-from-bbs", lager.Data{"count": len(existing)})
+	return existing, nil
 }
 
 func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
@@ -286,4 +334,55 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 			)
 		}
 	}
+}
+
+func countErrors(source <-chan error) (<-chan error, <-chan int) {
+	count := make(chan int, 1)
+	dest := make(chan error, 1)
+	var errorCount int
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		for e := range source {
+			errorCount++
+			dest <- e
+		}
+
+		close(dest)
+		wg.Done()
+	}()
+
+	go func() {
+		wg.Wait()
+
+		count <- errorCount
+		close(count)
+	}()
+
+	return dest, count
+}
+
+func mergeErrors(channels ...<-chan error) <-chan error {
+	out := make(chan error)
+	wg := sync.WaitGroup{}
+
+	for _, ch := range channels {
+		wg.Add(1)
+
+		go func(c <-chan error) {
+			for e := range c {
+				out <- e
+			}
+			wg.Done()
+		}(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	return out
 }

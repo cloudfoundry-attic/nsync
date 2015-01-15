@@ -16,17 +16,15 @@ type Fetcher interface {
 	FetchFingerprints(
 		logger lager.Logger,
 		cancel <-chan struct{},
-		desiredAppFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
 		httpClient *http.Client,
-	) error
+	) (<-chan []cc_messages.CCDesiredAppFingerprint, <-chan error)
 
 	FetchDesiredApps(
 		logger lager.Logger,
 		cancel <-chan struct{},
-		desiredAppFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
-		desireAppRequestsFromCC chan<- []cc_messages.DesireAppRequestFromCC,
 		httpClient *http.Client,
-	) error
+		fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
+	) (<-chan []cc_messages.DesireAppRequestFromCC, <-chan error)
 }
 
 type CCFetcher struct {
@@ -41,109 +39,127 @@ const initialBulkToken = "{}"
 func (fetcher *CCFetcher) FetchFingerprints(
 	logger lager.Logger,
 	cancel <-chan struct{},
-	resultChan chan<- []cc_messages.CCDesiredAppFingerprint,
 	httpClient *http.Client,
-) error {
-	// ensure this happens regardless of success or failure;
-	defer close(resultChan)
+) (<-chan []cc_messages.CCDesiredAppFingerprint, <-chan error) {
+	results := make(chan []cc_messages.CCDesiredAppFingerprint)
+	errc := make(chan error, 1)
 
 	logger = logger.Session("fetch-fingerprints-from-cc")
 
-	token := initialBulkToken
+	go func() {
+		defer close(results)
+		defer close(errc)
 
-	for {
-		logger.Info("fetching-desired", lager.Data{"token": token})
+		token := initialBulkToken
+		for {
+			logger.Info("fetching-desired", lager.Data{"token": token})
 
-		req, err := http.NewRequest("GET", fetcher.fingerprintURL(token), nil)
-		if err != nil {
-			return err
+			req, err := http.NewRequest("GET", fetcher.fingerprintURL(token), nil)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			response := cc_messages.CCDesiredStateFingerprintResponse{}
+
+			err = fetcher.doRequest(logger, httpClient, req, &response)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			select {
+			case results <- response.Fingerprints:
+			case <-cancel:
+				return
+			}
+
+			if len(response.Fingerprints) < fetcher.BatchSize {
+				return
+			}
+
+			if response.CCBulkToken == nil {
+				errc <- errors.New("token not included in response")
+				return
+			}
+
+			token = string(*response.CCBulkToken)
 		}
+	}()
 
-		response := cc_messages.CCDesiredStateFingerprintResponse{}
-
-		err = fetcher.doRequest(logger, httpClient, req, &response)
-		if err != nil {
-			return err
-		}
-
-		select {
-		case resultChan <- response.Fingerprints:
-		case <-cancel:
-			return nil
-		}
-
-		if len(response.Fingerprints) < fetcher.BatchSize {
-			return nil
-		}
-
-		if response.CCBulkToken == nil {
-			return errors.New("token not included in response")
-		}
-
-		token = string(*response.CCBulkToken)
-	}
+	return results, errc
 }
 
 func (fetcher *CCFetcher) FetchDesiredApps(
 	logger lager.Logger,
 	cancel <-chan struct{},
-	fingerprintCh <-chan []cc_messages.CCDesiredAppFingerprint,
-	desiredStateCh chan<- []cc_messages.DesireAppRequestFromCC,
 	httpClient *http.Client,
-) error {
-	// ensure this happens regardless of success or failure;
-	defer close(desiredStateCh)
+	fingerprintCh <-chan []cc_messages.CCDesiredAppFingerprint,
+) (<-chan []cc_messages.DesireAppRequestFromCC, <-chan error) {
+	results := make(chan []cc_messages.DesireAppRequestFromCC)
+	errc := make(chan error, 1)
 
-	logger = logger.Session("fetch-desired-apps")
+	logger = logger.Session("fetch-desired-lrps-from-cc")
 
-	for {
-		var fingerprints []cc_messages.CCDesiredAppFingerprint
+	go func() {
+		defer close(results)
+		defer close(errc)
 
-		select {
-		case <-cancel:
-			return nil
-		case selected, ok := <-fingerprintCh:
-			if !ok {
-				return nil
+		for {
+			var fingerprints []cc_messages.CCDesiredAppFingerprint
+
+			select {
+			case <-cancel:
+				return
+			case selected, ok := <-fingerprintCh:
+				if !ok {
+					return
+				}
+				fingerprints = selected
 			}
-			fingerprints = selected
+
+			if len(fingerprints) == 0 {
+				continue
+			}
+
+			processGuids := make([]string, len(fingerprints))
+			for i, fingerprint := range fingerprints {
+				processGuids[i] = fingerprint.ProcessGuid
+			}
+
+			payload, err := json.Marshal(processGuids)
+			if err != nil {
+				logger.Error("failed-to-marshal", err, lager.Data{"guids": processGuids})
+				errc <- err
+				return
+			}
+
+			logger.Info("fetching-desired", lager.Data{"fingerprints-length": len(fingerprints)})
+
+			req, err := http.NewRequest("POST", fetcher.desiredURL(), bytes.NewReader(payload))
+			if err != nil {
+				logger.Error("failed-to-create-request", err)
+				errc <- err
+				continue
+			}
+
+			response := []cc_messages.DesireAppRequestFromCC{}
+
+			err = fetcher.doRequest(logger, httpClient, req, &response)
+			if err != nil {
+				errc <- err
+				continue
+			}
+
+			select {
+			case results <- response:
+			case <-cancel:
+				return
+			}
 		}
+	}()
 
-		if len(fingerprints) == 0 {
-			continue
-		}
-
-		processGuids := make([]string, len(fingerprints))
-		for i, fingerprint := range fingerprints {
-			processGuids[i] = fingerprint.ProcessGuid
-		}
-
-		payload, err := json.Marshal(processGuids)
-		if err != nil {
-			return err
-		}
-
-		logger.Info("fetching-desired-from-cc", lager.Data{"fingerprints-length": len(fingerprints)})
-
-		req, err := http.NewRequest("POST", fetcher.desiredURL(), bytes.NewReader(payload))
-		if err != nil {
-			return err
-		}
-
-		response := []cc_messages.DesireAppRequestFromCC{}
-		err = fetcher.doRequest(logger, httpClient, req, &response)
-		if err != nil {
-			continue
-		}
-
-		select {
-		case desiredStateCh <- response:
-		case <-cancel:
-			return nil
-		}
-	}
-
-	return nil
+	return results, errc
 }
 
 func (fetcher *CCFetcher) doRequest(
