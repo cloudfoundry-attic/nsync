@@ -71,6 +71,7 @@ var _ = Describe("Listen", func() {
 			NumInstances:    2,
 			Routes:          []string{"route1", "route2"},
 			LogGuid:         "some-log-guid",
+			ETag:            "last-modified-etag",
 		}
 
 		metricSender = fake.NewFakeMetricSender()
@@ -92,92 +93,117 @@ var _ = Describe("Listen", func() {
 			fakenats.Publish(desireAppTopic, messagePayload)
 		})
 
-		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
-			ProcessGuid: "new-process-guid",
+		Context("when the desired LRP does not exist", func() {
+			var newlyDesiredLRP receptor.DesiredLRPCreateRequest
 
-			Instances: 1,
-			Stack:     "stack-2",
-
-			Action: &models.RunAction{
-				Path: "ls",
-			},
-		}
-
-		BeforeEach(func() {
-			builder.BuildReturns(&newlyDesiredLRP, nil)
-		})
-
-		It("marks the LRP desired in the bbs", func() {
-			Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-
-			Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
-
-			Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
-		})
-
-		It("increments the desired LRPs counter", func() {
-			Eventually(func() uint64 {
-				return metricSender.GetCounter("LRPsDesired")
-			}).Should(Equal(uint64(1)))
-		})
-
-		Context("when the number of desired app instances is zero", func() {
 			BeforeEach(func() {
-				desireAppRequest.NumInstances = 0
+				fakeReceptorClient.GetDesiredLRPReturns(receptor.DesiredLRPResponse{}, receptor.Error{
+					Type:    receptor.DesiredLRPNotFound,
+					Message: "Desired LRP with guid 'new-process-guid' not found",
+				})
+				builder.BuildReturns(&newlyDesiredLRP, nil)
 			})
 
-			It("deletes the desired LRP", func() {
-				Eventually(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-				Ω(fakeReceptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("some-guid"))
+			Context("when the desired app is a traditional app", func() {
+				BeforeEach(func() {
+					newlyDesiredLRP = receptor.DesiredLRPCreateRequest{
+						ProcessGuid: "new-process-guid",
+						Instances:   1,
+						Stack:       "stack-2",
+						Action: &models.RunAction{
+							Path: "ls",
+						},
+						Annotation: "last-modified-etag",
+					}
+				})
+
+				It("desires the LRP in the bbs", func() {
+					Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+
+					Eventually(fakeReceptorClient.GetDesiredLRPCallCount).Should(Equal(1))
+					Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+
+					Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
+				})
+			})
+
+			Context("when the desired app is a docker app", func() {
+				BeforeEach(func() {
+					desireAppRequest.DockerImageUrl = "https:///docker.com/docker"
+
+					newlyDesiredLRP = receptor.DesiredLRPCreateRequest{
+						ProcessGuid: "new-process-guid",
+						Instances:   1,
+						Stack:       "stack-2",
+						RootFSPath:  "docker:///docker.com/docker",
+						Action: &models.RunAction{
+							Path: "ls",
+						},
+					}
+				})
+
+				It("desires the LRP in the bbs", func() {
+					Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+
+					Eventually(fakeReceptorClient.GetDesiredLRPCallCount).Should(Equal(1))
+					Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+					Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
+				})
+			})
+
+			It("increments the desired LRPs counter", func() {
+				Eventually(func() uint64 {
+					return metricSender.GetCounter("LRPsDesired")
+				}).Should(Equal(uint64(1)))
+			})
+
+			Context("when the number of desired app instances is zero", func() {
+				BeforeEach(func() {
+					desireAppRequest.NumInstances = 0
+				})
+
+				It("deletes the desired LRP", func() {
+					Eventually(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					Ω(fakeReceptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("some-guid"))
+				})
+			})
+
+			Context("when building the recipe fails to build", func() {
+				BeforeEach(func() {
+					builder.BuildReturns(nil, errors.New("oh no!"))
+				})
+
+				It("logs an error", func() {
+					Eventually(logger.TestSink.Buffer).Should(gbytes.Say("failed-to-build-recipe"))
+					Eventually(logger.TestSink.Buffer).Should(gbytes.Say("oh no!"))
+				})
+
+				It("does not desire the LRP", func() {
+					Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
+				})
 			})
 		})
 
-		Describe("when building the recipe fails to build", func() {
+		Context("when desired LRP already exists", func() {
 			BeforeEach(func() {
-				builder.BuildReturns(nil, errors.New("oh no!"))
+				fakeReceptorClient.GetDesiredLRPReturns(receptor.DesiredLRPResponse{
+					ProcessGuid: "some-guid",
+				}, nil)
 			})
 
-			It("logs an error", func() {
-				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("failed-to-build-recipe"))
-				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("oh no!"))
+			It("checks to see if LRP already exists", func() {
+				Eventually(fakeReceptorClient.GetDesiredLRPCallCount).Should(Equal(1))
 			})
 
-			It("does not desire the LRP", func() {
-				Consistently(fakeReceptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
+			It("updates the LRP in bbs", func() {
+				Eventually(fakeReceptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+
+				processGuid, updateRequest := fakeReceptorClient.UpdateDesiredLRPArgsForCall(0)
+				Ω(processGuid).Should(Equal("some-guid"))
+				Ω(*updateRequest.Instances).Should(Equal(2))
+				Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
+				Ω(updateRequest.Routes).Should(Equal([]string{"route1", "route2"}))
 			})
-		})
-	})
-
-	Describe("when a message desiring a docker app is received", func() {
-
-		JustBeforeEach(func() {
-			desireAppRequest.DockerImageUrl = "https:///docker.com/docker"
-			messagePayload, err := json.Marshal(desireAppRequest)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			fakenats.Publish(desireDockerAppTopic, messagePayload)
-		})
-
-		newlyDesiredLRP := receptor.DesiredLRPCreateRequest{
-			ProcessGuid: "new-process-guid",
-
-			Instances:  1,
-			Stack:      "stack-2",
-			RootFSPath: "docker:///docker.com/docker",
-			Action: &models.RunAction{
-				Path: "ls",
-			},
-		}
-
-		BeforeEach(func() {
-			builder.BuildReturns(&newlyDesiredLRP, nil)
-		})
-
-		It("desires the LRP", func() {
-			Eventually(fakeReceptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-
-			Ω(fakeReceptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
-			Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
 		})
 	})
 

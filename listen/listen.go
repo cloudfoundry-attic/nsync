@@ -7,7 +7,6 @@ import (
 
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/bbserrors"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -77,7 +76,7 @@ func (listen Listen) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				listen.desireApp(msg)
+				listen.processDesireAppRequest(msg)
 			}()
 
 		case msg := <-killIndexChan:
@@ -130,33 +129,84 @@ func (listen Listen) listenForDesiredDockerApps(desiredApps desireAppChan) (*nat
 	})
 }
 
-func (listen Listen) desireApp(desireAppMessage cc_messages.DesireAppRequestFromCC) {
+func (listen Listen) processDesireAppRequest(desireAppMessage cc_messages.DesireAppRequestFromCC) {
 	requestLogger := listen.Logger.Session("desire-lrp", lager.Data{
 		"desired-app-message": desireAppMessage,
 	})
 
 	if desireAppMessage.NumInstances == 0 {
-		err := listen.ReceptorClient.DeleteDesiredLRP(desireAppMessage.ProcessGuid)
-		if err == bbserrors.ErrStoreResourceNotFound {
-			requestLogger.Info("lrp-already-deleted")
-			return
-		}
-		if err != nil {
-			requestLogger.Error("failed-to-remove", err)
-			return
-		}
-	} else {
-		desiredLRP, err := listen.RecipeBuilder.Build(&desireAppMessage)
-		if err != nil {
-			requestLogger.Error("failed-to-build-recipe", err)
-			return
-		}
+		listen.deleteDesiredApp(requestLogger, desireAppMessage.ProcessGuid)
+		return
+	}
 
-		desiredLRPCounter.Increment()
-		err = listen.ReceptorClient.CreateDesiredLRP(*desiredLRP)
-		if err != nil {
-			requestLogger.Error("failed-to-create", err)
+	desiredAppExists, err := listen.desiredAppExists(requestLogger, desireAppMessage.ProcessGuid)
+	if err != nil {
+		return
+	}
+
+	desiredLRPCounter.Increment()
+
+	if desiredAppExists {
+		listen.updateDesiredApp(requestLogger, desireAppMessage)
+	} else {
+		listen.createDesiredApp(requestLogger, desireAppMessage)
+	}
+}
+
+func (listen Listen) desiredAppExists(logger lager.Logger, processGuid string) (bool, error) {
+	_, err := listen.ReceptorClient.GetDesiredLRP(processGuid)
+	if err == nil {
+		return true, nil
+	}
+
+	if rerr, ok := err.(receptor.Error); ok {
+		if rerr.Type == receptor.DesiredLRPNotFound {
+			return false, nil
+		}
+	}
+
+	logger.Error("unexpected-error-from-get-desired-lrp", err)
+	return false, err
+}
+
+func (listen Listen) createDesiredApp(logger lager.Logger, desireAppMessage cc_messages.DesireAppRequestFromCC) {
+	desiredLRP, err := listen.RecipeBuilder.Build(&desireAppMessage)
+	if err != nil {
+		logger.Error("failed-to-build-recipe", err)
+		return
+	}
+
+	err = listen.ReceptorClient.CreateDesiredLRP(*desiredLRP)
+	if err != nil {
+		logger.Error("failed-to-create", err)
+	}
+}
+
+func (listen Listen) updateDesiredApp(logger lager.Logger, desireAppMessage cc_messages.DesireAppRequestFromCC) {
+	updateRequest := receptor.DesiredLRPUpdateRequest{
+		Annotation: &desireAppMessage.ETag,
+		Instances:  &desireAppMessage.NumInstances,
+		Routes:     desireAppMessage.Routes,
+	}
+
+	err := listen.ReceptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
+	if err != nil {
+		logger.Error("failed-to-update-lrp", err)
+	}
+}
+
+func (listen Listen) deleteDesiredApp(logger lager.Logger, processGuid string) {
+	err := listen.ReceptorClient.DeleteDesiredLRP(processGuid)
+	if err == nil {
+		return
+	}
+
+	if rerr, ok := err.(receptor.Error); ok {
+		if rerr.Type == receptor.DesiredLRPNotFound {
+			logger.Info("lrp-already-deleted")
 			return
 		}
 	}
+
+	logger.Error("failed-to-remove", err)
 }
