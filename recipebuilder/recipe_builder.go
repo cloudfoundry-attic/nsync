@@ -176,6 +176,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		Monitor: monitor,
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
+
+		EgressRules: desiredApp.EgressRules,
 	}, nil
 }
 

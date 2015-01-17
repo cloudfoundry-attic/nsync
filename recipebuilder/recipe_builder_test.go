@@ -20,6 +20,7 @@ var _ = Describe("Recipe Builder", func() {
 		desiredAppReq cc_messages.DesireAppRequestFromCC
 		desiredLRP    *receptor.DesiredLRPCreateRequest
 		circuses      map[string]string
+		egressRules   []models.SecurityGroupRule
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
@@ -29,6 +30,14 @@ var _ = Describe("Recipe Builder", func() {
 
 		circuses = map[string]string{
 			"some-stack": "some-circus.tgz",
+		}
+
+		egressRules = []models.SecurityGroupRule{
+			{
+				Protocol:    "TCP",
+				Destination: "0.0.0.0/0",
+				PortRange:   &models.PortRange{Start: 80, End: 443},
+			},
 		}
 
 		builder = recipebuilder.New(circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
@@ -51,6 +60,8 @@ var _ = Describe("Recipe Builder", func() {
 
 			HealthCheckType:             cc_messages.PortHealthCheckType,
 			HealthCheckTimeoutInSeconds: 123456,
+
+			EgressRules: egressRules,
 
 			ETag: "etag-updated-at",
 		}
@@ -159,6 +170,8 @@ var _ = Describe("Recipe Builder", func() {
 				Name:  "PORT",
 				Value: "8080",
 			}))
+
+			Ω(desiredLRP.EgressRules).Should(ConsistOf(egressRules))
 		})
 
 		Context("when no health check is specified", func() {
