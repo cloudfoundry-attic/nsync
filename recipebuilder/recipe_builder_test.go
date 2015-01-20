@@ -24,6 +24,8 @@ var _ = Describe("Recipe Builder", func() {
 		circuses      map[string]string
 	)
 
+	defaultNofile := DefaultFileDescriptorLimit
+
 	BeforeEach(func() {
 		logger := lager.NewLogger("fakelogger")
 
@@ -131,6 +133,9 @@ var _ = Describe("Recipe Builder", func() {
 					Path:      "/tmp/circus/spy",
 					Args:      []string{"-addr=:8080"},
 					LogSource: HealthLogSource,
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &defaultNofile,
+					},
 				},
 			}))
 
@@ -177,9 +182,10 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
-						Path:      "/tmp/circus/spy",
-						Args:      []string{"-addr=:8080"},
-						LogSource: HealthLogSource,
+						Path:           "/tmp/circus/spy",
+						Args:           []string{"-addr=:8080"},
+						LogSource:      HealthLogSource,
+						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
 				}))
 			})
@@ -275,13 +281,12 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
-		It("does not set any FD limit on the run action", func() {
+		It("sets a default FD limit on the run action", func() {
 			runAction, ok := desiredLRP.Action.(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
-			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
-				Nofile: nil,
-			}))
+			Ω(runAction.ResourceLimits.Nofile).ShouldNot(BeNil())
+			Ω(*runAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
 		})
 	})
 

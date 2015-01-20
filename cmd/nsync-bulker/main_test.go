@@ -273,6 +273,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			It("it (adds), (updates), and (removes extra) LRPs", func() {
+				defaultNofile := recipebuilder.DefaultFileDescriptorLimit
 				nofile := uint64(16)
 
 				expectedSetupActions1 := models.Serial(
@@ -335,9 +336,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
+							Path:           "/tmp/circus/spy",
+							Args:           []string{"-addr=:8080"},
+							LogSource:      recipebuilder.HealthLogSource,
+							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
 					DiskMB:    1024,
@@ -375,9 +377,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
+							Path:           "/tmp/circus/spy",
+							Args:           []string{"-addr=:8080"},
+							LogSource:      recipebuilder.HealthLogSource,
+							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
 					DiskMB:    1024,
@@ -413,9 +416,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:      "/tmp/circus/spy",
-							Args:      []string{"-addr=:8080"},
-							LogSource: recipebuilder.HealthLogSource,
+							Path:           "/tmp/circus/spy",
+							Args:           []string{"-addr=:8080"},
+							LogSource:      recipebuilder.HealthLogSource,
+							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
 					DiskMB:    512,

@@ -22,6 +22,8 @@ const (
 	MinCpuProxy = 256
 	MaxCpuProxy = 8192
 
+	DefaultFileDescriptorLimit = uint64(1024)
+
 	LRPLogSource    = "CELL"
 	AppLogSource    = "App"
 	HealthLogSource = "HEALTH"
@@ -90,9 +92,9 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		privilegedContainer = true
 	}
 
-	var numFiles *uint64
+	numFiles := DefaultFileDescriptorLimit
 	if desiredApp.FileDescriptors != 0 {
-		numFiles = &desiredApp.FileDescriptors
+		numFiles = desiredApp.FileDescriptors
 	}
 
 	var setup []models.Action
@@ -105,12 +107,16 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
+		fileDescriptorLimit := DefaultFileDescriptorLimit
 		monitor = &models.TimeoutAction{
 			Timeout: 30 * time.Second,
 			Action: &models.RunAction{
 				Path:      "/tmp/circus/spy",
 				Args:      []string{"-addr=:8080"},
 				LogSource: HealthLogSource,
+				ResourceLimits: models.ResourceLimits{
+					Nofile: &fileDescriptorLimit,
+				},
 			},
 		}
 	}
@@ -133,7 +139,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		Env:       createLrpEnv(desiredApp.Environment.BBSEnvironment()),
 		LogSource: AppLogSource,
 		ResourceLimits: models.ResourceLimits{
-			Nofile: numFiles,
+			Nofile: &numFiles,
 		},
 	}
 
