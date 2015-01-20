@@ -76,7 +76,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	AfterEach(func() {
 		etcdAdapter.Disconnect()
-		ginkgomon.Interrupt(receptorProcess)
+		ginkgomon.Interrupt(receptorProcess, 2*time.Second)
 	})
 
 	var publishDesireWithInstances = func(nInstances int) {
@@ -111,7 +111,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			AfterEach(func() {
-				ginkgomon.Interrupt(process)
+				ginkgomon.Interrupt(process, 2*time.Second)
 			})
 
 			Describe("and a 'diego.desire.app' message is recieved", func() {
@@ -150,7 +150,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				})
 
 				AfterEach(func() {
-					ginkgomon.Interrupt(secondProcess)
+					ginkgomon.Interrupt(secondProcess, 2*time.Second)
 				})
 
 				Describe("the second listener", func() {
@@ -161,7 +161,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("and the first listener goes away", func() {
 					BeforeEach(func() {
-						ginkgomon.Interrupt(process)
+						ginkgomon.Interrupt(process, 2*time.Second)
 					})
 
 					Describe("the second listener", func() {
@@ -183,7 +183,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			AfterEach(func() {
 				defer stopNATS()
-				defer ginkgomon.Interrupt(process)
+				defer ginkgomon.Interrupt(process, 2*time.Second)
 			})
 
 			It("starts only after nats comes up", func() {
