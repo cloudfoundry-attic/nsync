@@ -25,7 +25,7 @@ const (
 	DefaultFileDescriptorLimit = uint64(1024)
 
 	LRPLogSource    = "CELL"
-	AppLogSource    = "App"
+	AppLogSource    = "APP"
 	HealthLogSource = "HEALTH"
 )
 
