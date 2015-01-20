@@ -153,7 +153,6 @@ func main() {
 	}
 
 	logger.Info("exited")
-	os.Exit(0)
 }
 
 func initializeDropsonde(logger lager.Logger) {
