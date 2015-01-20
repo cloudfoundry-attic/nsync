@@ -3,8 +3,6 @@ package recipebuilder_test
 import (
 	"time"
 
-	. "github.com/cloudfoundry-incubator/nsync/recipebuilder"
-
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -24,7 +22,7 @@ var _ = Describe("Recipe Builder", func() {
 		circuses      map[string]string
 	)
 
-	defaultNofile := DefaultFileDescriptorLimit
+	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
 
 	BeforeEach(func() {
 		logger := lager.NewLogger("fakelogger")
@@ -109,7 +107,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.StartTimeout).Should(Equal(uint(123456)))
 
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
-			Ω(desiredLRP.LogSource).Should(Equal(recipebuilder.LRPLogSource))
+			Ω(desiredLRP.LogSource).Should(Equal("CELL"))
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
@@ -132,7 +130,7 @@ var _ = Describe("Recipe Builder", func() {
 				Action: &models.RunAction{
 					Path:      "/tmp/circus/spy",
 					Args:      []string{"-addr=:8080"},
-					LogSource: HealthLogSource,
+					LogSource: "HEALTH",
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &defaultNofile,
 					},
@@ -145,7 +143,7 @@ var _ = Describe("Recipe Builder", func() {
 				"the-start-command with-arguments",
 				"the-execution-metadata",
 			}))
-			Ω(runAction.LogSource).Should(Equal(recipebuilder.AppLogSource))
+			Ω(runAction.LogSource).Should(Equal("APP"))
 
 			numFiles := uint64(32)
 			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
@@ -184,7 +182,7 @@ var _ = Describe("Recipe Builder", func() {
 					Action: &models.RunAction{
 						Path:           "/tmp/circus/spy",
 						Args:           []string{"-addr=:8080"},
-						LogSource:      HealthLogSource,
+						LogSource:      "HEALTH",
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
 				}))
@@ -286,7 +284,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(ok).Should(BeTrue())
 
 			Ω(runAction.ResourceLimits.Nofile).ShouldNot(BeNil())
-			Ω(*runAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
+			Ω(*runAction.ResourceLimits.Nofile).Should(Equal(recipebuilder.DefaultFileDescriptorLimit))
 		})
 	})
 
