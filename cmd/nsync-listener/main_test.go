@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
+		exitDuration  = 3 * time.Second
 		gnatsdProcess ifrit.Process
 		natsClient    diegonats.NATSClient
 		bbs           *Bbs.BBS
@@ -76,7 +77,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	AfterEach(func() {
 		etcdAdapter.Disconnect()
-		ginkgomon.Interrupt(receptorProcess, 2*time.Second)
+		ginkgomon.Interrupt(receptorProcess, exitDuration)
 	})
 
 	var publishDesireWithInstances = func(nInstances int) {
@@ -111,7 +112,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			AfterEach(func() {
-				ginkgomon.Interrupt(process, 2*time.Second)
+				ginkgomon.Interrupt(process, exitDuration)
 			})
 
 			Describe("and a 'diego.desire.app' message is recieved", func() {
@@ -144,13 +145,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				BeforeEach(func() {
 					secondRunner = newNSyncRunner()
-					secondRunner.StartCheck = ""
+					secondRunner.StartCheck = "waiting-for-lock"
 
 					secondProcess = ginkgomon.Invoke(secondRunner)
 				})
 
 				AfterEach(func() {
-					ginkgomon.Interrupt(secondProcess, 2*time.Second)
+					ginkgomon.Interrupt(secondProcess, exitDuration)
 				})
 
 				Describe("the second listener", func() {
@@ -161,7 +162,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("and the first listener goes away", func() {
 					BeforeEach(func() {
-						ginkgomon.Interrupt(process, 2*time.Second)
+						ginkgomon.Interrupt(process, exitDuration)
 					})
 
 					Describe("the second listener", func() {
@@ -183,7 +184,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			AfterEach(func() {
 				defer stopNATS()
-				defer ginkgomon.Interrupt(process, 2*time.Second)
+				defer ginkgomon.Interrupt(process, exitDuration)
 			})
 
 			It("starts only after nats comes up", func() {
