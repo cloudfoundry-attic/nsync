@@ -112,7 +112,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 			Timeout: 30 * time.Second,
 			Action: &models.RunAction{
 				Path:      "/tmp/circus/spy",
-				Args:      []string{"-addr=:8080"},
+				Args:      []string{"-port=8080"},
 				LogSource: HealthLogSource,
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,

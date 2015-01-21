@@ -337,7 +337,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
 							Path:           "/tmp/circus/spy",
-							Args:           []string{"-addr=:8080"},
+							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
@@ -378,7 +378,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
 							Path:           "/tmp/circus/spy",
-							Args:           []string{"-addr=:8080"},
+							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
@@ -417,7 +417,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
 							Path:           "/tmp/circus/spy",
-							Args:           []string{"-addr=:8080"},
+							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},

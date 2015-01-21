@@ -140,7 +140,7 @@ var _ = Describe("Recipe Builder", func() {
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
 					Path:      "/tmp/circus/spy",
-					Args:      []string{"-addr=:8080"},
+					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &defaultNofile,
@@ -194,7 +194,7 @@ var _ = Describe("Recipe Builder", func() {
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
 						Path:           "/tmp/circus/spy",
-						Args:           []string{"-addr=:8080"},
+						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
