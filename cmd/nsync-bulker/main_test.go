@@ -94,7 +94,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		bbs = Bbs.NewBBS(etcdClient, clock.NewClock(), models.NewDefaultRestartCalculator(), logger)
+		bbs = Bbs.NewBBS(etcdClient, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
