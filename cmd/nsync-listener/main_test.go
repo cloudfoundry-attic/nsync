@@ -10,11 +10,11 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
-	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
@@ -70,7 +70,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		etcdAdapter = etcdRunner.Adapter()
-		bbs = Bbs.NewBBS(etcdAdapter, timeprovider.NewTimeProvider(), models.NewDefaultRestartCalculator(), lagertest.NewTestLogger("test"))
+		bbs = Bbs.NewBBS(etcdAdapter, clock.NewClock(), models.NewDefaultRestartCalculator(), lagertest.NewTestLogger("test"))
 		receptorProcess = startReceptor()
 		runner = newNSyncRunner()
 	})

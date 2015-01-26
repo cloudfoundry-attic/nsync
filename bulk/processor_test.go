@@ -13,9 +13,9 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
-	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/clock/fakeclock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 )
@@ -34,7 +34,7 @@ var _ = Describe("Processor", func() {
 		process      ifrit.Process
 		syncDuration time.Duration
 		metricSender *fake.FakeMetricSender
-		timeProvider *faketimeprovider.FakeTimeProvider
+		clock        *fakeclock.FakeClock
 
 		pollingInterval time.Duration
 	)
@@ -45,7 +45,7 @@ var _ = Describe("Processor", func() {
 
 		syncDuration = 900900
 		pollingInterval = 500 * time.Millisecond
-		timeProvider = faketimeprovider.New(time.Now())
+		clock = fakeclock.NewFakeClock(time.Now())
 
 		fingerprintsToFetch = []cc_messages.CCDesiredAppFingerprint{
 			{ProcessGuid: "current-process-guid", ETag: "current-etag"},
@@ -115,7 +115,7 @@ var _ = Describe("Processor", func() {
 		receptorClient.DesiredLRPsByDomainReturns(existingDesired, nil)
 
 		receptorClient.UpsertDomainStub = func(string, time.Duration) error {
-			timeProvider.Increment(syncDuration)
+			clock.Increment(syncDuration)
 			return nil
 		}
 
@@ -128,7 +128,7 @@ var _ = Describe("Processor", func() {
 			lager.NewLogger("test"),
 			fetcher,
 			recipeBuilder,
-			timeProvider,
+			clock,
 		)
 	})
 
@@ -151,10 +151,10 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("tries again after the polling interval", func() {
-			timeProvider.Increment(pollingInterval / 2)
+			clock.Increment(pollingInterval / 2)
 			Consistently(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(1))
 
-			timeProvider.Increment(pollingInterval)
+			clock.Increment(pollingInterval)
 			Eventually(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(2))
 		})
 

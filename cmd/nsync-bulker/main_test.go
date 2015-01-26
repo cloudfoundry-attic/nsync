@@ -21,8 +21,8 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter"
+	"github.com/pivotal-golang/clock"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
@@ -94,7 +94,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		bbs = Bbs.NewBBS(etcdClient, timeprovider.NewTimeProvider(), models.NewDefaultRestartCalculator(), logger)
+		bbs = Bbs.NewBBS(etcdClient, clock.NewClock(), models.NewDefaultRestartCalculator(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()

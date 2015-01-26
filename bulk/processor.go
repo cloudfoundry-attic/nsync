@@ -13,7 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -35,7 +35,7 @@ type Processor struct {
 	logger          lager.Logger
 	fetcher         Fetcher
 	builder         RecipeBuilder
-	timeProvider    timeprovider.TimeProvider
+	clock           clock.Clock
 }
 
 func NewProcessor(
@@ -47,7 +47,7 @@ func NewProcessor(
 	logger lager.Logger,
 	fetcher Fetcher,
 	builder RecipeBuilder,
-	timeProvider timeprovider.TimeProvider,
+	clock clock.Clock,
 ) *Processor {
 	return &Processor{
 		receptorClient:  receptorClient,
@@ -58,7 +58,7 @@ func NewProcessor(
 		logger:          logger,
 		fetcher:         fetcher,
 		builder:         builder,
-		timeProvider:    timeProvider,
+		clock:           clock,
 	}
 }
 
@@ -79,7 +79,7 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		},
 	}
 
-	timer := p.timeProvider.NewTimer(p.pollingInterval)
+	timer := p.clock.NewTimer(p.pollingInterval)
 	stop := p.sync(signals, httpClient)
 
 	for {
@@ -98,9 +98,9 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool {
-	start := p.timeProvider.Now()
+	start := p.clock.Now()
 	defer func() {
-		duration := p.timeProvider.Now().Sub(start)
+		duration := p.clock.Now().Sub(start)
 		syncDesiredLRPsDuration.Send(duration)
 	}()
 
