@@ -65,16 +65,16 @@ var natsPassword = flag.String(
 	"Password for nats user",
 )
 
-var circuses = flag.String(
-	"circuses",
+var lifecycles = flag.String(
+	"lifecycles",
 	"",
 	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
 )
 
-var dockerCircusPath = flag.String(
-	"dockerCircusPath",
+var dockerLifecyclePath = flag.String(
+	"dockerLifecyclePath",
 	"",
-	"path for downloading docker circus from file server",
+	"path for downloading docker lifecycle from file server",
 )
 
 var fileServerURL = flag.String(
@@ -107,18 +107,18 @@ func main() {
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 	bbs := initializeBbs(logger)
 
-	var circusDownloadURLs map[string]string
-	err := json.Unmarshal([]byte(*circuses), &circusDownloadURLs)
+	var lifecycleDownloadURLs map[string]string
+	err := json.Unmarshal([]byte(*lifecycles), &lifecycleDownloadURLs)
 
-	if *dockerCircusPath == "" {
-		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
+	if *dockerLifecyclePath == "" {
+		logger.Fatal("empty-docker_app_lifecycle-path", errors.New("dockerLifecyclePath flag not provided"))
 	}
 
 	if err != nil {
-		logger.Fatal("invalid-circus-mapping", err)
+		logger.Fatal("invalid-lifecycle-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(circusDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *dockerLifecyclePath, *fileServerURL, logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {

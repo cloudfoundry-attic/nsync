@@ -19,7 +19,7 @@ var _ = Describe("Recipe Builder", func() {
 		err           error
 		desiredAppReq cc_messages.DesireAppRequestFromCC
 		desiredLRP    *receptor.DesiredLRPCreateRequest
-		circuses      map[string]string
+		lifecycles    map[string]string
 		egressRules   []models.SecurityGroupRule
 	)
 
@@ -28,8 +28,8 @@ var _ = Describe("Recipe Builder", func() {
 	BeforeEach(func() {
 		logger := lager.NewLogger("fakelogger")
 
-		circuses = map[string]string{
-			"some-stack": "some-circus.tgz",
+		lifecycles = map[string]string{
+			"some-stack": "some-lifecycle.tgz",
 		}
 
 		egressRules = []models.SecurityGroupRule{
@@ -40,7 +40,7 @@ var _ = Describe("Recipe Builder", func() {
 			},
 		}
 
-		builder = recipebuilder.New(circuses, "the/docker/circus/path.tgz", "http://file-server.com", logger)
+		builder = recipebuilder.New(lifecycles, "the/docker/lifecycle/path.tgz", "http://file-server.com", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
@@ -122,8 +122,8 @@ var _ = Describe("Recipe Builder", func() {
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
-					From: "http://file-server.com/v1/static/some-circus.tgz",
-					To:   "/tmp/circus",
+					From: "http://file-server.com/v1/static/some-lifecycle.tgz",
+					To:   "/tmp/lifecycle",
 				},
 				&models.DownloadAction{
 					From:     "http://the-droplet.uri.com",
@@ -139,7 +139,7 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
-					Path:      "/tmp/circus/spy",
+					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
 					ResourceLimits: models.ResourceLimits{
@@ -148,7 +148,7 @@ var _ = Describe("Recipe Builder", func() {
 				},
 			}))
 
-			Ω(runAction.Path).Should(Equal("/tmp/circus/soldier"))
+			Ω(runAction.Path).Should(Equal("/tmp/lifecycle/launcher"))
 			Ω(runAction.Args).Should(Equal([]string{
 				"/app",
 				"the-start-command with-arguments",
@@ -188,12 +188,12 @@ var _ = Describe("Recipe Builder", func() {
 					}
 				}
 
-				Ω(downloadDestinations).Should(ContainElement("/tmp/circus"))
+				Ω(downloadDestinations).Should(ContainElement("/tmp/lifecycle"))
 
 				Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
-						Path:           "/tmp/circus/spy",
+						Path:           "/tmp/lifecycle/healthcheck",
 						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
@@ -211,7 +211,7 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.Monitor).Should(BeNil())
 			})
 
-			It("still downloads the circus, since we need it for the soldier", func() {
+			It("still downloads the lifecycle, since we need it for the launcher", func() {
 				downloadDestinations := []string{}
 				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
 					switch a := action.(type) {
@@ -220,7 +220,7 @@ var _ = Describe("Recipe Builder", func() {
 					}
 				}
 
-				Ω(downloadDestinations).Should(ContainElement("/tmp/circus"))
+				Ω(downloadDestinations).Should(ContainElement("/tmp/lifecycle"))
 			})
 		})
 	})
@@ -243,10 +243,10 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo#tag"))
 		})
 
-		It("uses the docker circus", func() {
+		It("uses the docker lifecycle", func() {
 			Ω(desiredLRP.Setup.(*models.SerialAction).Actions[0]).Should(Equal(&models.DownloadAction{
-				From: "http://file-server.com/v1/static/the/docker/circus/path.tgz",
-				To:   "/tmp/circus",
+				From: "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
+				To:   "/tmp/lifecycle",
 			}))
 		})
 
@@ -307,7 +307,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(recipebuilder.ErrNoCircusDefined))
+			Ω(err).Should(MatchError(recipebuilder.ErrNoLifecycleDefined))
 		})
 	})
 })

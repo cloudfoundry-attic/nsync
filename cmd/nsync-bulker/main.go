@@ -94,16 +94,16 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
-var circuses = flag.String(
-	"circuses",
+var lifecycles = flag.String(
+	"lifecycles",
 	"",
 	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
 )
 
-var dockerCircusPath = flag.String(
-	"dockerCircusPath",
+var dockerLifecyclePath = flag.String(
+	"dockerLifecyclePath",
 	"",
-	"path for downloading docker circus from file server",
+	"path for downloading docker lifecycle from file server",
 )
 
 var fileServerURL = flag.String(
@@ -135,17 +135,17 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	var circusDownloadURLs map[string]string
-	err = json.Unmarshal([]byte(*circuses), &circusDownloadURLs)
+	var lifecycleDownloadURLs map[string]string
+	err = json.Unmarshal([]byte(*lifecycles), &lifecycleDownloadURLs)
 	if err != nil {
-		logger.Fatal("invalid-circus-mapping", err)
+		logger.Fatal("invalid-lifecycle-mapping", err)
 	}
 
-	if *dockerCircusPath == "" {
-		logger.Fatal("empty-docker-circus-path", errors.New("dockerCircusPath flag not provided"))
+	if *dockerLifecyclePath == "" {
+		logger.Fatal("empty-docker_app_lifecycle-path", errors.New("dockerLifecyclePath flag not provided"))
 	}
 
-	recipeBuilder := recipebuilder.New(circusDownloadURLs, *dockerCircusPath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *dockerLifecyclePath, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 

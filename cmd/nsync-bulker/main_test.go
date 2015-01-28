@@ -64,8 +64,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-pollingInterval", pollingInterval.String(),
 				"-domainTTL", domainTTL.String(),
 				"-bulkBatchSize", "10",
-				"-circuses", `{"some-stack": "some-health-check.tar.gz"}`,
-				"-dockerCircusPath", "the/docker/circus/path.tgz",
+				"-lifecycles", `{"some-stack": "some-health-check.tar.gz"}`,
+				"-dockerLifecyclePath", "the/docker/lifecycle/path.tgz",
 				"-fileServerURL", "http://file-server.com",
 				"-heartbeatInterval", heartbeatInterval.String(),
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
@@ -241,7 +241,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			builder := recipebuilder.New(
 				map[string]string{"some-stack": "some-health-check.tar.gz"},
-				"the/docker/circus/path.tgz",
+				"the/docker/lifecycle/path.tgz",
 				"http://file-server.com",
 				lagertest.NewTestLogger("test"),
 			)
@@ -279,7 +279,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				expectedSetupActions1 := models.Serial(
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-						To:       "/tmp/circus",
+						To:       "/tmp/lifecycle",
 						CacheKey: "",
 					},
 					&models.DownloadAction{
@@ -292,7 +292,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				expectedSetupActions2 := models.Serial(
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-						To:       "/tmp/circus",
+						To:       "/tmp/lifecycle",
 						CacheKey: "",
 					},
 					&models.DownloadAction{
@@ -305,7 +305,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				expectedSetupActions3 := models.Serial(
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-						To:       "/tmp/circus",
+						To:       "/tmp/lifecycle",
 						CacheKey: "",
 					},
 					&models.DownloadAction{
@@ -323,7 +323,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Setup:        expectedSetupActions1,
 					StartTimeout: 123456,
 					Action: &models.RunAction{
-						Path: "/tmp/circus/soldier",
+						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
 							{Name: "env-key-1", Value: "env-value-1"},
@@ -336,7 +336,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:           "/tmp/circus/spy",
+							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
@@ -364,7 +364,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Setup:        expectedSetupActions2,
 					StartTimeout: 123456,
 					Action: &models.RunAction{
-						Path: "/tmp/circus/soldier",
+						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
 							{Name: "env-key-1", Value: "env-value-1"},
@@ -377,7 +377,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:           "/tmp/circus/spy",
+							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
@@ -405,7 +405,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Setup:        expectedSetupActions3,
 					StartTimeout: 123456,
 					Action: &models.RunAction{
-						Path: "/tmp/circus/soldier",
+						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
 							{Name: "PORT", Value: "8080"},
@@ -416,7 +416,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
-							Path:           "/tmp/circus/spy",
+							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},

@@ -30,24 +30,24 @@ const (
 )
 
 var (
-	ErrNoCircusDefined    = errors.New("no lifecycle binary bundle defined for stack")
+	ErrNoLifecycleDefined = errors.New("no lifecycle binary bundle defined for stack")
 	ErrAppSourceMissing   = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
 	ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
 )
 
 type RecipeBuilder struct {
-	logger           lager.Logger
-	circuses         map[string]string
-	dockerCircusPath string
-	fileServerURL    string
+	logger              lager.Logger
+	lifecycles          map[string]string
+	dockerLifecyclePath string
+	fileServerURL       string
 }
 
-func New(circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
+func New(lifecycles map[string]string, dockerLifecyclePath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
-		circuses:         circuses,
-		logger:           logger,
-		dockerCircusPath: dockerCircusPath,
-		fileServerURL:    fileServerURL,
+		lifecycles:          lifecycles,
+		logger:              logger,
+		dockerLifecyclePath: dockerLifecyclePath,
+		fileServerURL:       fileServerURL,
 	}
 }
 
@@ -67,23 +67,23 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}
 
 	rootFSPath := ""
-	circusURL := ""
+	lifecycleURL := ""
 
 	if desiredApp.DockerImageUrl != "" {
-		circusURL = b.circusDownloadURL(b.dockerCircusPath, b.fileServerURL)
+		lifecycleURL = b.lifecycleDownloadURL(b.dockerLifecyclePath, b.fileServerURL)
 
 		rootFSPath = convertDockerURI(desiredApp.DockerImageUrl)
 	} else {
-		circusPath, ok := b.circuses[desiredApp.Stack]
+		lifecyclePath, ok := b.lifecycles[desiredApp.Stack]
 		if !ok {
-			buildLogger.Error("unknown-stack", ErrNoCircusDefined, lager.Data{
+			buildLogger.Error("unknown-stack", ErrNoLifecycleDefined, lager.Data{
 				"stack": desiredApp.Stack,
 			})
 
-			return nil, ErrNoCircusDefined
+			return nil, ErrNoLifecycleDefined
 		}
 
-		circusURL = b.circusDownloadURL(circusPath, b.fileServerURL)
+		lifecycleURL = b.lifecycleDownloadURL(lifecyclePath, b.fileServerURL)
 	}
 
 	privilegedContainer := false
@@ -101,8 +101,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	var action, monitor models.Action
 
 	setup = append(setup, &models.DownloadAction{
-		From: circusURL,
-		To:   "/tmp/circus",
+		From: lifecycleURL,
+		To:   "/tmp/lifecycle",
 	})
 
 	switch desiredApp.HealthCheckType {
@@ -111,7 +111,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		monitor = &models.TimeoutAction{
 			Timeout: 30 * time.Second,
 			Action: &models.RunAction{
-				Path:      "/tmp/circus/spy",
+				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{"-port=8080"},
 				LogSource: HealthLogSource,
 				ResourceLimits: models.ResourceLimits{
@@ -130,7 +130,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}
 
 	action = &models.RunAction{
-		Path: "/tmp/circus/soldier",
+		Path: "/tmp/lifecycle/launcher",
 		Args: append(
 			[]string{"/app"},
 			desiredApp.StartCommand,
@@ -181,13 +181,13 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}, nil
 }
 
-func (b RecipeBuilder) circusDownloadURL(circusPath string, fileServerURL string) string {
+func (b RecipeBuilder) lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
 	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
 	if err != nil {
 		panic("couldn't generate the download path for the bundle of app lifecycle binaries: " + err.Error())
 	}
 
-	return urljoiner.Join(fileServerURL, staticPath, circusPath)
+	return urljoiner.Join(fileServerURL, staticPath, lifecyclePath)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {
