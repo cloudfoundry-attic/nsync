@@ -1,6 +1,7 @@
 package recipebuilder_test
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -108,7 +109,11 @@ var _ = Describe("Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
 			Ω(desiredLRP.Instances).Should(Equal(23))
-			Ω(desiredLRP.Routes).Should(Equal([]string{"route1", "route2"}))
+			routeMessage := json.RawMessage([]byte(`[{"port":8080,"hosts":["route1","route2"]}]`))
+			routes := map[string]*json.RawMessage{
+				"router": &routeMessage,
+			}
+			Ω(desiredLRP.Routes).Should(Equal(routes))
 			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
 			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))

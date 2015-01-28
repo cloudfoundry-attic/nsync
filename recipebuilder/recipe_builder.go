@@ -27,6 +27,9 @@ const (
 	LRPLogSource    = "CELL"
 	AppLogSource    = "APP"
 	HealthLogSource = "HEALTH"
+
+	Router      = "router"
+	DefaultPort = uint16(8080)
 )
 
 var (
@@ -145,6 +148,14 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	setupAction := models.Serial(setup...)
 
+	desiredAppRoutes := receptor.RoutingInfo{
+		CFRoutes: []receptor.CFRoute{
+			{
+				Port:      DefaultPort,
+				Hostnames: desiredApp.Routes,
+			},
+		}}
+
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
 
@@ -152,7 +163,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,
-		Routes:      desiredApp.Routes,
+		Routes:      &desiredAppRoutes,
 		Annotation:  desiredApp.ETag,
 
 		CPUWeight: cpuWeight(desiredApp.MemoryMB),
@@ -160,8 +171,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		MemoryMB: desiredApp.MemoryMB,
 		DiskMB:   desiredApp.DiskMB,
 
-		Ports: []uint32{
-			8080,
+		Ports: []uint16{
+			DefaultPort,
 		},
 
 		RootFSPath: rootFSPath,

@@ -315,6 +315,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 				)
 
+				routeMessage := json.RawMessage([]byte(`[{"port":8080,"hostnames":["route-1","route-2","new-route"]}]`))
+				routes := map[string]*json.RawMessage{
+					receptor.CFRouter: &routeMessage,
+				}
+
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-1",
 					Domain:       "cf-apps",
@@ -345,10 +350,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    1024,
 					MemoryMB:  256,
 					CPUWeight: 1,
-					Ports: []uint32{
+					Ports: []uint16{
 						8080,
 					},
-					Routes:     []string{"route-1", "route-2", "new-route"},
+					Routes:     routes,
 					LogGuid:    "log-guid-1",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,
@@ -356,6 +361,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}))
 
 				nofile = 16
+				newRouteMessage := json.RawMessage([]byte(`[{"port":8080,"hostnames":["route-3","route-4"]}]`))
+				newRoutes := map[string]*json.RawMessage{
+					receptor.CFRouter: &newRouteMessage,
+				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
 					Domain:       "cf-apps",
@@ -386,10 +395,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    1024,
 					MemoryMB:  256,
 					CPUWeight: 1,
-					Ports: []uint32{
+					Ports: []uint16{
 						8080,
 					},
-					Routes:     []string{"route-3", "route-4"},
+					Routes:     newRoutes,
 					LogGuid:    "log-guid-1",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,
@@ -397,6 +406,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}))
 
 				nofile = 8
+				emptyRouteMessage := json.RawMessage([]byte(`[{"port":8080,"hostnames":[]}]`))
+				emptyRoutes := map[string]*json.RawMessage{
+					receptor.CFRouter: &emptyRouteMessage,
+				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-3",
 					Domain:       "cf-apps",
@@ -425,10 +438,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					DiskMB:    512,
 					MemoryMB:  128,
 					CPUWeight: 1,
-					Ports: []uint32{
+					Ports: []uint16{
 						8080,
 					},
-					Routes:     []string{},
+					Routes:     emptyRoutes,
 					LogGuid:    "log-guid-3",
 					LogSource:  recipebuilder.LRPLogSource,
 					Privileged: true,

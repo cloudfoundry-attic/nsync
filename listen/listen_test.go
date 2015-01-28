@@ -202,7 +202,11 @@ var _ = Describe("Listen", func() {
 				Ω(processGuid).Should(Equal("some-guid"))
 				Ω(*updateRequest.Instances).Should(Equal(2))
 				Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
-				Ω(updateRequest.Routes).Should(Equal([]string{"route1", "route2"}))
+				routeMessage := json.RawMessage([]byte(`[{"port":8080,"hosts":["route1","route2"]}]`))
+				routes := map[string]*json.RawMessage{
+					"router": &routeMessage,
+				}
+				Ω(updateRequest.Routes).Should(Equal(routes))
 			})
 		})
 	})
