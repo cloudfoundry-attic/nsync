@@ -202,14 +202,7 @@ var _ = Describe("Listen", func() {
 				Ω(processGuid).Should(Equal("some-guid"))
 				Ω(*updateRequest.Instances).Should(Equal(2))
 				Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
-				Ω(*updateRequest.Routes).Should(Equal(receptor.RoutingInfo{
-					CFRoutes: []receptor.CFRoute{
-						{
-							Port:      8080,
-							Hostnames: []string{"route1", "route2"},
-						},
-					},
-				}))
+				Ω(updateRequest.Routes).Should(Equal(cc_messages.NewRoutingInfo([]string{"route1", "route2"}, 8080)))
 			})
 		})
 	})

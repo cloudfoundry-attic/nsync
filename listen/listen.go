@@ -185,19 +185,12 @@ func (listen Listen) createDesiredApp(logger lager.Logger, desireAppMessage cc_m
 
 func (listen Listen) updateDesiredApp(logger lager.Logger, desireAppMessage cc_messages.DesireAppRequestFromCC) {
 
-	desiredAppRoutes := receptor.RoutingInfo{
-		CFRoutes: []receptor.CFRoute{
-			{
-				Port:      recipebuilder.DefaultPort,
-				Hostnames: desireAppMessage.Hostnames,
-			},
-		},
-	}
+	desiredAppRoutes := cc_messages.NewRoutingInfo(desireAppMessage.Hostnames, recipebuilder.DefaultPort)
 
 	updateRequest := receptor.DesiredLRPUpdateRequest{
 		Annotation: &desireAppMessage.ETag,
 		Instances:  &desireAppMessage.NumInstances,
-		Routes:     &desiredAppRoutes,
+		Routes:     desiredAppRoutes,
 	}
 
 	err := listen.ReceptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)

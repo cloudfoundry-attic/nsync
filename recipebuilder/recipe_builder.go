@@ -148,13 +148,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	setupAction := models.Serial(setup...)
 
-	desiredAppRoutes := receptor.RoutingInfo{
-		CFRoutes: []receptor.CFRoute{
-			{
-				Port:      DefaultPort,
-				Hostnames: desiredApp.Hostnames,
-			},
-		}}
+	desiredAppRoutingInfo := cc_messages.NewRoutingInfo(desiredApp.Hostnames, DefaultPort)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -163,7 +157,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,
-		Routes:      &desiredAppRoutes,
+		Routes:      desiredAppRoutingInfo,
 		Annotation:  desiredApp.ETag,
 
 		CPUWeight: cpuWeight(desiredApp.MemoryMB),
