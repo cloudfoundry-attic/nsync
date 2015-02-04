@@ -10,7 +10,6 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/pivotal-golang/lager"
 )
@@ -186,33 +185,22 @@ func (listen Listen) createDesiredApp(logger lager.Logger, desireAppMessage cc_m
 
 func (listen Listen) updateDesiredApp(logger lager.Logger, desireAppMessage cc_messages.DesireAppRequestFromCC) {
 
-	desiredAppRoutes := []models.Route{
-		{
-			Port:  recipebuilder.DefaultPort,
-			Hosts: desireAppMessage.Routes,
+	desiredAppRoutes := receptor.RoutingInfo{
+		CFRoutes: []receptor.CFRoute{
+			{
+				Port:      recipebuilder.DefaultPort,
+				Hostnames: desireAppMessage.Routes,
+			},
 		},
-	}
-
-	jsonData, err := json.Marshal(desiredAppRoutes)
-	if err != nil {
-		logger.Error("failed-to-build-update-request", err, lager.Data{
-			"app-message": desireAppMessage,
-		})
-		return
-	}
-
-	rawMessage := json.RawMessage(jsonData)
-	routes := map[string]*json.RawMessage{
-		recipebuilder.Router: &rawMessage,
 	}
 
 	updateRequest := receptor.DesiredLRPUpdateRequest{
 		Annotation: &desireAppMessage.ETag,
 		Instances:  &desireAppMessage.NumInstances,
-		Routes:     routes,
+		Routes:     &desiredAppRoutes,
 	}
 
-	err = listen.ReceptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
+	err := listen.ReceptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
 	}

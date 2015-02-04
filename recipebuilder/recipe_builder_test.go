@@ -1,7 +1,6 @@
 package recipebuilder_test
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -109,16 +108,19 @@ var _ = Describe("Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
 			Ω(desiredLRP.Instances).Should(Equal(23))
-			routeMessage := json.RawMessage([]byte(`[{"port":8080,"hosts":["route1","route2"]}]`))
-			routes := map[string]*json.RawMessage{
-				"router": &routeMessage,
-			}
-			Ω(desiredLRP.Routes).Should(Equal(routes))
+			Ω(*desiredLRP.Routes).Should(Equal(receptor.RoutingInfo{
+				CFRoutes: []receptor.CFRoute{
+					{
+						Port:      8080,
+						Hostnames: []string{"route1", "route2"},
+					},
+				},
+			}))
 			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
 			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))
 			Ω(desiredLRP.DiskMB).Should(Equal(512))
-			Ω(desiredLRP.Ports).Should(Equal([]uint32{8080}))
+			Ω(desiredLRP.Ports).Should(Equal([]uint16{8080}))
 			Ω(desiredLRP.Privileged).Should(BeTrue())
 			Ω(desiredLRP.StartTimeout).Should(Equal(uint(123456)))
 
