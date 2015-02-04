@@ -69,7 +69,7 @@ var _ = Describe("Listen", func() {
 			DiskMB:          512,
 			FileDescriptors: 32,
 			NumInstances:    2,
-			Routes:          []string{"route1", "route2"},
+			Hostnames:       []string{"route1", "route2"},
 			LogGuid:         "some-log-guid",
 			ETag:            "last-modified-etag",
 		}

@@ -189,7 +189,7 @@ func (listen Listen) updateDesiredApp(logger lager.Logger, desireAppMessage cc_m
 		CFRoutes: []receptor.CFRoute{
 			{
 				Port:      recipebuilder.DefaultPort,
-				Hostnames: desireAppMessage.Routes,
+				Hostnames: desireAppMessage.Hostnames,
 			},
 		},
 	}

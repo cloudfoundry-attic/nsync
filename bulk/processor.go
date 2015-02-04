@@ -287,7 +287,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					CFRoutes: []receptor.CFRoute{
 						{
 							Port:      recipebuilder.DefaultPort,
-							Hostnames: desireAppRequest.Routes,
+							Hostnames: desireAppRequest.Hostnames,
 						},
 					}}
 

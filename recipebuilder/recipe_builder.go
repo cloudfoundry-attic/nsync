@@ -152,7 +152,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		CFRoutes: []receptor.CFRoute{
 			{
 				Port:      DefaultPort,
-				Hostnames: desiredApp.Routes,
+				Hostnames: desiredApp.Hostnames,
 			},
 		}}
 
