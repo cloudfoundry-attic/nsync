@@ -149,7 +149,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	setupAction := models.Serial(setup...)
 
 	desiredAppRoutingInfo := receptor.CFRoutes{
-		{Hostnames: desiredApp.Hostnames, Port: DefaultPort},
+		{Hostnames: desiredApp.Routes, Port: DefaultPort},
 	}.RoutingInfo()
 
 	return &receptor.DesiredLRPCreateRequest{

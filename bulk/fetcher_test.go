@@ -265,7 +265,7 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          1024,
 						FileDescriptors: 16,
 						NumInstances:    2,
-						Hostnames: []string{
+						Routes: []string{
 							"route-1",
 							"route-2",
 						},
@@ -285,7 +285,7 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          2048,
 						FileDescriptors: 32,
 						NumInstances:    4,
-						Hostnames: []string{
+						Routes: []string{
 							"route-3",
 							"route-4",
 						},
@@ -302,7 +302,7 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          512,
 						FileDescriptors: 8,
 						NumInstances:    4,
-						Hostnames:       []string{},
+						Routes:          []string{},
 						LogGuid:         "log-guid-3",
 						ETag:            "3456789.3012",
 					},

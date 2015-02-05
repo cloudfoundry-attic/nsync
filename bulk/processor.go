@@ -286,7 +286,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 				updateReq.Instances = &desireAppRequest.NumInstances
 				updateReq.Annotation = &desireAppRequest.ETag
 				updateReq.Routes = receptor.CFRoutes{
-					{Hostnames: desireAppRequest.Hostnames, Port: recipebuilder.DefaultPort},
+					{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
 				}.RoutingInfo()
 
 				err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)

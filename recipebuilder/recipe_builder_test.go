@@ -55,7 +55,7 @@ var _ = Describe("Recipe Builder", func() {
 			DiskMB:          512,
 			FileDescriptors: 32,
 			NumInstances:    23,
-			Hostnames:       []string{"route1", "route2"},
+			Routes:          []string{"route1", "route2"},
 			LogGuid:         "the-log-id",
 
 			HealthCheckType:             cc_messages.PortHealthCheckType,
