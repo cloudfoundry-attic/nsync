@@ -164,6 +164,7 @@ process_loop:
 		select {
 		case err, open := <-errors:
 			if err != nil {
+				logger.Error("not-bumping-freshness-because-of", err)
 				bumpFreshness = false
 			}
 			if !open {
@@ -186,6 +187,8 @@ process_loop:
 	}
 
 	if bumpFreshness && success {
+		logger.Info("bumping-freshness")
+
 		err = p.receptorClient.UpsertDomain(recipebuilder.LRPDomain, p.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
