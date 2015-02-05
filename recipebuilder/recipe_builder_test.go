@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
@@ -108,7 +109,7 @@ var _ = Describe("Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
 			Ω(desiredLRP.Instances).Should(Equal(23))
-			Ω(desiredLRP.Routes).Should(Equal(receptor.CFRoutes{
+			Ω(desiredLRP.Routes).Should(Equal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
 			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))

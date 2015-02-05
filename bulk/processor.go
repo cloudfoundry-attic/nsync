@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/pivotal-golang/clock"
@@ -285,7 +286,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 				updateReq := receptor.DesiredLRPUpdateRequest{}
 				updateReq.Instances = &desireAppRequest.NumInstances
 				updateReq.Annotation = &desireAppRequest.ETag
-				updateReq.Routes = receptor.CFRoutes{
+				updateReq.Routes = cfroutes.CFRoutes{
 					{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
 				}.RoutingInfo()
 

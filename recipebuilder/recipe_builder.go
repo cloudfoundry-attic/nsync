@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
@@ -148,7 +149,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	setupAction := models.Serial(setup...)
 
-	desiredAppRoutingInfo := receptor.CFRoutes{
+	desiredAppRoutingInfo := cfroutes.CFRoutes{
 		{Hostnames: desiredApp.Routes, Port: DefaultPort},
 	}.RoutingInfo()
 

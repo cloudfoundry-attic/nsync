@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/listen/fakes"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
@@ -202,7 +203,7 @@ var _ = Describe("Listen", func() {
 				Ω(processGuid).Should(Equal("some-guid"))
 				Ω(*updateRequest.Instances).Should(Equal(2))
 				Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
-				Ω(updateRequest.Routes).Should(Equal(receptor.CFRoutes{
+				Ω(updateRequest.Routes).Should(Equal(cfroutes.CFRoutes{
 					{Hostnames: []string{"route1", "route2"}, Port: 8080},
 				}.RoutingInfo()))
 			})
