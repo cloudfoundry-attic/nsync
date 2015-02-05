@@ -17,6 +17,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -310,7 +311,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				routeMessage := json.RawMessage([]byte(`[{"hostnames":["route-1","route-2","new-route"],"port":8080}]`))
 				routes := map[string]*json.RawMessage{
-					receptor.CF_ROUTER: &routeMessage,
+					cfroutes.CF_ROUTER: &routeMessage,
 				}
 
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
@@ -356,7 +357,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile = 16
 				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3","route-4"],"port":8080}]`))
 				newRoutes := map[string]*json.RawMessage{
-					receptor.CF_ROUTER: &newRouteMessage,
+					cfroutes.CF_ROUTER: &newRouteMessage,
 				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
@@ -401,7 +402,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile = 8
 				emptyRouteMessage := json.RawMessage([]byte(`[{"hostnames":[],"port":8080}]`))
 				emptyRoutes := map[string]*json.RawMessage{
-					receptor.CF_ROUTER: &emptyRouteMessage,
+					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-3",
