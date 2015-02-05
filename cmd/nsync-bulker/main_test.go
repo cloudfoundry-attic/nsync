@@ -79,16 +79,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 		return ginkgomon.Invoke(runner)
 	}
 
-	checkDomains := func() []string {
-		domains, err := bbs.Domains()
-		Ω(err).ShouldNot(HaveOccurred())
-
-		return domains
-	}
-
 	itIsMissingDomain := func() {
 		It("is missing domain", func() {
-			Eventually(checkDomains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
+			Eventually(bbs.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
@@ -102,7 +95,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		receptorClient = receptor.NewClient(fmt.Sprintf("http://127.0.0.1:%d", receptorPort))
 
 		pollingInterval = 500 * time.Millisecond
-		domainTTL = 1 * time.Second
+		domainTTL = 2 * time.Second
 		heartbeatInterval = 30 * time.Second
 
 		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
@@ -452,15 +445,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
-						Eventually(checkDomains).Should(ContainElement("cf-apps"))
+						Eventually(bbs.Domains).Should(ContainElement("cf-apps"))
 					})
 				})
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(checkDomains).Should(ContainElement("cf-apps"))
+						Eventually(bbs.Domains).Should(ContainElement("cf-apps"))
 						fakeCC.HTTPTestServer.Close()
-						Eventually(checkDomains, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
+						Eventually(bbs.Domains, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
 					})
 				})
 			})
@@ -503,7 +496,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(checkDomains, 2*domainTTL).Should(ContainElement("cf-apps"))
+			Eventually(bbs.Domains, 2*domainTTL).Should(ContainElement("cf-apps"))
 
 			err := etcdClient.Update(storeadapter.StoreNode{
 				Key:   shared.LockSchemaPath(bulkerLockName),
@@ -553,7 +546,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			It("is updated", func() {
-				Eventually(checkDomains, 2*domainTTL).Should(ContainElement("cf-apps"))
+				Eventually(bbs.Domains, 2*domainTTL).Should(ContainElement("cf-apps"))
 			})
 		})
 	})
