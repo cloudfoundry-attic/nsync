@@ -310,7 +310,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				routeMessage := json.RawMessage([]byte(`[{"hostnames":["route-1","route-2","new-route"],"port":8080}]`))
 				routes := map[string]*json.RawMessage{
-					cc_messages.CF_ROUTER: &routeMessage,
+					receptor.CF_ROUTER: &routeMessage,
 				}
 
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
@@ -356,7 +356,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile = 16
 				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3","route-4"],"port":8080}]`))
 				newRoutes := map[string]*json.RawMessage{
-					cc_messages.CF_ROUTER: &newRouteMessage,
+					receptor.CF_ROUTER: &newRouteMessage,
 				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
@@ -401,7 +401,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile = 8
 				emptyRouteMessage := json.RawMessage([]byte(`[{"hostnames":[],"port":8080}]`))
 				emptyRoutes := map[string]*json.RawMessage{
-					cc_messages.CF_ROUTER: &emptyRouteMessage,
+					receptor.CF_ROUTER: &emptyRouteMessage,
 				}
 				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-3",

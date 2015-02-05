@@ -108,7 +108,9 @@ var _ = Describe("Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
 			Ω(desiredLRP.Instances).Should(Equal(23))
-			Ω(desiredLRP.Routes).Should(Equal(cc_messages.NewRoutingInfo([]string{"route1", "route2"}, 8080)))
+			Ω(desiredLRP.Routes).Should(Equal(receptor.CFRoutes{
+				{Hostnames: []string{"route1", "route2"}, Port: 8080},
+			}.RoutingInfo()))
 			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
 			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))

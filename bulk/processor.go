@@ -285,7 +285,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 				updateReq := receptor.DesiredLRPUpdateRequest{}
 				updateReq.Instances = &desireAppRequest.NumInstances
 				updateReq.Annotation = &desireAppRequest.ETag
-				updateReq.Routes = cc_messages.NewRoutingInfo(desireAppRequest.Hostnames, recipebuilder.DefaultPort)
+				updateReq.Routes = receptor.CFRoutes{
+					{Hostnames: desireAppRequest.Hostnames, Port: recipebuilder.DefaultPort},
+				}.RoutingInfo()
 
 				err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
 				if err != nil {
