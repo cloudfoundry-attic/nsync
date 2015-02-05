@@ -179,6 +179,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		LogGuid:   desiredApp.LogGuid,
 		LogSource: LRPLogSource,
 
+		MetricsGuid: desiredApp.LogGuid,
+
 		Setup:   setupAction,
 		Action:  action,
 		Monitor: monitor,

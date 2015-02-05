@@ -123,6 +123,8 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal("CELL"))
 
+			Ω(desiredLRP.MetricsGuid).Should(Equal("the-log-id"))
+
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
 					From: "http://file-server.com/v1/static/some-lifecycle.tgz",
