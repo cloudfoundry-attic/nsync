@@ -314,7 +314,19 @@ var _ = Describe("Syncing desired state with CC", func() {
 					cfroutes.CF_ROUTER: &routeMessage,
 				}
 
-				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
+				desiredLRPsWithoutModificationTag := func() []models.DesiredLRP {
+					lrps, err := bbs.DesiredLRPs()
+					Ω(err).ShouldNot(HaveOccurred())
+
+					result := []models.DesiredLRP{}
+					for _, lrp := range lrps {
+						lrp.ModificationTag = models.ModificationTag{}
+						result = append(result, lrp)
+					}
+					return result
+				}
+
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-1",
 					Domain:       "cf-apps",
 					Instances:    42,
@@ -360,7 +372,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				newRoutes := map[string]*json.RawMessage{
 					cfroutes.CF_ROUTER: &newRouteMessage,
 				}
-				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
 					Domain:       "cf-apps",
 					Instances:    4,
@@ -406,7 +418,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				emptyRoutes := map[string]*json.RawMessage{
 					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
-				Eventually(bbs.DesiredLRPs).Should(ContainElement(models.DesiredLRP{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
 					ProcessGuid:  "process-guid-3",
 					Domain:       "cf-apps",
 					Instances:    4,
@@ -478,6 +490,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}
 
 				err := bbs.DesireLRP(logger, otherDomainDesired)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				otherDomainDesired, err = bbs.DesiredLRPByProcessGuid("some-other-lrp")
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
