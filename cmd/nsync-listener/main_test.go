@@ -49,7 +49,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 		}))
 	}
 
-	newNSyncRunner := func() *ginkgomon.Runner {
+	heartbeatInterval := 5 * time.Second
+
+	newNSyncRunner := func(args ...string) *ginkgomon.Runner {
 		return ginkgomon.New(ginkgomon.Config{
 			Name:          "nsync",
 			AnsiColorCode: "97m",
@@ -62,7 +64,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-lifecycles", `{"some-stack": "some-health-check.tar.gz"}`,
 				"-dockerLifecyclePath", "the/docker/lifecycle/path.tgz",
 				"-fileServerURL", "http://file-server.com",
-				"-heartbeatInterval", "1s",
+				"-heartbeatInterval", heartbeatInterval.String(),
 				"-logLevel", "debug",
 			),
 		})
@@ -156,7 +158,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Describe("the second listener", func() {
 					It("does not become active", func() {
-						Consistently(secondRunner.Buffer, 5*time.Second).ShouldNot(gbytes.Say("nsync.listener.started"))
+						Consistently(secondRunner.Buffer, heartbeatInterval).ShouldNot(gbytes.Say("nsync.listener.started"))
 					})
 				})
 
