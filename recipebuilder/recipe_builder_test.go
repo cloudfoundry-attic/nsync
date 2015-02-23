@@ -264,6 +264,50 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo"))
 			})
 		})
+
+		Context("and the docker image url has repo only", func() {
+			Context("and no tag", func() {
+				BeforeEach(func() {
+					desiredAppReq.DockerImageUrl = "repo"
+				})
+
+				It("builds url with repo only", func() {
+					Ω(desiredLRP.RootFSPath).Should(Equal("docker:///library/repo"))
+				})
+			})
+
+			Context("and a tag", func() {
+				BeforeEach(func() {
+					desiredAppReq.DockerImageUrl = "repo:tag"
+				})
+
+				It("builds url with repo only", func() {
+					Ω(desiredLRP.RootFSPath).Should(Equal("docker:///library/repo#tag"))
+				})
+			})
+		})
+
+		Context("and the docker image url has host:port", func() {
+			Context("and a tag", func() {
+				BeforeEach(func() {
+					desiredAppReq.DockerImageUrl = "10.244.2.6:8080/user/repo"
+				})
+
+				It("builds correct url", func() {
+					Ω(desiredLRP.RootFSPath).Should(Equal("docker://10.244.2.6:8080/user/repo"))
+				})
+			})
+
+			Context("and no tag", func() {
+				BeforeEach(func() {
+					desiredAppReq.DockerImageUrl = "10.244.2.6:8080/user/repo:tag"
+				})
+
+				It("includes correct url and tag", func() {
+					Ω(desiredLRP.RootFSPath).Should(Equal("docker://10.244.2.6:8080/user/repo#tag"))
+				})
+			})
+		})
 	})
 
 	Context("when there is a docker image url AND a droplet uri", func() {

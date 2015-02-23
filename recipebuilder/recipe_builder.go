@@ -210,7 +210,7 @@ func convertDockerURI(dockerURI string) string {
 
 	return (&url.URL{
 		Scheme:   DockerScheme,
-		Path:     "/" + repo,
+		Path:     buildDockerRepoPath(repo),
 		Fragment: tag,
 	}).String()
 }
@@ -227,6 +227,25 @@ func parseDockerRepositoryTag(repos string) (string, string) {
 	}
 
 	return repos, ""
+}
+
+func buildDockerRepoPath(repo string) string {
+	parts := strings.Split(repo, "/")
+
+	switch len(parts) {
+	case 1:
+		// docker:///<repo>
+		return "/library/" + repo
+	case 2:
+		// docker:///<namespace>/<repo>
+		return "/" + repo
+	case 3:
+		// docker://<registry address>/<user>/<repo>
+		return repo
+	default:
+		// unknown
+		return repo
+	}
 }
 
 func cpuWeight(memoryMB int) uint {
