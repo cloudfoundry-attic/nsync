@@ -3,6 +3,7 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"strings"
 	"time"
@@ -99,6 +100,63 @@ var _ = Describe("Syncing desired state with CC", func() {
 		domainTTL = 2 * time.Second
 		heartbeatInterval = 30 * time.Second
 
+		desiredAppResponses := map[string]string{
+			"process-guid-1": `{
+					"disk_mb": 1024,
+					"environment": [
+						{ "name": "env-key-1", "value": "env-value-1" },
+						{ "name": "env-key-2", "value": "env-value-2" }
+					],
+					"file_descriptors": 16,
+					"num_instances": 42,
+					"log_guid": "log-guid-1",
+					"memory_mb": 256,
+					"process_guid": "process-guid-1",
+					"routes": [ "route-1", "route-2", "new-route" ],
+					"droplet_uri": "source-url-1",
+					"stack": "some-stack",
+					"start_command": "start-command-1",
+					"execution_metadata": "execution-metadata-1",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "1.1"
+				}`,
+			"process-guid-2": `{
+					"disk_mb": 1024,
+					"environment": [
+						{ "name": "env-key-1", "value": "env-value-1" },
+						{ "name": "env-key-2", "value": "env-value-2" }
+					],
+					"file_descriptors": 16,
+					"num_instances": 4,
+					"log_guid": "log-guid-1",
+					"memory_mb": 256,
+					"process_guid": "process-guid-2",
+					"routes": [ "route-3", "route-4" ],
+					"droplet_uri": "source-url-1",
+					"stack": "some-stack",
+					"start_command": "start-command-1",
+					"execution_metadata": "execution-metadata-1",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "2.1"
+				}`,
+			"process-guid-3": `{
+					"disk_mb": 512,
+					"environment": [],
+					"file_descriptors": 8,
+					"num_instances": 4,
+					"log_guid": "log-guid-3",
+					"memory_mb": 128,
+					"process_guid": "process-guid-3",
+					"routes": [],
+					"droplet_uri": "source-url-3",
+					"stack": "some-stack",
+					"start_command": "start-command-3",
+					"execution_metadata": "execution-metadata-3",
+					"health_check_timeout_in_seconds": 123456,
+					"etag": "3.1"
+				}`,
+		}
+
 		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
 			ghttp.RespondWith(200, `{
 					"token": {},
@@ -118,63 +176,24 @@ var _ = Describe("Syncing desired state with CC", func() {
 					]
 				}`),
 		)
+
 		fakeCC.RouteToHandler("POST", "/internal/bulk/apps",
-			ghttp.RespondWith(200, `[
-				{
-					"disk_mb": 1024,
-					"environment": [
-						{ "name": "env-key-1", "value": "env-value-1" },
-						{ "name": "env-key-2", "value": "env-value-2" }
-					],
-					"file_descriptors": 16,
-					"num_instances": 42,
-					"log_guid": "log-guid-1",
-					"memory_mb": 256,
-					"process_guid": "process-guid-1",
-					"routes": [ "route-1", "route-2", "new-route" ],
-					"droplet_uri": "source-url-1",
-					"stack": "some-stack",
-					"start_command": "start-command-1",
-					"execution_metadata": "execution-metadata-1",
-					"health_check_timeout_in_seconds": 123456,
-					"etag": "1.1"
-				},
-				{
-					"disk_mb": 1024,
-					"environment": [
-						{ "name": "env-key-1", "value": "env-value-1" },
-						{ "name": "env-key-2", "value": "env-value-2" }
-					],
-					"file_descriptors": 16,
-					"num_instances": 4,
-					"log_guid": "log-guid-1",
-					"memory_mb": 256,
-					"process_guid": "process-guid-2",
-					"routes": [ "route-3", "route-4" ],
-					"droplet_uri": "source-url-1",
-					"stack": "some-stack",
-					"start_command": "start-command-1",
-					"execution_metadata": "execution-metadata-1",
-					"health_check_timeout_in_seconds": 123456,
-					"etag": "2.1"
-				},
-				{
-					"disk_mb": 512,
-					"environment": [],
-					"file_descriptors": 8,
-					"num_instances": 4,
-					"log_guid": "log-guid-3",
-					"memory_mb": 128,
-					"process_guid": "process-guid-3",
-					"routes": [],
-					"droplet_uri": "source-url-3",
-					"stack": "some-stack",
-					"start_command": "start-command-3",
-					"execution_metadata": "execution-metadata-3",
-					"health_check_timeout_in_seconds": 123456,
-					"etag": "3.1"
+			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				var processGuids []string
+				decoder := json.NewDecoder(req.Body)
+				err := decoder.Decode(&processGuids)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				appResponses := make([]json.RawMessage, 0, len(processGuids))
+				for _, processGuid := range processGuids {
+					appResponses = append(appResponses, json.RawMessage(desiredAppResponses[processGuid]))
 				}
-			]`),
+
+				payload, err := json.Marshal(appResponses)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				w.Write(payload)
+			}),
 		)
 	})
 
