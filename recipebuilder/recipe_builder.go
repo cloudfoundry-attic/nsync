@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	DockerScheme = "docker"
-	LRPDomain    = "cf-apps"
+	DockerScheme      = "docker"
+	DockerIndexServer = "docker.io"
+	LRPDomain         = "cf-apps"
 
 	MinCpuProxy = 256
 	MaxCpuProxy = 8192
@@ -76,7 +77,11 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	if desiredApp.DockerImageUrl != "" {
 		lifecycleURL = b.lifecycleDownloadURL(b.dockerLifecyclePath, b.fileServerURL)
 
-		rootFSPath = convertDockerURI(desiredApp.DockerImageUrl)
+		var err error
+		rootFSPath, err = convertDockerURI(desiredApp.DockerImageUrl)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		lifecyclePath, ok := b.lifecycles[desiredApp.Stack]
 		if !ok {
@@ -205,47 +210,68 @@ func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable
 	return env
 }
 
-func convertDockerURI(dockerURI string) string {
-	repo, tag := parseDockerRepositoryTag(dockerURI)
+func convertDockerURI(dockerURI string) (string, error) {
+	if strings.Contains(dockerURI, "://") {
+		return "", errors.New("docker URI [" + dockerURI + "] should not contain scheme")
+	}
+
+	indexName, remoteName, tag := parseDockerRepoUrl(dockerURI)
 
 	return (&url.URL{
 		Scheme:   DockerScheme,
-		Path:     buildDockerRepoPath(repo),
+		Path:     indexName + "/" + remoteName,
 		Fragment: tag,
-	}).String()
+	}).String(), nil
+}
+
+// via https://github.com/docker/docker/blob/a271eaeba224652e3a12af0287afbae6f82a9333/registry/config.go#L295
+func parseDockerRepoUrl(dockerURI string) (indexName, remoteName, tag string) {
+	nameParts := strings.SplitN(dockerURI, "/", 2)
+
+	if officialRegistry(nameParts) {
+		// URI without host
+		indexName = ""
+		remoteName = dockerURI
+
+		// URI has format docker.io/<path>
+		if nameParts[0] == DockerIndexServer {
+			indexName = DockerIndexServer
+			remoteName = nameParts[1]
+		}
+
+		// Remote name contain no '/' - prefix it with "library/"
+		// via https://github.com/docker/docker/blob/a271eaeba224652e3a12af0287afbae6f82a9333/registry/config.go#L343
+		if strings.IndexRune(remoteName, '/') == -1 {
+			remoteName = "library/" + remoteName
+		}
+	} else {
+		indexName = nameParts[0]
+		remoteName = nameParts[1]
+	}
+
+	remoteName, tag = parseDockerRepositoryTag(remoteName)
+
+	return indexName, remoteName, tag
+}
+
+func officialRegistry(nameParts []string) bool {
+	return len(nameParts) == 1 ||
+		nameParts[0] == DockerIndexServer ||
+		(!strings.Contains(nameParts[0], ".") &&
+			!strings.Contains(nameParts[0], ":") &&
+			nameParts[0] != "localhost")
 }
 
 // via https://github.com/docker/docker/blob/4398108/pkg/parsers/parsers.go#L72
-func parseDockerRepositoryTag(repos string) (string, string) {
-	n := strings.LastIndex(repos, ":")
+func parseDockerRepositoryTag(remoteName string) (string, string) {
+	n := strings.LastIndex(remoteName, ":")
 	if n < 0 {
-		return repos, ""
+		return remoteName, ""
 	}
-
-	if tag := repos[n+1:]; !strings.Contains(tag, "/") {
-		return repos[:n], tag
+	if tag := remoteName[n+1:]; !strings.Contains(tag, "/") {
+		return remoteName[:n], tag
 	}
-
-	return repos, ""
-}
-
-func buildDockerRepoPath(repo string) string {
-	parts := strings.Split(repo, "/")
-
-	switch len(parts) {
-	case 1:
-		// docker:///<repo>
-		return "/library/" + repo
-	case 2:
-		// docker:///<namespace>/<repo>
-		return "/" + repo
-	case 3:
-		// docker://<registry address>/<user>/<repo>
-		return repo
-	default:
-		// unknown
-		return repo
-	}
+	return remoteName, ""
 }
 
 func cpuWeight(memoryMB int) uint {

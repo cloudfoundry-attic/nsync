@@ -255,57 +255,47 @@ var _ = Describe("Recipe Builder", func() {
 			}))
 		})
 
-		Context("and the docker image url has no tag", func() {
-			BeforeEach(func() {
-				desiredAppReq.DockerImageUrl = "user/repo"
-			})
-
-			It("does not specify a url fragment for the tag, assumes garden-linux sets a default", func() {
-				Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo"))
-			})
-		})
-
-		Context("and the docker image url has repo only", func() {
-			Context("and no tag", func() {
+		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {
+			return func() {
 				BeforeEach(func() {
-					desiredAppReq.DockerImageUrl = "repo"
+					desiredAppReq.DockerImageUrl = imageUrl
 				})
 
-				It("builds url with repo only", func() {
-					Ω(desiredLRP.RootFSPath).Should(Equal("docker:///library/repo"))
+				It("builds correct rootFS path", func() {
+					Ω(desiredLRP.RootFSPath).Should(Equal(expectedRootFSPath))
 				})
-			})
+			}
+		}
 
-			Context("and a tag", func() {
-				BeforeEach(func() {
-					desiredAppReq.DockerImageUrl = "repo:tag"
-				})
-
-				It("builds url with repo only", func() {
-					Ω(desiredLRP.RootFSPath).Should(Equal("docker:///library/repo#tag"))
-				})
-			})
+		Context("and the docker image url has no host", func() {
+			Context("and image only", testRootFSPath("image", "docker:///library/image"))
+			//does not specify a url fragment for the tag, assumes garden-linux sets a default
+			Context("and user/image", testRootFSPath("user/image", "docker:///user/image"))
+			Context("and a image with tag", testRootFSPath("image:tag", "docker:///library/image#tag"))
+			Context("and a user/image with tag", testRootFSPath("user/image:tag", "docker:///user/image#tag"))
 		})
 
 		Context("and the docker image url has host:port", func() {
-			Context("and a tag", func() {
-				BeforeEach(func() {
-					desiredAppReq.DockerImageUrl = "10.244.2.6:8080/user/repo"
-				})
+			Context("and image only", testRootFSPath("10.244.2.6:8080/image", "docker://10.244.2.6:8080/image"))
+			Context("and user/image", testRootFSPath("10.244.2.6:8080/user/image", "docker://10.244.2.6:8080/user/image"))
+			Context("and a image with tag", testRootFSPath("10.244.2.6:8080/image:tag", "docker://10.244.2.6:8080/image#tag"))
+			Context("and a user/image with tag", testRootFSPath("10.244.2.6:8080/user/image:tag", "docker://10.244.2.6:8080/user/image#tag"))
+		})
 
-				It("builds correct url", func() {
-					Ω(desiredLRP.RootFSPath).Should(Equal("docker://10.244.2.6:8080/user/repo"))
-				})
+		Context("and the docker image url has host docker.io", func() {
+			Context("and image only", testRootFSPath("docker.io/image", "docker://docker.io/library/image"))
+			Context("and user/image", testRootFSPath("docker.io/user/image", "docker://docker.io/user/image"))
+			Context("and image with tag", testRootFSPath("docker.io/image:tag", "docker://docker.io/library/image#tag"))
+			Context("and a user/image with tag", testRootFSPath("docker.io/user/image:tag", "docker://docker.io/user/image#tag"))
+		})
+
+		Context("and the docker image url has scheme", func() {
+			BeforeEach(func() {
+				desiredAppReq.DockerImageUrl = "https://docker.io/repo"
 			})
 
-			Context("and no tag", func() {
-				BeforeEach(func() {
-					desiredAppReq.DockerImageUrl = "10.244.2.6:8080/user/repo:tag"
-				})
-
-				It("includes correct url and tag", func() {
-					Ω(desiredLRP.RootFSPath).Should(Equal("docker://10.244.2.6:8080/user/repo#tag"))
-				})
+			It("errors", func() {
+				Ω(err).Should(HaveOccurred())
 			})
 		})
 	})
