@@ -97,7 +97,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		receptorClient = receptor.NewClient(fmt.Sprintf("http://127.0.0.1:%d", receptorPort))
 
 		pollingInterval = 500 * time.Millisecond
-		domainTTL = 2 * time.Second
+		domainTTL = 1 * time.Second
 		heartbeatInterval = 30 * time.Second
 
 		desiredAppResponses := map[string]string{
@@ -486,7 +486,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(bbs.Domains).Should(ContainElement("cf-apps"))
+						Eventually(bbs.Domains, 2*pollingInterval).Should(ContainElement("cf-apps"))
 						fakeCC.HTTPTestServer.Close()
 						Eventually(bbs.Domains, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
 					})
