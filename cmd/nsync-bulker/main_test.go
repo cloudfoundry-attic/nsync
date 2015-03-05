@@ -199,7 +199,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	AfterEach(func() {
 		defer fakeCC.Close()
-		ginkgomon.Interrupt(receptorProcess)
+		ginkgomon.Kill(receptorProcess)
 	})
 
 	Describe("when the CC polling interval elapses", func() {
