@@ -32,6 +32,8 @@ const (
 
 	Router      = "router"
 	DefaultPort = uint16(8080)
+
+	DefaultLANG = "en_US.UTF-8"
 )
 
 var (
@@ -73,8 +75,9 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	rootFSPath := ""
 	lifecycleURL := ""
+	isDocker := desiredApp.DockerImageUrl != ""
 
-	if desiredApp.DockerImageUrl != "" {
+	if isDocker {
 		lifecycleURL = b.lifecycleDownloadURL(b.dockerLifecyclePath, b.fileServerURL)
 
 		var err error
@@ -95,10 +98,12 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		lifecycleURL = b.lifecycleDownloadURL(lifecyclePath, b.fileServerURL)
 	}
 
-	privilegedContainer := false
+	var privilegedContainer bool
+	var containerEnvVars []receptor.EnvironmentVariable
 
-	if desiredApp.DockerImageUrl == "" {
+	if !isDocker {
 		privilegedContainer = true
+		containerEnvVars = append(containerEnvVars, receptor.EnvironmentVariable{"LANG", DefaultLANG})
 	}
 
 	numFiles := DefaultFileDescriptorLimit
@@ -130,7 +135,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		}
 	}
 
-	if desiredApp.DropletUri != "" {
+	if !isDocker {
 		setup = append(setup, &models.DownloadAction{
 			From:     desiredApp.DropletUri,
 			To:       ".",
@@ -186,9 +191,10 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 		MetricsGuid: desiredApp.LogGuid,
 
-		Setup:   setupAction,
-		Action:  action,
-		Monitor: monitor,
+		EnvironmentVariables: containerEnvVars,
+		Setup:                setupAction,
+		Action:               action,
+		Monitor:              monitor,
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 

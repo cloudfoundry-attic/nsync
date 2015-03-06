@@ -352,6 +352,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Stack:        "some-stack",
 					Setup:        expectedSetupActions1,
 					StartTimeout: 123456,
+					EnvironmentVariables: []models.EnvironmentVariable{
+						{Name: "LANG", Value: recipebuilder.DefaultLANG},
+					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
@@ -398,6 +401,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Stack:        "some-stack",
 					Setup:        expectedSetupActions2,
 					StartTimeout: 123456,
+					EnvironmentVariables: []models.EnvironmentVariable{
+						{Name: "LANG", Value: recipebuilder.DefaultLANG},
+					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
@@ -444,6 +450,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Stack:        "some-stack",
 					Setup:        expectedSetupActions3,
 					StartTimeout: 123456,
+					EnvironmentVariables: []models.EnvironmentVariable{
+						{Name: "LANG", Value: recipebuilder.DefaultLANG},
+					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"/app", "start-command-3", "execution-metadata-3"},

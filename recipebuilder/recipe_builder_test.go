@@ -123,6 +123,8 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
 			Ω(desiredLRP.LogSource).Should(Equal("CELL"))
 
+			Ω(desiredLRP.EnvironmentVariables).Should(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+
 			Ω(desiredLRP.MetricsGuid).Should(Equal("the-log-id"))
 
 			expectedSetup := models.Serial([]models.Action{
@@ -297,6 +299,10 @@ var _ = Describe("Recipe Builder", func() {
 			It("errors", func() {
 				Ω(err).Should(HaveOccurred())
 			})
+		})
+
+		It("does not set the container's LANG", func() {
+			Ω(desiredLRP.EnvironmentVariables).Should(BeEmpty())
 		})
 	})
 
