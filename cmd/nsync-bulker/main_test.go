@@ -496,8 +496,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
 						Eventually(bbs.Domains, 2*pollingInterval).Should(ContainElement("cf-apps"))
+
+						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
-						Eventually(bbs.Domains, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
+						logger.Debug("finished-stopping-fake-cc")
+
+						Eventually(func() ([]string, error) {
+							logger := logger.Session("domain-polling")
+							logger.Debug("getting-domains")
+							domains, err := bbs.Domains()
+							logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
+							return domains, err
+						}, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
 					})
 				})
 			})
