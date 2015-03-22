@@ -2,14 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
-	"github.com/cloudfoundry-incubator/cf-lager"
+	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -100,12 +99,6 @@ var lifecycles = flag.String(
 	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
 )
 
-var dockerLifecyclePath = flag.String(
-	"dockerLifecyclePath",
-	"",
-	"path for downloading docker lifecycle from file server",
-)
-
 var fileServerURL = flag.String(
 	"fileServerURL",
 	"",
@@ -141,11 +134,7 @@ func main() {
 		logger.Fatal("invalid-lifecycle-mapping", err)
 	}
 
-	if *dockerLifecyclePath == "" {
-		logger.Fatal("empty-docker_app_lifecycle-path", errors.New("dockerLifecyclePath flag not provided"))
-	}
-
-	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *dockerLifecyclePath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
 

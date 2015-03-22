@@ -66,8 +66,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-pollingInterval", pollingInterval.String(),
 				"-domainTTL", domainTTL.String(),
 				"-bulkBatchSize", "10",
-				"-lifecycles", `{"some-stack": "some-health-check.tar.gz"}`,
-				"-dockerLifecyclePath", "the/docker/lifecycle/path.tgz",
+				"-lifecycles", `{"buildpack/some-stack": "some-health-check.tar.gz", "docker":"the/docker/lifecycle/path.tgz"}`,
 				"-fileServerURL", "http://file-server.com",
 				"-heartbeatInterval", heartbeatInterval.String(),
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
@@ -253,8 +252,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			builder := recipebuilder.New(
-				map[string]string{"some-stack": "some-health-check.tar.gz"},
-				"the/docker/lifecycle/path.tgz",
+				map[string]string{
+					"buildpack/some-stack": "some-health-check.tar.gz",
+					"docker":               "the/docker/lifecycle/path.tgz",
+				},
 				"http://file-server.com",
 				lagertest.NewTestLogger("test"),
 			)

@@ -30,7 +30,8 @@ var _ = Describe("Recipe Builder", func() {
 		logger := lager.NewLogger("fakelogger")
 
 		lifecycles = map[string]string{
-			"some-stack": "some-lifecycle.tgz",
+			"buildpack/some-stack": "some-lifecycle.tgz",
+			"docker":               "the/docker/lifecycle/path.tgz",
 		}
 
 		egressRules = []models.SecurityGroupRule{
@@ -41,7 +42,7 @@ var _ = Describe("Recipe Builder", func() {
 			},
 		}
 
-		builder = recipebuilder.New(lifecycles, "the/docker/lifecycle/path.tgz", "http://file-server.com", logger)
+		builder = recipebuilder.New(lifecycles, "http://file-server.com", logger)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",

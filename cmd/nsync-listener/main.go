@@ -2,43 +2,25 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
+	"net"
+	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
-	"github.com/cloudfoundry-incubator/cf-lager"
+	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
-	"github.com/cloudfoundry/gunk/diegonats"
-	"github.com/cloudfoundry/gunk/workpool"
-	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
-	"github.com/nu7hatch/gouuid"
-	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
+	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 
-	"github.com/cloudfoundry-incubator/nsync/listen"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry/dropsonde"
-)
-
-var heartbeatInterval = flag.Duration(
-	"heartbeatInterval",
-	lock_bbs.HEARTBEAT_INTERVAL,
-	"the interval between heartbeats to the lock",
-)
-
-var etcdCluster = flag.String(
-	"etcdCluster",
-	"http://127.0.0.1:4001",
-	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
 var diegoAPIURL = flag.String(
@@ -47,34 +29,16 @@ var diegoAPIURL = flag.String(
 	"URL of diego API",
 )
 
-var natsAddresses = flag.String(
-	"natsAddresses",
-	"127.0.0.1:4222",
-	"comma-separated list of NATS addresses (ip:port)",
-)
-
-var natsUsername = flag.String(
-	"natsUsername",
-	"nats",
-	"Username to connect to nats",
-)
-
-var natsPassword = flag.String(
-	"natsPassword",
-	"nats",
-	"Password for nats user",
+var nsyncURL = flag.String(
+	"nsyncURL",
+	"",
+	"URL of nsync",
 )
 
 var lifecycles = flag.String(
 	"lifecycles",
 	"",
-	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
-)
-
-var dockerLifecyclePath = flag.String(
-	"dockerLifecyclePath",
-	"",
-	"path for downloading docker lifecycle from file server",
+	"app lifecycle binary bundle mapping (lifecycle/stack => bundle filename)",
 )
 
 var fileServerURL = flag.String(
@@ -105,40 +69,25 @@ func main() {
 	initializeDropsonde(logger)
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
-	bbs := initializeBbs(logger)
 
 	var lifecycleDownloadURLs map[string]string
 	err := json.Unmarshal([]byte(*lifecycles), &lifecycleDownloadURLs)
-
-	if *dockerLifecyclePath == "" {
-		logger.Fatal("empty-docker_app_lifecycle-path", errors.New("dockerLifecyclePath flag not provided"))
-	}
 
 	if err != nil {
 		logger.Fatal("invalid-lifecycle-mapping", err)
 	}
 
-	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *dockerLifecyclePath, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *fileServerURL, logger)
 
-	uuid, err := uuid.NewV4()
+	handler := handlers.New(logger, diegoAPIClient, recipeBuilder)
+
+	address, err := getNsyncListenerAddress()
 	if err != nil {
-		logger.Fatal("Couldn't generate uuid", err)
-	}
-
-	nsyncLock := bbs.NewNsyncListenerLock(uuid.String(), *heartbeatInterval)
-	natsClient := diegonats.NewClient()
-	natsClientRunner := diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)
-	listener := listen.Listen{
-		NATSClient:     natsClient,
-		ReceptorClient: diegoAPIClient,
-		Logger:         logger,
-		RecipeBuilder:  recipeBuilder,
+		logger.Fatal("Invalid nsync listener URL", err)
 	}
 
 	members := grouper.Members{
-		{"nsyncLock", nsyncLock},
-		{"nats-client", natsClientRunner},
-		{"listener", listener},
+		{"server", http_server.New(address, handler)},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
@@ -149,9 +98,7 @@ func main() {
 
 	group := grouper.NewOrdered(os.Interrupt, members)
 
-	logger.Info("waiting-for-lock")
-
-	monitor := ifrit.Envoke(sigmon.New(group))
+	monitor := ifrit.Invoke(sigmon.New(group))
 
 	logger.Info("started")
 
@@ -171,16 +118,16 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workpool.NewWorkPool(10),
-	)
-
-	err := etcdAdapter.Connect()
+func getNsyncListenerAddress() (string, error) {
+	url, err := url.Parse(*nsyncURL)
 	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
+		return "", err
 	}
 
-	return Bbs.NewNsyncBBS(etcdAdapter, clock.NewClock(), logger)
+	_, port, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		return "", err
+	}
+
+	return "0.0.0.0:" + port, nil
 }

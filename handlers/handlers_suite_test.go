@@ -1,4 +1,4 @@
-package listen_test
+package handlers_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestListen(t *testing.T) {
+func TestHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Listen Suite")
+	RunSpecs(t, "Handlers Suite")
 }

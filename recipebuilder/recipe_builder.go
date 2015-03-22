@@ -43,18 +43,16 @@ var (
 )
 
 type RecipeBuilder struct {
-	logger              lager.Logger
-	lifecycles          map[string]string
-	dockerLifecyclePath string
-	fileServerURL       string
+	logger        lager.Logger
+	lifecycles    map[string]string
+	fileServerURL string
 }
 
-func New(lifecycles map[string]string, dockerLifecyclePath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
+func New(lifecycles map[string]string, fileServerURL string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
-		lifecycles:          lifecycles,
-		logger:              logger,
-		dockerLifecyclePath: dockerLifecyclePath,
-		fileServerURL:       fileServerURL,
+		lifecycles:    lifecycles,
+		logger:        logger,
+		fileServerURL: fileServerURL,
 	}
 }
 
@@ -73,29 +71,33 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		return nil, ErrMultipleAppSources
 	}
 
-	rootFSPath := ""
-	lifecycleURL := ""
 	isDocker := desiredApp.DockerImageUrl != ""
 
+	var lifecycle string
 	if isDocker {
-		lifecycleURL = b.lifecycleDownloadURL(b.dockerLifecyclePath, b.fileServerURL)
+		lifecycle = "docker"
+	} else {
+		lifecycle = "buildpack/" + desiredApp.Stack
+	}
 
+	lifecyclePath, ok := b.lifecycles[lifecycle]
+	if !ok {
+		buildLogger.Error("unknown-lifecycle", ErrNoLifecycleDefined, lager.Data{
+			"lifecycle": lifecycle,
+		})
+
+		return nil, ErrNoLifecycleDefined
+	}
+
+	lifecycleURL := b.lifecycleDownloadURL(lifecyclePath, b.fileServerURL)
+
+	rootFSPath := ""
+	if isDocker {
 		var err error
 		rootFSPath, err = convertDockerURI(desiredApp.DockerImageUrl)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		lifecyclePath, ok := b.lifecycles[desiredApp.Stack]
-		if !ok {
-			buildLogger.Error("unknown-stack", ErrNoLifecycleDefined, lager.Data{
-				"stack": desiredApp.Stack,
-			})
-
-			return nil, ErrNoLifecycleDefined
-		}
-
-		lifecycleURL = b.lifecycleDownloadURL(lifecyclePath, b.fileServerURL)
 	}
 
 	var privilegedContainer bool

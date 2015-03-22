@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/cloudfoundry-incubator/nsync/listen"
+	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
@@ -54,4 +54,4 @@ func (fake *FakeRecipeBuilder) BuildReturns(result1 *receptor.DesiredLRPCreateRe
 	}{result1, result2}
 }
 
-var _ listen.RecipeBuilder = new(FakeRecipeBuilder)
+var _ handlers.RecipeBuilder = new(FakeRecipeBuilder)

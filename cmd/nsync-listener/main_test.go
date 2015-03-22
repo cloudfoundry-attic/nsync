@@ -2,29 +2,35 @@ package main_test
 
 import (
 	"fmt"
+	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/nsync"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
+	"github.com/tedsuo/rata"
 )
 
-var _ = Describe("Syncing desired state with CC", func() {
+var _ = Describe("Nsync Listener", func() {
 	var (
-		exitDuration  = 3 * time.Second
-		gnatsdProcess ifrit.Process
-		natsClient    diegonats.NATSClient
-		bbs           *Bbs.BBS
+		nsyncPort    int
+		exitDuration = 3 * time.Second
+		bbs          *Bbs.BBS
+
+		requestGenerator *rata.RequestGenerator
+		httpClient       *http.Client
+		response         *http.Response
+		err              error
 
 		receptorProcess ifrit.Process
 
@@ -34,14 +40,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 		etcdAdapter storeadapter.StoreAdapter
 	)
 
-	startNATS := func() {
-		gnatsdProcess, natsClient = diegonats.StartGnatsd(natsPort)
-	}
-
-	stopNATS := func() {
-		ginkgomon.Kill(gnatsdProcess)
-	}
-
 	startReceptor := func() ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
 			Address:     fmt.Sprintf("127.0.0.1:%d", receptorPort),
@@ -49,152 +47,120 @@ var _ = Describe("Syncing desired state with CC", func() {
 		}))
 	}
 
-	heartbeatInterval := 5 * time.Second
-
-	newNSyncRunner := func(args ...string) *ginkgomon.Runner {
+	newNSyncRunner := func(nsyncPort int, args ...string) *ginkgomon.Runner {
 		return ginkgomon.New(ginkgomon.Config{
 			Name:          "nsync",
 			AnsiColorCode: "97m",
 			StartCheck:    "nsync.listener.started",
 			Command: exec.Command(
 				listenerPath,
-				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
-				"-natsAddresses", fmt.Sprintf("127.0.0.1:%d", natsPort),
-				"-lifecycles", `{"some-stack": "some-health-check.tar.gz"}`,
-				"-dockerLifecyclePath", "the/docker/lifecycle/path.tgz",
+				"-nsyncURL", fmt.Sprintf("http://127.0.0.1:%d", nsyncPort),
+				"-lifecycles", `{"buildpack/some-stack": "some-health-check.tar.gz","docker":"the/docker/lifecycle/path.tgz"}`,
 				"-fileServerURL", "http://file-server.com",
-				"-heartbeatInterval", heartbeatInterval.String(),
 				"-logLevel", "debug",
 			),
 		})
 	}
 
-	BeforeEach(func() {
-		etcdAdapter = etcdRunner.Adapter()
-		bbs = Bbs.NewBBS(etcdAdapter, clock.NewClock(), lagertest.NewTestLogger("test"))
-		receptorProcess = startReceptor()
-		runner = newNSyncRunner()
-	})
-
-	AfterEach(func() {
-		etcdAdapter.Disconnect()
-		ginkgomon.Interrupt(receptorProcess, exitDuration)
-	})
-
-	var publishDesireWithInstances = func(nInstances int) {
-		err := natsClient.Publish("diego.desire.app", []byte(fmt.Sprintf(`
-      {
+	requestDesireWithInstances := func(nInstances int) (*http.Response, error) {
+		req, err := requestGenerator.CreateRequest(nsync.DesireAppRoute, rata.Params{"process_guid": "the-guid"}, strings.NewReader(`{
         "process_guid": "the-guid",
         "droplet_uri": "http://the-droplet.uri.com",
         "start_command": "the-start-command",
         "memory_mb": 128,
         "disk_mb": 512,
         "file_descriptors": 32,
-        "num_instances": %d,
+        "num_instances": `+strconv.Itoa(nInstances)+`,
         "stack": "some-stack",
         "log_guid": "the-log-guid"
-      }
-    `, nInstances)))
+			}`))
 		Ω(err).ShouldNot(HaveOccurred())
+		req.Header.Set("Content-Type", "application/json")
+
+		return httpClient.Do(req)
 	}
 
-	Context("when NATS is up", func() {
+	BeforeEach(func() {
+		nsyncPort = 8888 + GinkgoParallelNode()
+		nsyncURL := fmt.Sprintf("http://127.0.0.1:%d", nsyncPort)
+
+		requestGenerator = rata.NewRequestGenerator(nsyncURL, nsync.Routes)
+		httpClient = http.DefaultClient
+
+		etcdAdapter = etcdRunner.Adapter()
+		bbs = Bbs.NewBBS(etcdAdapter, clock.NewClock(), lagertest.NewTestLogger("test"))
+		receptorProcess = startReceptor()
+
+		runner = newNSyncRunner(nsyncPort)
+		process = ginkgomon.Invoke(runner)
+	})
+
+	AfterEach(func() {
+		etcdAdapter.Disconnect()
+		ginkgomon.Interrupt(receptorProcess, exitDuration)
+		ginkgomon.Interrupt(process, exitDuration)
+	})
+
+	Describe("Desire an app", func() {
 		BeforeEach(func() {
-			startNATS()
+			response, err = requestDesireWithInstances(3)
 		})
 
-		AfterEach(func() {
-			stopNATS()
+		It("registers an app desire in etcd", func() {
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
 		})
 
-		Context("and the nsync listener is started", func() {
+		Context("when an app is no longer desired", func() {
 			BeforeEach(func() {
-				process = ginkgomon.Invoke(runner)
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+
+				Eventually(bbs.DesiredLRPs).Should(HaveLen(1))
+
+				response, err = requestDesireWithInstances(0)
 			})
 
-			AfterEach(func() {
-				ginkgomon.Interrupt(process, exitDuration)
-			})
+			It("should remove the desired state from etcd", func() {
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
 
-			Describe("and a 'diego.desire.app' message is recieved", func() {
-				BeforeEach(func() {
-					publishDesireWithInstances(3)
-				})
-
-				It("registers an app desire in etcd", func() {
-					Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
-				})
-
-				Context("when an app is no longer desired", func() {
-					BeforeEach(func() {
-						Eventually(bbs.DesiredLRPs).Should(HaveLen(1))
-
-						publishDesireWithInstances(0)
-					})
-
-					It("should remove the desired state from etcd", func() {
-						Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
-					})
-				})
-			})
-
-			Context("and a second nsync listener is started", func() {
-				var (
-					secondRunner  *ginkgomon.Runner
-					secondProcess ifrit.Process
-				)
-
-				BeforeEach(func() {
-					secondRunner = newNSyncRunner()
-					secondRunner.StartCheck = "waiting-for-lock"
-
-					secondProcess = ginkgomon.Invoke(secondRunner)
-				})
-
-				AfterEach(func() {
-					ginkgomon.Interrupt(secondProcess, exitDuration)
-				})
-
-				Describe("the second listener", func() {
-					It("does not become active", func() {
-						Consistently(secondRunner.Buffer, heartbeatInterval).ShouldNot(gbytes.Say("nsync.listener.started"))
-					})
-				})
-
-				Context("and the first listener goes away", func() {
-					BeforeEach(func() {
-						ginkgomon.Interrupt(process, exitDuration)
-					})
-
-					Describe("the second listener", func() {
-						It("eventually becomes active", func() {
-							Eventually(secondRunner.Buffer, 5*time.Second).Should(gbytes.Say("nsync.listener.started"))
-						})
-					})
-				})
+				Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
 			})
 		})
 	})
 
-	Describe("when NATS is not up", func() {
-		Context("and the nsync listener is started", func() {
+	Describe("Kill an app instance", func() {
 
-			BeforeEach(func() {
-				process = ifrit.Background(runner)
-			})
+		killIndex := func(guid string, index int) (*http.Response, error) {
+			req, err := requestGenerator.CreateRequest(nsync.KillIndexRoute, rata.Params{"process_guid": "the-guid", "index": strconv.Itoa(index)}, nil)
+			Ω(err).ShouldNot(HaveOccurred())
 
-			AfterEach(func() {
-				defer stopNATS()
-				defer ginkgomon.Interrupt(process, exitDuration)
-			})
+			return httpClient.Do(req)
+		}
 
-			It("starts only after nats comes up", func() {
-				Consistently(process.Ready()).ShouldNot(BeClosed())
-
-				startNATS()
-				Eventually(process.Ready(), 5*time.Second).Should(BeClosed())
-			})
+		BeforeEach(func() {
+			response, err = requestDesireWithInstances(3)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
 		})
+
+		It("kills an index", func() {
+			resp, err := killIndex("the-guid", 0)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+
+			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(2))
+		})
+
+		It("fails when the index is invalid", func() {
+			resp, err := killIndex("the-guid", 4)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(resp.StatusCode).Should(Equal(http.StatusBadRequest))
+		})
+
 	})
 })
