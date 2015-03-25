@@ -350,7 +350,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ProcessGuid:  "process-guid-1",
 					Domain:       "cf-apps",
 					Instances:    42,
-					Stack:        "some-stack",
+					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions1,
 					StartTimeout: 123456,
 					EnvironmentVariables: []models.EnvironmentVariable{
@@ -399,7 +399,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ProcessGuid:  "process-guid-2",
 					Domain:       "cf-apps",
 					Instances:    4,
-					Stack:        "some-stack",
+					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions2,
 					StartTimeout: 123456,
 					EnvironmentVariables: []models.EnvironmentVariable{
@@ -448,7 +448,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ProcessGuid:  "process-guid-3",
 					Domain:       "cf-apps",
 					Instances:    4,
-					Stack:        "some-stack",
+					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions3,
 					StartTimeout: 123456,
 					EnvironmentVariables: []models.EnvironmentVariable{
@@ -521,7 +521,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				otherDomainDesired = models.DesiredLRP{
 					ProcessGuid: "some-other-lrp",
 					Domain:      "some-domain",
-					Stack:       "some-stack",
+					RootFS:      models.PreloadedRootFS("some-stack"),
 					Instances:   1,
 					Action: &models.RunAction{
 						Path: "reboot",

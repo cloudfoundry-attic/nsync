@@ -93,7 +93,7 @@ var _ = Describe("DesireAppHandler", func() {
 			newlyDesiredLRP = receptor.DesiredLRPCreateRequest{
 				ProcessGuid: "new-process-guid",
 				Instances:   1,
-				Stack:       "stack-2",
+				RootFS:      models.PreloadedRootFS("stack-2"),
 				Action: &models.RunAction{
 					Path: "ls",
 				},

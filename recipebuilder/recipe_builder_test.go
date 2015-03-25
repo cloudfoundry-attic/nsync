@@ -114,7 +114,7 @@ var _ = Describe("Recipe Builder", func() {
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
 			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
-			Ω(desiredLRP.Stack).Should(Equal("some-stack"))
+			Ω(desiredLRP.RootFS).Should(Equal(models.PreloadedRootFS("some-stack")))
 			Ω(desiredLRP.MemoryMB).Should(Equal(128))
 			Ω(desiredLRP.DiskMB).Should(Equal(512))
 			Ω(desiredLRP.Ports).Should(Equal([]uint16{8080}))
@@ -248,7 +248,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("converts the docker image url into a root fs path", func() {
-			Ω(desiredLRP.RootFSPath).Should(Equal("docker:///user/repo#tag"))
+			Ω(desiredLRP.RootFS).Should(Equal("docker:///user/repo#tag"))
 		})
 
 		It("uses the docker lifecycle", func() {
@@ -265,7 +265,7 @@ var _ = Describe("Recipe Builder", func() {
 				})
 
 				It("builds correct rootFS path", func() {
-					Ω(desiredLRP.RootFSPath).Should(Equal(expectedRootFSPath))
+					Ω(desiredLRP.RootFS).Should(Equal(expectedRootFSPath))
 				})
 			}
 		}

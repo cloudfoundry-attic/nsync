@@ -35,7 +35,7 @@ var _ = Describe("Differ", func() {
 		existingLRP = receptor.DesiredLRPResponse{
 			ProcessGuid: "process-guid-1",
 			Instances:   1,
-			Stack:       "stack-1",
+			RootFS:      models.PreloadedRootFS("stack-1"),
 			Action: &models.DownloadAction{
 				From: "http://example.com",
 				To:   "/tmp/internet",

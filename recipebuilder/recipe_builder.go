@@ -98,6 +98,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		rootFSPath = models.PreloadedRootFS(desiredApp.Stack)
 	}
 
 	var privilegedContainer bool
@@ -184,9 +186,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 			DefaultPort,
 		},
 
-		RootFSPath: rootFSPath,
-
-		Stack: desiredApp.Stack,
+		RootFS: rootFSPath,
 
 		LogGuid:   desiredApp.LogGuid,
 		LogSource: LRPLogSource,
