@@ -10,12 +10,11 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry/dropsonde"
-	"github.com/cloudfoundry/gunk/workpool"
-	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
@@ -27,22 +26,34 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
-var etcdCluster = flag.String(
-	"etcdCluster",
-	"http://127.0.0.1:4001",
-	"comma-separated list of etcd addresses (http://ip:port)",
-)
-
 var diegoAPIURL = flag.String(
 	"diegoAPIURL",
 	"",
 	"URL of diego API",
 )
 
-var heartbeatInterval = flag.Duration(
-	"heartbeatInterval",
-	lock_bbs.HEARTBEAT_INTERVAL,
-	"the interval between heartbeats to the lock",
+var consulCluster = flag.String(
+	"consulCluster",
+	"",
+	"comma-separated list of consul server addresses (ip:port)",
+)
+
+var consulScheme = flag.String(
+	"consulScheme",
+	"http",
+	"protocol scheme for communication with consul servers",
+)
+
+var lockTTL = flag.Duration(
+	"lockTTL",
+	lock_bbs.LockTTL,
+	"TTL for service lock",
+)
+
+var heartbeatRetryInterval = flag.Duration(
+	"heartbeatRetryInterval",
+	lock_bbs.RetryInterval,
+	"interval to wait before retrying a failed lock acquisition",
 )
 
 var ccBaseURL = flag.String(
@@ -121,6 +132,7 @@ func main() {
 	initializeDropsonde(logger)
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
+
 	bbs := initializeBbs(logger)
 
 	uuid, err := uuid.NewV4()
@@ -136,7 +148,7 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *fileServerURL, logger)
 
-	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatInterval)
+	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *lockTTL, *heartbeatRetryInterval)
 
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
@@ -192,15 +204,12 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workpool.NewWorkPool(10),
+	consulAdapter, err := consuladapter.NewAdapter(
+		strings.Split(*consulCluster, ","),
+		*consulScheme,
 	)
-
-	err := etcdAdapter.Connect()
 	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
+		logger.Fatal("failed-building-consul-adapter", err)
 	}
-
-	return Bbs.NewNsyncBBS(etcdAdapter, clock.NewClock(), logger)
+	return Bbs.NewNsyncBBS(consulAdapter, clock.NewClock(), logger)
 }

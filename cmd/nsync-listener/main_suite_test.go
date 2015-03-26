@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
@@ -19,6 +21,10 @@ var (
 
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
 var natsPort int
+
+var consulPort int
+var consulRunner consuladapter.ClusterRunner
+var consulAdapter consuladapter.Adapter
 
 func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -53,18 +59,28 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	receptorPort = 6001 + GinkgoParallelNode()
 
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+
+	consulPort = 9001 + config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength
+	consulRunner = consuladapter.NewClusterRunner(
+		consulPort,
+		1,
+		"http",
+	)
+
 })
 
 var _ = BeforeEach(func() {
 	etcdRunner.Start()
+	consulRunner.Start()
+	consulAdapter = consulRunner.NewAdapter()
 })
 
 var _ = AfterEach(func() {
 	etcdRunner.Stop()
+	consulRunner.Stop()
 })
 
 var _ = SynchronizedAfterSuite(func() {
-	etcdRunner.Stop()
 }, func() {
 	gexec.CleanupBuildArtifacts()
 })

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/consul/consul/structs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -23,7 +24,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/clock"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -49,8 +49,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	startReceptor := func() ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:     fmt.Sprintf("127.0.0.1:%d", receptorPort),
-			EtcdCluster: strings.Join(etcdRunner.NodeURLS(), ","),
+			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
+			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
+			ConsulCluster: strings.Join(consulRunner.Addresses(), ","),
 		}))
 	}
 
@@ -61,14 +62,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 			StartCheck:    "nsync.bulker.started",
 			Command: exec.Command(
 				bulkerPath,
-				"-etcdCluster", strings.Join(etcdRunner.NodeURLS(), ","),
 				"-ccBaseURL", fakeCC.URL(),
 				"-pollingInterval", pollingInterval.String(),
 				"-domainTTL", domainTTL.String(),
 				"-bulkBatchSize", "10",
 				"-lifecycles", `{"buildpack/some-stack": "some-health-check.tar.gz", "docker":"the/docker/lifecycle/path.tgz"}`,
 				"-fileServerURL", "http://file-server.com",
-				"-heartbeatInterval", heartbeatInterval.String(),
+				"-heartbeatRetryInterval", "1s",
+				"-consulCluster", strings.Join(consulRunner.Addresses(), ","),
+				"-consulScheme", "http",
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
 			),
 		})
@@ -88,7 +90,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		bbs = Bbs.NewBBS(etcdClient, clock.NewClock(), logger)
+		bbs = Bbs.NewBBS(etcdClient, consulAdapter, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
@@ -556,11 +558,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Eventually(bbs.Domains, 2*domainTTL).Should(ContainElement("cf-apps"))
 
-			err := etcdClient.Update(storeadapter.StoreNode{
-				Key:   shared.LockSchemaPath(bulkerLockName),
-				Value: []byte("something-else"),
-			})
-			Ω(err).ShouldNot(HaveOccurred())
+			consulRunner.Reset()
 		})
 
 		AfterEach(func() {
@@ -578,10 +576,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
 
-			err := etcdClient.Create(storeadapter.StoreNode{
-				Key:   shared.LockSchemaPath(bulkerLockName),
-				Value: []byte("something-else"),
-			})
+			_, err := consulAdapter.AcquireAndMaintainLock(
+				shared.LockSchemaPath(bulkerLockName),
+				[]byte("something-else"),
+				structs.SessionTTLMin,
+				nil)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -597,7 +596,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("when the lock becomes available", func() {
 			BeforeEach(func() {
-				err := etcdClient.Delete(shared.LockSchemaPath(bulkerLockName))
+				err := consulAdapter.ReleaseAndDeleteLock(shared.LockSchemaPath(bulkerLockName))
 				Ω(err).ShouldNot(HaveOccurred())
 
 				time.Sleep(pollingInterval + 10*time.Millisecond)
