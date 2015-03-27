@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	. "github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Fetcher", func() {
 	var (
-		fetcher    Fetcher
+		fetcher    bulk.Fetcher
 		fakeCC     *ghttp.Server
 		logger     *lagertest.TestLogger
 		httpClient *http.Client
@@ -30,7 +30,7 @@ var _ = Describe("Fetcher", func() {
 		cancel = make(chan struct{})
 		httpClient = &http.Client{Timeout: time.Second}
 
-		fetcher = &CCFetcher{
+		fetcher = &bulk.CCFetcher{
 			BaseURI:   fakeCC.URL(),
 			BatchSize: 2,
 			Username:  "the-username",

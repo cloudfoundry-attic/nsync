@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	. "github.com/cloudfoundry-incubator/nsync/handlers"
+	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -40,7 +40,7 @@ var _ = Describe("KillIndexHandler", func() {
 	})
 
 	JustBeforeEach(func() {
-		killHandler := NewKillIndexHandler(logger, fakeReceptor)
+		killHandler := handlers.NewKillIndexHandler(logger, fakeReceptor)
 		killHandler.KillIndex(responseRecorder, request)
 	})
 

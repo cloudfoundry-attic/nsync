@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
-	. "github.com/cloudfoundry-incubator/nsync/handlers"
+	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -82,7 +82,7 @@ var _ = Describe("DesireAppHandler", func() {
 			request.Body = ioutil.NopCloser(reader)
 		}
 
-		handler := NewDesireAppHandler(logger, fakeReceptor, builder)
+		handler := handlers.NewDesireAppHandler(logger, fakeReceptor, builder)
 		handler.DesireApp(responseRecorder, request)
 	})
 
