@@ -158,7 +158,7 @@ var _ = Describe("Recipe Builder", func() {
 
 			Ω(runAction.Path).Should(Equal("/tmp/lifecycle/launcher"))
 			Ω(runAction.Args).Should(Equal([]string{
-				"/app",
+				"app",
 				"the-start-command with-arguments",
 				"the-execution-metadata",
 			}))

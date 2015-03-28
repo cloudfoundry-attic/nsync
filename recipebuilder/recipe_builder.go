@@ -150,7 +150,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	action = &models.RunAction{
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
-			[]string{"/app"},
+			[]string{"app"},
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),

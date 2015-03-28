@@ -358,7 +358,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
-						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
+						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
 							{Name: "env-key-1", Value: "env-value-1"},
 							{Name: "env-key-2", Value: "env-value-2"},
@@ -407,7 +407,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
-						Args: []string{"/app", "start-command-1", "execution-metadata-1"},
+						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
 							{Name: "env-key-1", Value: "env-value-1"},
 							{Name: "env-key-2", Value: "env-value-2"},
@@ -456,7 +456,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 					Action: &models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
-						Args: []string{"/app", "start-command-3", "execution-metadata-3"},
+						Args: []string{"app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
 							{Name: "PORT", Value: "8080"},
 						},
