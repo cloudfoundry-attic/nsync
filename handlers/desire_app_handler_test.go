@@ -139,27 +139,12 @@ var _ = Describe("DesireAppHandler", func() {
 				desireAppRequest.NumInstances = 0
 			})
 
-			It("deletes the desired LRP", func() {
-				Ω(fakeReceptor.DeleteDesiredLRPCallCount()).Should(Equal(1))
-				Ω(fakeReceptor.DeleteDesiredLRPArgsForCall(0)).Should(Equal("some-guid"))
-			})
-
-			It("responds with 202 Accepted", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
-			})
-
 			It("does not increments the desired LRPs counter", func() {
 				Ω(metricSender.GetCounter("LRPsDesired")).Should(Equal(uint64(0)))
 			})
 
-			Context("when the receptor fails", func() {
-				BeforeEach(func() {
-					fakeReceptor.DeleteDesiredLRPReturns(errors.New("oh no"))
-				})
-
-				It("responds with a ServiceUnavailabe error", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusServiceUnavailable))
-				})
+			It("responds with a 400 bad request", func() {
+				Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
 			})
 		})
 

@@ -56,12 +56,8 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	}
 
 	if desiredApp.NumInstances == 0 {
-		err = h.deleteDesiredApp(logger, processGuid)
-		if err == nil {
-			resp.WriteHeader(http.StatusAccepted)
-		} else {
-			resp.WriteHeader(http.StatusServiceUnavailable)
-		}
+		logger.Error("requested-zero-instances", nil, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
+		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
 

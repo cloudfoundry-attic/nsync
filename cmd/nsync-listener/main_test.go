@@ -107,33 +107,46 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 		})
 
-		It("registers an app desire in etcd", func() {
+		It("desires the app in etcd", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
 			Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
 		})
+	})
 
-		Context("when an app is no longer desired", func() {
-			BeforeEach(func() {
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+	Describe("Stop an app", func() {
+		var stopResponse *http.Response
 
-				Eventually(bbs.DesiredLRPs).Should(HaveLen(1))
+		stopApp := func(guid string) (*http.Response, error) {
+			req, err := requestGenerator.CreateRequest(nsync.StopAppRoute, rata.Params{"process_guid": guid}, nil)
+			Ω(err).ShouldNot(HaveOccurred())
 
-				response, err = requestDesireWithInstances(0)
-			})
+			return httpClient.Do(req)
+		}
 
-			It("should remove the desired state from etcd", func() {
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+		BeforeEach(func() {
+			response, err = requestDesireWithInstances(3)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
+		})
 
-				Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
-			})
+		JustBeforeEach(func() {
+			var err error
+			stopResponse, err = stopApp("the-guid")
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		It("accepts the request", func() {
+			Ω(stopResponse.StatusCode).Should(Equal(http.StatusAccepted))
+		})
+
+		It("deletes the desired LRP", func() {
+			Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
 		})
 	})
 
 	Describe("Kill an app instance", func() {
-
 		killIndex := func(guid string, index int) (*http.Response, error) {
 			req, err := requestGenerator.CreateRequest(nsync.KillIndexRoute, rata.Params{"process_guid": "the-guid", "index": strconv.Itoa(index)}, nil)
 			Ω(err).ShouldNot(HaveOccurred())
@@ -161,6 +174,5 @@ var _ = Describe("Nsync Listener", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(resp.StatusCode).Should(Equal(http.StatusBadRequest))
 		})
-
 	})
 })
