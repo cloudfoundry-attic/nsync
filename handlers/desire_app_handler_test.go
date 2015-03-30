@@ -134,20 +134,6 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 		})
 
-		Context("when the number of desired app instances is zero", func() {
-			BeforeEach(func() {
-				desireAppRequest.NumInstances = 0
-			})
-
-			It("does not increments the desired LRPs counter", func() {
-				Ω(metricSender.GetCounter("LRPsDesired")).Should(Equal(uint64(0)))
-			})
-
-			It("responds with a 400 bad request", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
-			})
-		})
-
 		Context("when building the recipe fails to build", func() {
 			BeforeEach(func() {
 				builder.BuildReturns(nil, errors.New("oh no!"))

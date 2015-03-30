@@ -55,12 +55,6 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if desiredApp.NumInstances == 0 {
-		logger.Error("requested-zero-instances", nil, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
-		resp.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	desiredAppExists, err := h.desiredAppExists(processGuid)
 	if err != nil {
 		logger.Error("unexpected-error-from-get-desired-lrp", err)
