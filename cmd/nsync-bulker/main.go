@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
@@ -35,13 +34,7 @@ var diegoAPIURL = flag.String(
 var consulCluster = flag.String(
 	"consulCluster",
 	"",
-	"comma-separated list of consul server addresses (ip:port)",
-)
-
-var consulScheme = flag.String(
-	"consulScheme",
-	"http",
-	"protocol scheme for communication with consul servers",
+	"comma-separated list of consul server URLs (scheme://ip:port)",
 )
 
 var lockTTL = flag.Duration(
@@ -204,12 +197,15 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
-	consulAdapter, err := consuladapter.NewAdapter(
-		strings.Split(*consulCluster, ","),
-		*consulScheme,
-	)
+	consulScheme, consulAddresses, err := consuladapter.Parse(*consulCluster)
+	if err != nil {
+		logger.Fatal("failed-parsing-consul-cluster", err)
+	}
+
+	consulAdapter, err := consuladapter.NewAdapter(consulAddresses, consulScheme)
 	if err != nil {
 		logger.Fatal("failed-building-consul-adapter", err)
 	}
+
 	return Bbs.NewNsyncBBS(consulAdapter, clock.NewClock(), logger)
 }

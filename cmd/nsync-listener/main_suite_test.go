@@ -22,8 +22,7 @@ var (
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
 var natsPort int
 
-var consulPort int
-var consulRunner consuladapter.ClusterRunner
+var consulRunner *consuladapter.ClusterRunner
 var consulAdapter consuladapter.Adapter
 
 func TestListener(t *testing.T) {
@@ -60,9 +59,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 
-	consulPort = 9001 + config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength
 	consulRunner = consuladapter.NewClusterRunner(
-		consulPort,
+		9001+config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength,
 		1,
 		"http",
 	)

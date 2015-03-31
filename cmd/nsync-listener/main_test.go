@@ -44,7 +44,7 @@ var _ = Describe("Nsync Listener", func() {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
 			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
 			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster: strings.Join(consulRunner.Addresses(), ","),
+			ConsulCluster: consulRunner.ConsulCluster(),
 		}))
 	}
 

@@ -51,7 +51,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
 			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
 			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster: strings.Join(consulRunner.Addresses(), ","),
+			ConsulCluster: consulRunner.ConsulCluster(),
 		}))
 	}
 
@@ -69,8 +69,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-lifecycles", `{"buildpack/some-stack": "some-health-check.tar.gz", "docker":"the/docker/lifecycle/path.tgz"}`,
 				"-fileServerURL", "http://file-server.com",
 				"-heartbeatRetryInterval", "1s",
-				"-consulCluster", strings.Join(consulRunner.Addresses(), ","),
-				"-consulScheme", "http",
+				"-consulCluster", consulRunner.ConsulCluster(),
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
 			),
 		})
