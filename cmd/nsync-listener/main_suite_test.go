@@ -55,7 +55,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	natsPort = 4001 + GinkgoParallelNode()
 	etcdPort := 5001 + GinkgoParallelNode()
-	receptorPort = 6001 + GinkgoParallelNode()
+	receptorPort = 6001 + GinkgoParallelNode()*2
 
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 

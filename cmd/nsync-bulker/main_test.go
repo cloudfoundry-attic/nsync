@@ -89,12 +89,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		bbs = Bbs.NewBBS(etcdClient, consulAdapter, clock.NewClock(), logger)
+		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
+		bbs = Bbs.NewBBS(etcdClient, consulAdapter, receptorURL, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
 
-		receptorClient = receptor.NewClient(fmt.Sprintf("http://127.0.0.1:%d", receptorPort))
+		receptorClient = receptor.NewClient(receptorURL)
 
 		pollingInterval = 500 * time.Millisecond
 		domainTTL = 1 * time.Second

@@ -40,11 +40,12 @@ var _ = Describe("Nsync Listener", func() {
 		etcdAdapter storeadapter.StoreAdapter
 	)
 
-	startReceptor := func() ifrit.Process {
+	startReceptor := func(address, taskAddress string) ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
-			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster: consulRunner.ConsulCluster(),
+			Address:            address,
+			TaskHandlerAddress: taskAddress,
+			EtcdCluster:        strings.Join(etcdRunner.NodeURLS(), ","),
+			ConsulCluster:      consulRunner.ConsulCluster(),
 		}))
 	}
 
@@ -90,8 +91,10 @@ var _ = Describe("Nsync Listener", func() {
 		httpClient = http.DefaultClient
 
 		etcdAdapter = etcdRunner.Adapter()
-		bbs = Bbs.NewBBS(etcdAdapter, consulAdapter, clock.NewClock(), lagertest.NewTestLogger("test"))
-		receptorProcess = startReceptor()
+		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
+		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
+		bbs = Bbs.NewBBS(etcdAdapter, consulAdapter, "http://"+receptorTaskAddress, clock.NewClock(), lagertest.NewTestLogger("test"))
+		receptorProcess = startReceptor(receptorAddress, receptorTaskAddress)
 
 		runner = newNSyncRunner(nsyncPort)
 		process = ginkgomon.Invoke(runner)
