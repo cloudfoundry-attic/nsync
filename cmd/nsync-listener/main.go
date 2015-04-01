@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"net"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -35,12 +35,6 @@ var nsyncURL = flag.String(
 	"URL of nsync",
 )
 
-var lifecycles = flag.String(
-	"lifecycles",
-	"",
-	"app lifecycle binary bundle mapping (lifecycle/stack => bundle filename)",
-)
-
 var fileServerURL = flag.String(
 	"fileServerURL",
 	"",
@@ -61,6 +55,9 @@ const (
 func main() {
 	cf_debug_server.AddFlags(flag.CommandLine)
 	cf_lager.AddFlags(flag.CommandLine)
+
+	lifecycles := flags.LifecycleMap{}
+	flag.Var(&lifecycles, "lifecycle", "app lifecycle binary bundle mapping (lifecycle[/stack]:bundle-filepath-in-fileserver)")
 	flag.Parse()
 
 	cf_http.Initialize(*communicationTimeout)
@@ -70,14 +67,7 @@ func main() {
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 
-	var lifecycleDownloadURLs map[string]string
-	err := json.Unmarshal([]byte(*lifecycles), &lifecycleDownloadURLs)
-
-	if err != nil {
-		logger.Fatal("invalid-lifecycle-mapping", err)
-	}
-
-	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
 
 	handler := handlers.New(logger, diegoAPIClient, recipeBuilder)
 

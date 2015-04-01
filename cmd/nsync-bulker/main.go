@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-golang/clock"
@@ -97,12 +97,6 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
-var lifecycles = flag.String(
-	"lifecycles",
-	"",
-	"app lifecycle binary bundle mapping (stack => bundle filename in fileserver)",
-)
-
 var fileServerURL = flag.String(
 	"fileServerURL",
 	"",
@@ -117,6 +111,9 @@ const (
 func main() {
 	cf_debug_server.AddFlags(flag.CommandLine)
 	cf_lager.AddFlags(flag.CommandLine)
+
+	lifecycles := flags.LifecycleMap{}
+	flag.Var(&lifecycles, "lifecycle", "app lifecycle binary bundle mapping (lifecycle[/stack]:bundle-filepath-in-fileserver)")
 	flag.Parse()
 
 	cf_http.Initialize(*communicationTimeout)
@@ -133,13 +130,7 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	var lifecycleDownloadURLs map[string]string
-	err = json.Unmarshal([]byte(*lifecycles), &lifecycleDownloadURLs)
-	if err != nil {
-		logger.Fatal("invalid-lifecycle-mapping", err)
-	}
-
-	recipeBuilder := recipebuilder.New(lifecycleDownloadURLs, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
 
 	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *lockTTL, *heartbeatRetryInterval)
 
