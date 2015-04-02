@@ -577,6 +577,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
 
+			consulRunner.WaitUntilReady()
 			_, err := consulAdapter.AcquireAndMaintainLock(
 				shared.LockSchemaPath(bulkerLockName),
 				[]byte("something-else"),
