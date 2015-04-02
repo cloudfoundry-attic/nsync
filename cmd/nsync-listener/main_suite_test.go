@@ -23,7 +23,7 @@ var etcdRunner *etcdstorerunner.ETCDClusterRunner
 var natsPort int
 
 var consulRunner *consuladapter.ClusterRunner
-var consulAdapter consuladapter.Adapter
+var consulAdapter *consuladapter.Adapter
 
 func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
