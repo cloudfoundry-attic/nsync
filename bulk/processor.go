@@ -106,6 +106,8 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	}()
 
 	logger := p.logger.Session("sync")
+	logger.Info("starting")
+	defer logger.Info("done")
 
 	existing, err := p.getDesiredLRPs(logger)
 	if err != nil {
@@ -160,6 +162,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		updateErrors,
 	)
 
+	logger.Info("processing-updates-and-creates")
 process_loop:
 	for {
 		select {
@@ -171,11 +174,13 @@ process_loop:
 			if !open {
 				break process_loop
 			}
-		case <-signals:
+		case sig := <-signals:
+			logger.Info("exiting", lager.Data{"received-signal": sig})
 			close(cancel)
 			return true
 		}
 	}
+	logger.Info("done-processing-updates-and-creates")
 
 	if <-fingerprintErrorCount != 0 {
 		logger.Error("failed-to-fetch-all-cc-fingerprints", nil)
@@ -307,35 +312,27 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]receptor.DesiredLRPResponse, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-
 	existing, err := p.receptorClient.DesiredLRPsByDomain(recipebuilder.LRPDomain)
 	if err != nil {
-		logger.Error("failed-to-get-desired-lrps", err)
+		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
 	}
+	logger.Info("succeeded-getting-desired-lrps-from-bbs", lager.Data{"count": len(existing)})
 
-	logger.Info("got-desired-lrps-from-bbs", lager.Data{"count": len(existing)})
 	return existing, nil
 }
 
 func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
 	logger = logger.Session("delete-excess")
 
-	logger.Info(
-		"processing-batch",
-		lager.Data{"size": len(excess)},
-	)
-
+	logger.Info("processing-batch", lager.Data{"size": len(excess)})
 	for _, deleteGuid := range excess {
 		err := p.receptorClient.DeleteDesiredLRP(deleteGuid)
 		if err != nil {
-			logger.Error(
-				"failed-to-delete-desired-lrp",
-				err,
-				lager.Data{"delete-request": deleteGuid},
-			)
+			logger.Error("failed-processing-batch", err, lager.Data{"delete-request": deleteGuid})
 		}
 	}
+	logger.Info("succeeded-processing-batch")
 }
 
 func countErrors(source <-chan error) (<-chan error, <-chan int) {
