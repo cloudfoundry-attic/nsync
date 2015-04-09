@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/consul/consul/structs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -17,6 +16,7 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 
+	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -91,7 +91,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
-		bbs = Bbs.NewBBS(etcdClient, consulAdapter, receptorURL, clock.NewClock(), logger)
+		bbs = Bbs.NewBBS(etcdClient, consulSession, receptorURL, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
@@ -574,15 +574,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	Context("when the bulker initially does not have the lock", func() {
+		var otherSession *consuladapter.Session
+
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
 
-			consulRunner.WaitUntilReady()
-			_, err := consulAdapter.AcquireAndMaintainLock(
-				shared.LockSchemaPath(bulkerLockName),
-				[]byte("something-else"),
-				structs.SessionTTLMin,
-				nil)
+			otherSession = consulRunner.NewSession("other-session")
+			err := otherSession.AcquireLock(shared.LockSchemaPath(bulkerLockName), []byte("something-else"))
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -598,8 +596,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("when the lock becomes available", func() {
 			BeforeEach(func() {
-				err := consulAdapter.ReleaseAndDeleteLock(shared.LockSchemaPath(bulkerLockName))
-				Ω(err).ShouldNot(HaveOccurred())
+				otherSession.Destroy()
 
 				time.Sleep(pollingInterval + 10*time.Millisecond)
 			})

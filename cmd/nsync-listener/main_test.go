@@ -94,7 +94,7 @@ var _ = Describe("Nsync Listener", func() {
 		etcdAdapter = etcdRunner.Adapter()
 		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
 		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
-		bbs = Bbs.NewBBS(etcdAdapter, consulAdapter, "http://"+receptorTaskAddress, clock.NewClock(), lagertest.NewTestLogger("test"))
+		bbs = Bbs.NewBBS(etcdAdapter, consulSession, "http://"+receptorTaskAddress, clock.NewClock(), lagertest.NewTestLogger("test"))
 		receptorProcess = startReceptor(receptorAddress, receptorTaskAddress)
 
 		runner = newNSyncRunner(nsyncPort)

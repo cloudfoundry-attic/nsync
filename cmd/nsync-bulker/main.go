@@ -132,7 +132,7 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
 
-	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *lockTTL, *heartbeatRetryInterval)
+	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatRetryInterval)
 
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
@@ -188,15 +188,16 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeBbs(logger lager.Logger) Bbs.NsyncBBS {
-	consulScheme, consulAddresses, err := consuladapter.Parse(*consulCluster)
+	client, err := consuladapter.NewClient(*consulCluster)
 	if err != nil {
-		logger.Fatal("failed-parsing-consul-cluster", err)
+		logger.Fatal("new-client-failed", err)
 	}
 
-	consulAdapter, err := consuladapter.NewAdapter(consulAddresses, consulScheme)
+	sessionMgr := consuladapter.NewSessionManager(client)
+	consulSession, err := consuladapter.NewSession("nsync-bulker", *lockTTL, client, sessionMgr)
 	if err != nil {
-		logger.Fatal("failed-building-consul-adapter", err)
+		logger.Fatal("consul-session-failed", err)
 	}
 
-	return Bbs.NewNsyncBBS(consulAdapter, clock.NewClock(), logger)
+	return Bbs.NewNsyncBBS(consulSession, clock.NewClock(), logger)
 }
