@@ -69,7 +69,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-lifecycle", "buildpack/some-stack:some-health-check.tar.gz",
 				"-lifecycle", "docker:the/docker/lifecycle/path.tgz",
 				"-fileServerURL", "http://file-server.com",
-				"-heartbeatRetryInterval", "1s",
+				"-lockRetryInterval", "1s",
 				"-consulCluster", consulRunner.ConsulCluster(),
 				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
 			),

@@ -43,8 +43,8 @@ var lockTTL = flag.Duration(
 	"TTL for service lock",
 )
 
-var heartbeatRetryInterval = flag.Duration(
-	"heartbeatRetryInterval",
+var lockRetryInterval = flag.Duration(
+	"lockRetryInterval",
 	lock_bbs.RetryInterval,
 	"interval to wait before retrying a failed lock acquisition",
 )
@@ -132,7 +132,7 @@ func main() {
 
 	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
 
-	heartbeater := bbs.NewNsyncBulkerLock(uuid.String(), *heartbeatRetryInterval)
+	lockMaintainer := bbs.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
@@ -152,7 +152,7 @@ func main() {
 	)
 
 	members := grouper.Members{
-		{"heartbeater", heartbeater},
+		{"lock-maintainer", lockMaintainer},
 		{"runner", runner},
 	}
 
