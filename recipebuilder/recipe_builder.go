@@ -19,7 +19,6 @@ import (
 const (
 	DockerScheme      = "docker"
 	DockerIndexServer = "docker.io"
-	LRPDomain         = "cf-apps"
 
 	MinCpuProxy = 256
 	MaxCpuProxy = 8192
@@ -170,7 +169,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
 
-		Domain: LRPDomain,
+		Domain: cc_messages.AppLRPDomain,
 
 		ProcessGuid: lrpGuid,
 		Instances:   desiredApp.NumInstances,

@@ -195,7 +195,7 @@ process_loop:
 	if bumpFreshness && success {
 		logger.Info("bumping-freshness")
 
-		err = p.receptorClient.UpsertDomain(recipebuilder.LRPDomain, p.domainTTL)
+		err = p.receptorClient.UpsertDomain(cc_messages.AppLRPDomain, p.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
 		}
@@ -312,7 +312,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]receptor.DesiredLRPResponse, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := p.receptorClient.DesiredLRPsByDomain(recipebuilder.LRPDomain)
+	existing, err := p.receptorClient.DesiredLRPsByDomain(cc_messages.AppLRPDomain)
 	if err != nil {
 		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
