@@ -1,12 +1,15 @@
 package recipebuilder
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/diego-ssh/keys"
+	ssh_routes "github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -32,7 +35,11 @@ const (
 	Router      = "router"
 	DefaultPort = uint16(8080)
 
+	DefaultSSHPort = uint16(2222)
+
 	DefaultLANG = "en_US.UTF-8"
+
+	DiegoSSHDArchive = "diego-sshd.tgz"
 )
 
 var (
@@ -45,13 +52,15 @@ type RecipeBuilder struct {
 	logger        lager.Logger
 	lifecycles    map[string]string
 	fileServerURL string
+	keyFactory    keys.SSHKeyFactory
 }
 
-func New(lifecycles map[string]string, fileServerURL string, logger lager.Logger) *RecipeBuilder {
+func New(logger lager.Logger, lifecycles map[string]string, fileServerURL string, keyFactory keys.SSHKeyFactory) *RecipeBuilder {
 	return &RecipeBuilder{
-		lifecycles:    lifecycles,
 		logger:        logger,
+		lifecycles:    lifecycles,
 		fileServerURL: fileServerURL,
+		keyFactory:    keyFactory,
 	}
 }
 
@@ -115,7 +124,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}
 
 	var setup []models.Action
-	var action, monitor models.Action
+	var actions []models.Action
+	var monitor models.Action
 
 	setup = append(setup, &models.DownloadAction{
 		From: lifecycleURL,
@@ -146,7 +156,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		})
 	}
 
-	action = &models.RunAction{
+	actions = append(actions, &models.RunAction{
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
 			[]string{"app"},
@@ -158,13 +168,61 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		ResourceLimits: models.ResourceLimits{
 			Nofile: &numFiles,
 		},
-	}
-
-	setupAction := models.Serial(setup...)
+	})
 
 	desiredAppRoutingInfo := cfroutes.CFRoutes{
 		{Hostnames: desiredApp.Routes, Port: DefaultPort},
 	}.RoutingInfo()
+
+	if desiredApp.AllowSSH {
+		setup = append(setup, &models.DownloadAction{
+			Artifact: "diego-sshd",
+			From:     b.sshdDownloadURL(b.fileServerURL),
+			To:       "/tmp/ssh",
+		})
+
+		hostKeyPair, err := b.keyFactory.NewKeyPair(1024)
+		if err != nil {
+			buildLogger.Error("new-host-key-pair-failed", err)
+			return nil, err
+		}
+
+		userKeyPair, err := b.keyFactory.NewKeyPair(1024)
+		if err != nil {
+			buildLogger.Error("new-user-key-pair-failed", err)
+			return nil, err
+		}
+
+		actions = append(actions, &models.RunAction{
+			Path: "/tmp/ssh/diego-sshd",
+			Args: []string{
+				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
+				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
+				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
+			},
+			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
+			ResourceLimits: models.ResourceLimits{
+				Nofile: &numFiles,
+			},
+		})
+
+		sshRoutePayload, err := json.Marshal(ssh_routes.SSHRoute{
+			ContainerPort:   2222,
+			PrivateKey:      userKeyPair.PEMEncodedPrivateKey(),
+			HostFingerprint: hostKeyPair.Fingerprint(),
+		})
+
+		if err != nil {
+			buildLogger.Error("marshaling-ssh-route-failed", err)
+			return nil, err
+		}
+
+		sshRouteMessage := json.RawMessage(sshRoutePayload)
+		desiredAppRoutingInfo[ssh_routes.DIEGO_SSH] = &sshRouteMessage
+	}
+
+	setupAction := models.Serial(setup...)
+	actionAction := models.Parallel(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -194,7 +252,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 		EnvironmentVariables: containerEnvVars,
 		Setup:                setupAction,
-		Action:               action,
+		Action:               actionAction,
 		Monitor:              monitor,
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
@@ -210,6 +268,15 @@ func (b RecipeBuilder) lifecycleDownloadURL(lifecyclePath string, fileServerURL 
 	}
 
 	return urljoiner.Join(fileServerURL, staticPath, lifecyclePath)
+}
+
+func (b RecipeBuilder) sshdDownloadURL(fileServerURL string) string {
+	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	if err != nil {
+		panic("couldn't generate the download path for the diego ssh daemon: " + err.Error())
+	}
+
+	return urljoiner.Join(fileServerURL, staticPath, "diego-sshd", DiegoSSHDArchive)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {

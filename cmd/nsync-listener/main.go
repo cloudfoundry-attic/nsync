@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
@@ -67,7 +68,7 @@ func main() {
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 
-	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(logger, lifecycles, *fileServerURL, keys.RSAKeyPairFactory)
 
 	handler := handlers.New(logger, diegoAPIClient, recipeBuilder)
 

@@ -9,6 +9,7 @@ import (
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/consuladapter"
+	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
@@ -130,7 +131,7 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	recipeBuilder := recipebuilder.New(lifecycles, *fileServerURL, logger)
+	recipeBuilder := recipebuilder.New(logger, lifecycles, *fileServerURL, keys.RSAKeyPairFactory)
 
 	lockMaintainer := bbs.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 

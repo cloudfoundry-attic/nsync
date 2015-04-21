@@ -1,8 +1,13 @@
 package recipebuilder_test
 
 import (
+	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/cloudfoundry-incubator/diego-ssh/keys"
+	"github.com/cloudfoundry-incubator/diego-ssh/keys/fake_keys"
+	"github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -16,12 +21,13 @@ import (
 
 var _ = Describe("Recipe Builder", func() {
 	var (
-		builder       *recipebuilder.RecipeBuilder
-		err           error
-		desiredAppReq cc_messages.DesireAppRequestFromCC
-		desiredLRP    *receptor.DesiredLRPCreateRequest
-		lifecycles    map[string]string
-		egressRules   []models.SecurityGroupRule
+		builder        *recipebuilder.RecipeBuilder
+		err            error
+		desiredAppReq  cc_messages.DesireAppRequestFromCC
+		desiredLRP     *receptor.DesiredLRPCreateRequest
+		lifecycles     map[string]string
+		egressRules    []models.SecurityGroupRule
+		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
@@ -42,7 +48,8 @@ var _ = Describe("Recipe Builder", func() {
 			},
 		}
 
-		builder = recipebuilder.New(lifecycles, "http://file-server.com", logger)
+		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
+		builder = recipebuilder.New(logger, lifecycles, "http://file-server.com", fakeKeyFactory)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
@@ -141,7 +148,11 @@ var _ = Describe("Recipe Builder", func() {
 			}...)
 			Ω(desiredLRP.Setup).Should(Equal(expectedSetup))
 
-			runAction, ok := desiredLRP.Action.(*models.RunAction)
+			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
+			Ω(ok).Should(BeTrue())
+			Ω(parallelRunAction.Actions).Should(HaveLen(1))
+
+			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
 			Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
@@ -229,6 +240,138 @@ var _ = Describe("Recipe Builder", func() {
 				}
 
 				Ω(downloadDestinations).Should(ContainElement("/tmp/lifecycle"))
+			})
+		})
+
+		Context("when allow ssh is true", func() {
+			BeforeEach(func() {
+				desiredAppReq.AllowSSH = true
+
+				keyPairChan := make(chan keys.KeyPair, 2)
+
+				fakeHostKeyPair := &fake_keys.FakeKeyPair{}
+				fakeHostKeyPair.PEMEncodedPrivateKeyReturns("pem-host-private-key")
+				fakeHostKeyPair.FingerprintReturns("host-fingerprint")
+
+				fakeUserKeyPair := &fake_keys.FakeKeyPair{}
+				fakeUserKeyPair.AuthorizedKeyReturns("authorized-user-key")
+				fakeUserKeyPair.PEMEncodedPrivateKeyReturns("pem-user-private-key")
+
+				keyPairChan <- fakeHostKeyPair
+				keyPairChan <- fakeUserKeyPair
+
+				fakeKeyFactory.NewKeyPairStub = func(bits int) (keys.KeyPair, error) {
+					return <-keyPairChan, nil
+				}
+			})
+
+			It("setup should download the ssh daemon", func() {
+				expectedSetup := models.Serial([]models.Action{
+					&models.DownloadAction{
+						From: "http://file-server.com/v1/static/some-lifecycle.tgz",
+						To:   "/tmp/lifecycle",
+					},
+					&models.DownloadAction{
+						From:     "http://the-droplet.uri.com",
+						To:       ".",
+						CacheKey: "droplets-the-app-guid-the-app-version",
+					},
+					&models.DownloadAction{
+						Artifact: "diego-sshd",
+						From:     "http://file-server.com/v1/static/diego-sshd/diego-sshd.tgz",
+						To:       "/tmp/ssh",
+					},
+				}...)
+
+				Ω(desiredLRP.Setup).Should(Equal(expectedSetup))
+			})
+
+			It("runs the ssh daemon in the container", func() {
+				expectedNumFiles := uint64(32)
+
+				expectedAction := models.Parallel([]models.Action{
+					&models.RunAction{
+						Path: "/tmp/lifecycle/launcher",
+						Args: []string{
+							"app",
+							"the-start-command with-arguments",
+							"the-execution-metadata",
+						},
+						Env: []models.EnvironmentVariable{
+							{Name: "foo", Value: "bar"},
+							{Name: "PORT", Value: "8080"},
+						},
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &expectedNumFiles,
+						},
+						LogSource: "APP",
+					},
+					&models.RunAction{
+						Path: "/tmp/ssh/diego-sshd",
+						Args: []string{
+							"-address=0.0.0.0:2222",
+							"-hostKey=pem-host-private-key",
+							"-authorizedKey=authorized-user-key",
+						},
+						Env: []models.EnvironmentVariable{
+							{Name: "foo", Value: "bar"},
+							{Name: "PORT", Value: "8080"},
+						},
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &expectedNumFiles,
+						},
+					},
+				}...)
+
+				Ω(desiredLRP.Action).Should(Equal(expectedAction))
+			})
+
+			It("declares ssh routing information in the LRP", func() {
+				cfRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
+					{Hostnames: []string{"route1", "route2"}, Port: 8080},
+				})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				sshRoutePayload, err := json.Marshal(routes.SSHRoute{
+					ContainerPort:   2222,
+					PrivateKey:      "pem-user-private-key",
+					HostFingerprint: "host-fingerprint",
+				})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				cfRouteMessage := json.RawMessage(cfRoutePayload)
+				sshRouteMessage := json.RawMessage(sshRoutePayload)
+
+				Ω(desiredLRP.Routes).Should(Equal(receptor.RoutingInfo{
+					cfroutes.CF_ROUTER: &cfRouteMessage,
+					routes.DIEGO_SSH:   &sshRouteMessage,
+				}))
+			})
+
+			Context("when generating the host key fails", func() {
+				BeforeEach(func() {
+					fakeKeyFactory.NewKeyPairReturns(nil, errors.New("boom"))
+				})
+
+				It("should return an error", func() {
+					Ω(err).Should(HaveOccurred())
+				})
+			})
+
+			Context("when generating the user key fails", func() {
+				BeforeEach(func() {
+					errorCh := make(chan error, 2)
+					errorCh <- nil
+					errorCh <- errors.New("woops")
+
+					fakeKeyFactory.NewKeyPairStub = func(bits int) (keys.KeyPair, error) {
+						return nil, <-errorCh
+					}
+				})
+
+				It("should return an error", func() {
+					Ω(err).Should(HaveOccurred())
+				})
 			})
 		})
 	})
@@ -339,7 +482,11 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("sets a default FD limit on the run action", func() {
-			runAction, ok := desiredLRP.Action.(*models.RunAction)
+			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
+			Ω(ok).Should(BeTrue())
+			Ω(parallelRunAction.Actions).Should(HaveLen(1))
+
+			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
 			Ω(ok).Should(BeTrue())
 
 			Ω(runAction.ResourceLimits.Nofile).ShouldNot(BeNil())

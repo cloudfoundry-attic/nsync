@@ -155,9 +155,25 @@ var _ = Describe("DesireAppHandler", func() {
 	})
 
 	Context("when desired LRP already exists", func() {
+		var opaqueRoutingMessage json.RawMessage
+
 		BeforeEach(func() {
+			cfRoute := cfroutes.CFRoute{
+				Hostnames: []string{"route1"},
+				Port:      8080,
+			}
+			cfRoutePayload, err := json.Marshal(cfRoute)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cfRouteMessage := json.RawMessage(cfRoutePayload)
+			opaqueRoutingMessage = json.RawMessage([]byte(`{"some": "value"}`))
+
 			fakeReceptor.GetDesiredLRPReturns(receptor.DesiredLRPResponse{
 				ProcessGuid: "some-guid",
+				Routes: receptor.RoutingInfo{
+					cfroutes.CF_ROUTER:        &cfRouteMessage,
+					"some-other-routing-data": &opaqueRoutingMessage,
+				},
 			}, nil)
 		})
 
@@ -165,16 +181,24 @@ var _ = Describe("DesireAppHandler", func() {
 			Eventually(fakeReceptor.GetDesiredLRPCallCount).Should(Equal(1))
 		})
 
-		It("updates the LRP", func() {
+		It("updates the LRP without stepping on opaque routing data", func() {
 			Eventually(fakeReceptor.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 			processGuid, updateRequest := fakeReceptor.UpdateDesiredLRPArgsForCall(0)
 			Ω(processGuid).Should(Equal("some-guid"))
 			Ω(*updateRequest.Instances).Should(Equal(2))
 			Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
-			Ω(updateRequest.Routes).Should(Equal(cfroutes.CFRoutes{
+
+			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
-			}.RoutingInfo()))
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			expectedCfRouteMessage := json.RawMessage(expectedRoutePayload)
+			Ω(updateRequest.Routes).Should(Equal(receptor.RoutingInfo{
+				cfroutes.CF_ROUTER:        &expectedCfRouteMessage,
+				"some-other-routing-data": &opaqueRoutingMessage,
+			}))
 		})
 
 		It("responds with 202 Accepted", func() {

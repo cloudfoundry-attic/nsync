@@ -55,7 +55,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	desiredAppExists, err := h.desiredAppExists(processGuid)
+	existingLRP, err := h.getDesiredLRP(processGuid)
 	if err != nil {
 		logger.Error("unexpected-error-from-get-desired-lrp", err)
 		resp.WriteHeader(http.StatusServiceUnavailable)
@@ -64,8 +64,8 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 
 	desiredLRPCounter.Increment()
 
-	if desiredAppExists {
-		err = h.updateDesiredApp(logger, resp, desiredApp)
+	if existingLRP != nil {
+		err = h.updateDesiredApp(logger, resp, existingLRP, desiredApp)
 		if err != nil {
 			resp.WriteHeader(http.StatusServiceUnavailable)
 			return
@@ -89,34 +89,47 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-func (h *DesireAppHandler) desiredAppExists(processGuid string) (bool, error) {
-	_, err := h.receptorClient.GetDesiredLRP(processGuid)
+func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*receptor.DesiredLRPResponse, error) {
+	lrp, err := h.receptorClient.GetDesiredLRP(processGuid)
 	if err == nil {
-		return true, nil
+		return &lrp, nil
 	}
 
 	if rerr, ok := err.(receptor.Error); ok {
 		if rerr.Type == receptor.DesiredLRPNotFound {
-			return false, nil
+			return nil, nil
 		}
 	}
 
-	return false, err
+	return nil, err
 }
 
-func (h *DesireAppHandler) updateDesiredApp(logger lager.Logger, resp http.ResponseWriter, desireAppMessage cc_messages.DesireAppRequestFromCC) error {
+func (h *DesireAppHandler) updateDesiredApp(
+	logger lager.Logger,
+	resp http.ResponseWriter,
+	existingLRP *receptor.DesiredLRPResponse,
+	desireAppMessage cc_messages.DesireAppRequestFromCC,
+) error {
+	routes := existingLRP.Routes
 
-	desiredAppRoutes := cfroutes.CFRoutes{
+	cfRoutesJson, err := json.Marshal(cfroutes.CFRoutes{
 		{Hostnames: desireAppMessage.Routes, Port: recipebuilder.DefaultPort},
-	}.RoutingInfo()
+	})
+	if err != nil {
+		logger.Error("failed-to-marshal-routes", err)
+		return err
+	}
+
+	cfRoutesMessage := json.RawMessage(cfRoutesJson)
+	routes[cfroutes.CF_ROUTER] = &cfRoutesMessage
 
 	updateRequest := receptor.DesiredLRPUpdateRequest{
 		Annotation: &desireAppMessage.ETag,
 		Instances:  &desireAppMessage.NumInstances,
-		Routes:     desiredAppRoutes,
+		Routes:     routes,
 	}
 
-	err := h.receptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
+	err = h.receptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
 		return err

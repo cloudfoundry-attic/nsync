@@ -17,6 +17,7 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/consuladapter"
+	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -255,12 +256,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			builder := recipebuilder.New(
+				lagertest.NewTestLogger("test"),
 				map[string]string{
 					"buildpack/some-stack": "some-health-check.tar.gz",
 					"docker":               "the/docker/lifecycle/path.tgz",
 				},
 				"http://file-server.com",
-				lagertest.NewTestLogger("test"),
+				keys.RSAKeyPairFactory,
 			)
 
 			desired1, err = builder.Build(&existing1)
@@ -359,7 +361,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: &models.RunAction{
+					Action: models.Parallel(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -369,7 +371,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					},
+					}),
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
@@ -408,7 +410,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: &models.RunAction{
+					Action: models.Parallel(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -418,7 +420,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					},
+					}),
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
@@ -457,7 +459,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: &models.RunAction{
+					Action: models.Parallel(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
@@ -465,7 +467,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					},
+					}),
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
