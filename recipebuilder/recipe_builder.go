@@ -174,6 +174,8 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		{Hostnames: desiredApp.Routes, Port: DefaultPort},
 	}.RoutingInfo()
 
+	desiredAppPorts := []uint16{DefaultPort}
+
 	if desiredApp.AllowSSH {
 		setup = append(setup, &models.DownloadAction{
 			Artifact: "diego-sshd",
@@ -219,6 +221,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 		sshRouteMessage := json.RawMessage(sshRoutePayload)
 		desiredAppRoutingInfo[ssh_routes.DIEGO_SSH] = &sshRouteMessage
+		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
 	setupAction := models.Serial(setup...)
@@ -239,9 +242,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		MemoryMB: desiredApp.MemoryMB,
 		DiskMB:   desiredApp.DiskMB,
 
-		Ports: []uint16{
-			DefaultPort,
-		},
+		Ports: desiredAppPorts,
 
 		RootFS: rootFSPath,
 

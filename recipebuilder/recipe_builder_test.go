@@ -326,6 +326,13 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.Action).Should(Equal(expectedAction))
 			})
 
+			It("opens up the default ssh port", func() {
+				Ω(desiredLRP.Ports).Should(Equal([]uint16{
+					8080,
+					2222,
+				}))
+			})
+
 			It("declares ssh routing information in the LRP", func() {
 				cfRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
 					{Hostnames: []string{"route1", "route2"}, Port: 8080},
