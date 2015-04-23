@@ -114,7 +114,8 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		return false
 	}
 
-	differ := NewDiffer(existing)
+	existingLRPMap := organizeLRPsByProcessGuid(existing)
+	differ := NewDiffer(existingLRPMap)
 
 	cancel := make(chan struct{})
 
@@ -146,7 +147,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		differ.Stale(),
 	)
 
-	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps)
+	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingLRPMap)
 
 	bumpFreshness := true
 	success := true
@@ -262,6 +263,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	stale <-chan []cc_messages.DesireAppRequestFromCC,
+	existingLRPMap map[string]*receptor.DesiredLRPResponse,
 ) <-chan error {
 	logger = logger.Session("update-stale-desired-lrps")
 
@@ -288,12 +290,20 @@ func (p *Processor) updateStaleDesiredLRPs(
 			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
 
 			for _, desireAppRequest := range staleAppRequests {
+				existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
+
 				updateReq := receptor.DesiredLRPUpdateRequest{}
 				updateReq.Instances = &desireAppRequest.NumInstances
 				updateReq.Annotation = &desireAppRequest.ETag
 				updateReq.Routes = cfroutes.CFRoutes{
 					{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
 				}.RoutingInfo()
+
+				for k, v := range existingLRP.Routes {
+					if k != cfroutes.CF_ROUTER {
+						updateReq.Routes[k] = v
+					}
+				}
 
 				err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
 				if err != nil {
@@ -384,4 +394,14 @@ func mergeErrors(channels ...<-chan error) <-chan error {
 	}()
 
 	return out
+}
+
+func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
+	result := make(map[string]*receptor.DesiredLRPResponse)
+	for _, l := range list {
+		lrp := l
+		result[lrp.ProcessGuid] = &lrp
+	}
+
+	return result
 }

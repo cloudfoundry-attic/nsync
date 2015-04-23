@@ -1,6 +1,7 @@
 package bulk_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
+	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
@@ -17,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/clock/fakeclock"
 	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 )
 
@@ -53,9 +56,16 @@ var _ = Describe("Processor", func() {
 			{ProcessGuid: "new-process-guid", ETag: "new-etag"},
 		}
 
+		staleRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
 		existingDesired = []receptor.DesiredLRPResponse{
 			{ProcessGuid: "current-process-guid", Annotation: "current-etag"},
-			{ProcessGuid: "stale-process-guid", Annotation: "stale-etag"},
+			{
+				ProcessGuid: "stale-process-guid",
+				Annotation:  "stale-etag",
+				Routes: receptor.RoutingInfo{
+					"router-route-data": &staleRouteMessage,
+				},
+			},
 			{ProcessGuid: "excess-process-guid", Annotation: "excess-etag"},
 		}
 
@@ -88,6 +98,7 @@ var _ = Describe("Processor", func() {
 				lrp := cc_messages.DesireAppRequestFromCC{
 					ProcessGuid: fingerprint.ProcessGuid,
 					ETag:        fingerprint.ETag,
+					Routes:      []string{"host-" + fingerprint.ProcessGuid},
 				}
 				results = append(results, lrp)
 			}
@@ -125,7 +136,7 @@ var _ = Describe("Processor", func() {
 			time.Second,
 			10,
 			false,
-			lager.NewLogger("test"),
+			lagertest.NewTestLogger("test"),
 			fetcher,
 			recipeBuilder,
 			clock,
@@ -232,6 +243,7 @@ var _ = Describe("Processor", func() {
 					&cc_messages.DesireAppRequestFromCC{
 						ProcessGuid: "new-process-guid",
 						ETag:        "new-etag",
+						Routes:      []string{"host-new-process-guid"},
 					}))
 			})
 
@@ -383,6 +395,49 @@ var _ = Describe("Processor", func() {
 				})
 			})
 		})
-	})
 
+		Context("and the differ detects stale lrps", func() {
+			It("sends the correct update desired lrp request", func() {
+				Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+
+				expectedEtag := "new-etag"
+				expectedInstances := 0
+				opaqueRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
+				cfRoute := cfroutes.CFRoutes{
+					{Hostnames: []string{"host-stale-process-guid"}, Port: 8080},
+				}
+				cfRoutePayload, err := json.Marshal(cfRoute)
+				Ω(err).ShouldNot(HaveOccurred())
+				cfRouteMessage := json.RawMessage(cfRoutePayload)
+
+				expectedRoutingInfo := receptor.RoutingInfo{
+					"router-route-data": &opaqueRouteMessage,
+					cfroutes.CF_ROUTER:  &cfRouteMessage,
+				}
+
+				processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
+				Ω(processGuid).Should(Equal("stale-process-guid"))
+				Ω(updateReq).Should(Equal(receptor.DesiredLRPUpdateRequest{
+					Annotation: &expectedEtag,
+					Instances:  &expectedInstances,
+					Routes:     expectedRoutingInfo,
+				}))
+			})
+
+			Context("when updating the desired lrp fails", func() {
+				BeforeEach(func() {
+					receptorClient.UpdateDesiredLRPReturns(errors.New("boom"))
+				})
+
+				It("does not update the domain", func() {
+					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				})
+
+				It("sends all the other updates", func() {
+					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				})
+			})
+		})
+	})
 })

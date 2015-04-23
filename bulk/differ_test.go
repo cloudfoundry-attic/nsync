@@ -14,6 +14,7 @@ import (
 var _ = Describe("Differ", func() {
 	var (
 		existingLRP            receptor.DesiredLRPResponse
+		existingLRPMap         map[string]*receptor.DesiredLRPResponse
 		existingAppFingerprint cc_messages.CCDesiredAppFingerprint
 
 		cancelChan  chan struct{}
@@ -53,7 +54,10 @@ var _ = Describe("Differ", func() {
 	})
 
 	JustBeforeEach(func() {
-		differ = bulk.NewDiffer([]receptor.DesiredLRPResponse{existingLRP})
+		existingLRPMap = map[string]*receptor.DesiredLRPResponse{
+			existingLRP.ProcessGuid: &existingLRP,
+		}
+		differ = bulk.NewDiffer(existingLRPMap)
 
 		staleChan = differ.Stale()
 		missingChan = differ.Missing()
@@ -63,6 +67,7 @@ var _ = Describe("Differ", func() {
 	})
 
 	AfterEach(func() {
+		Ω(existingLRPMap).Should(Equal(existingLRPMap))
 		Eventually(staleChan).Should(BeClosed())
 		Eventually(missingChan).Should(BeClosed())
 		Eventually(deletedChan).Should(BeClosed())

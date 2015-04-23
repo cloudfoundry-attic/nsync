@@ -18,16 +18,16 @@ type Differ interface {
 }
 
 type differ struct {
-	existing []receptor.DesiredLRPResponse
+	existingLRPs map[string]*receptor.DesiredLRPResponse
 
 	stale   chan []cc_messages.CCDesiredAppFingerprint
 	missing chan []cc_messages.CCDesiredAppFingerprint
 	deleted chan []string
 }
 
-func NewDiffer(existing []receptor.DesiredLRPResponse) Differ {
+func NewDiffer(existing map[string]*receptor.DesiredLRPResponse) Differ {
 	return &differ{
-		existing: existing,
+		existingLRPs: copyLRPMap(existing),
 
 		stale:   make(chan []cc_messages.CCDesiredAppFingerprint, 1),
 		missing: make(chan []cc_messages.CCDesiredAppFingerprint, 1),
@@ -52,8 +52,6 @@ func (d *differ) Diff(
 			close(errc)
 		}()
 
-		existingLRPs := organizeLRPsByProcessGuid(d.existing)
-
 		for {
 			select {
 			case <-cancel:
@@ -61,7 +59,7 @@ func (d *differ) Diff(
 
 			case batch, open := <-fingerprints:
 				if !open {
-					remaining := remainingProcessGuids(existingLRPs)
+					remaining := remainingProcessGuids(d.existingLRPs)
 					if len(remaining) > 0 {
 						d.deleted <- remaining
 					}
@@ -72,7 +70,7 @@ func (d *differ) Diff(
 				stale := []cc_messages.CCDesiredAppFingerprint{}
 
 				for _, fingerprint := range batch {
-					desiredLRP, found := existingLRPs[fingerprint.ProcessGuid]
+					desiredLRP, found := d.existingLRPs[fingerprint.ProcessGuid]
 					if !found {
 						logger.Info("found-missing-desired-lrp", lager.Data{
 							"guid": fingerprint.ProcessGuid,
@@ -83,7 +81,7 @@ func (d *differ) Diff(
 						continue
 					}
 
-					delete(existingLRPs, fingerprint.ProcessGuid)
+					delete(d.existingLRPs, fingerprint.ProcessGuid)
 
 					if desiredLRP.Annotation != fingerprint.ETag {
 						logger.Info("found-stale-lrp", lager.Data{
@@ -117,14 +115,12 @@ func (d *differ) Diff(
 	return errc
 }
 
-func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
-	result := make(map[string]*receptor.DesiredLRPResponse)
-	for _, l := range list {
-		lrp := l
-		result[lrp.ProcessGuid] = &lrp
+func copyLRPMap(lrpMap map[string]*receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
+	clone := map[string]*receptor.DesiredLRPResponse{}
+	for k, v := range lrpMap {
+		clone[k] = v
 	}
-
-	return result
+	return clone
 }
 
 func remainingProcessGuids(remaining map[string]*receptor.DesiredLRPResponse) []string {
