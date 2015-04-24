@@ -147,8 +147,11 @@ var _ = Describe("Recipe Builder", func() {
 			Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
-					Path:      "/tmp/lifecycle/healthcheck",
-					Args:      []string{"-port=8080"},
+					Path: "/tmp/lifecycle/healthcheck",
+					Args: []string{"-port=8080"},
+					Env: []models.EnvironmentVariable{
+						models.EnvironmentVariable{Name: "PORT", Value: "8080"},
+					},
 					LogSource: "HEALTH",
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &defaultNofile,
@@ -201,8 +204,11 @@ var _ = Describe("Recipe Builder", func() {
 				Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
-						Path:           "/tmp/lifecycle/healthcheck",
-						Args:           []string{"-port=8080"},
+						Path: "/tmp/lifecycle/healthcheck",
+						Args: []string{"-port=8080"},
+						Env: []models.EnvironmentVariable{
+							models.EnvironmentVariable{Name: "PORT", Value: "8080"},
+						},
 						LogSource:      "HEALTH",
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
