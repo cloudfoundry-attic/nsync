@@ -33,23 +33,23 @@ func TestBulker(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-bulker", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	receptor, err := gexec.Build("github.com/cloudfoundry-incubator/receptor/cmd/receptor", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	payload, err := json.Marshal(map[string]string{
 		"bulker":   bulker,
 		"receptor": receptor,
 	})
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return payload
 }, func(payload []byte) {
 	binaries := map[string]string{}
 
 	err := json.Unmarshal(payload, &binaries)
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	etcdPort := 5001 + GinkgoParallelNode()
 	receptorPort = 6001 + GinkgoParallelNode()

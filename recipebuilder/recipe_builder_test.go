@@ -86,7 +86,7 @@ var _ = Describe("Recipe Builder", func() {
 				desiredAppReq.MemoryMB = recipebuilder.MinCpuProxy - 9999
 			})
 			It("returns 1", func() {
-				Ω(desiredLRP.CPUWeight).Should(Equal(uint(1)))
+				Expect(desiredLRP.CPUWeight).To(Equal(uint(1)))
 			})
 		})
 
@@ -95,7 +95,7 @@ var _ = Describe("Recipe Builder", func() {
 				desiredAppReq.MemoryMB = recipebuilder.MaxCpuProxy + 9999
 			})
 			It("returns 100", func() {
-				Ω(desiredLRP.CPUWeight).Should(Equal(uint(100)))
+				Expect(desiredLRP.CPUWeight).To(Equal(uint(100)))
 			})
 		})
 
@@ -104,36 +104,37 @@ var _ = Describe("Recipe Builder", func() {
 				desiredAppReq.MemoryMB = (recipebuilder.MinCpuProxy + recipebuilder.MaxCpuProxy) / 2
 			})
 			It("returns 50", func() {
-				Ω(desiredLRP.CPUWeight).Should(Equal(uint(50)))
+				Expect(desiredLRP.CPUWeight).To(Equal(uint(50)))
 			})
 		})
 	})
 
 	Context("when everything is correct", func() {
 		It("does not error", func() {
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("builds a valid DesiredLRP", func() {
-			Ω(desiredLRP.ProcessGuid).Should(Equal("the-app-guid-the-app-version"))
-			Ω(desiredLRP.Instances).Should(Equal(23))
-			Ω(desiredLRP.Routes).Should(Equal(cfroutes.CFRoutes{
+			Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
+			Expect(desiredLRP.Instances).To(Equal(23))
+			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
-			Ω(desiredLRP.Annotation).Should(Equal("etag-updated-at"))
-			Ω(desiredLRP.RootFS).Should(Equal(models.PreloadedRootFS("some-stack")))
-			Ω(desiredLRP.MemoryMB).Should(Equal(128))
-			Ω(desiredLRP.DiskMB).Should(Equal(512))
-			Ω(desiredLRP.Ports).Should(Equal([]uint16{8080}))
-			Ω(desiredLRP.Privileged).Should(BeTrue())
-			Ω(desiredLRP.StartTimeout).Should(Equal(uint(123456)))
 
-			Ω(desiredLRP.LogGuid).Should(Equal("the-log-id"))
-			Ω(desiredLRP.LogSource).Should(Equal("CELL"))
+			Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
+			Expect(desiredLRP.RootFS).To(Equal(models.PreloadedRootFS("some-stack")))
+			Expect(desiredLRP.MemoryMB).To(Equal(128))
+			Expect(desiredLRP.DiskMB).To(Equal(512))
+			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
+			Expect(desiredLRP.Privileged).To(BeTrue())
+			Expect(desiredLRP.StartTimeout).To(Equal(uint(123456)))
 
-			Ω(desiredLRP.EnvironmentVariables).Should(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+			Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
+			Expect(desiredLRP.LogSource).To(Equal("CELL"))
 
-			Ω(desiredLRP.MetricsGuid).Should(Equal("the-log-id"))
+			Expect(desiredLRP.EnvironmentVariables).To(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+
+			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
@@ -146,16 +147,16 @@ var _ = Describe("Recipe Builder", func() {
 					CacheKey: "droplets-the-app-guid-the-app-version",
 				},
 			}...)
-			Ω(desiredLRP.Setup).Should(Equal(expectedSetup))
+			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
 
 			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
-			Ω(ok).Should(BeTrue())
-			Ω(parallelRunAction.Actions).Should(HaveLen(1))
+			Expect(ok).To(BeTrue())
+			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
 			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
-			Ω(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
-			Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
+			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
 					Path:      "/tmp/lifecycle/healthcheck",
@@ -167,30 +168,31 @@ var _ = Describe("Recipe Builder", func() {
 				},
 			}))
 
-			Ω(runAction.Path).Should(Equal("/tmp/lifecycle/launcher"))
-			Ω(runAction.Args).Should(Equal([]string{
+			Expect(runAction.Path).To(Equal("/tmp/lifecycle/launcher"))
+			Expect(runAction.Args).To(Equal([]string{
 				"app",
 				"the-start-command with-arguments",
 				"the-execution-metadata",
 			}))
-			Ω(runAction.LogSource).Should(Equal("APP"))
+
+			Expect(runAction.LogSource).To(Equal("APP"))
 
 			numFiles := uint64(32)
-			Ω(runAction.ResourceLimits).Should(Equal(models.ResourceLimits{
+			Expect(runAction.ResourceLimits).To(Equal(models.ResourceLimits{
 				Nofile: &numFiles,
 			}))
 
-			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
 				Name:  "foo",
 				Value: "bar",
 			}))
 
-			Ω(runAction.Env).Should(ContainElement(models.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
 				Name:  "PORT",
 				Value: "8080",
 			}))
 
-			Ω(desiredLRP.EgressRules).Should(ConsistOf(egressRules))
+			Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
 		})
 
 		Context("when no health check is specified", func() {
@@ -207,9 +209,9 @@ var _ = Describe("Recipe Builder", func() {
 					}
 				}
 
-				Ω(downloadDestinations).Should(ContainElement("/tmp/lifecycle"))
+				Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
 
-				Ω(desiredLRP.Monitor).Should(Equal(&models.TimeoutAction{
+				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
 						Path:           "/tmp/lifecycle/healthcheck",
@@ -218,6 +220,7 @@ var _ = Describe("Recipe Builder", func() {
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
 				}))
+
 			})
 		})
 
@@ -227,7 +230,7 @@ var _ = Describe("Recipe Builder", func() {
 			})
 
 			It("does not populate the monitor action", func() {
-				Ω(desiredLRP.Monitor).Should(BeNil())
+				Expect(desiredLRP.Monitor).To(BeNil())
 			})
 
 			It("still downloads the lifecycle, since we need it for the launcher", func() {
@@ -239,7 +242,7 @@ var _ = Describe("Recipe Builder", func() {
 					}
 				}
 
-				Ω(downloadDestinations).Should(ContainElement("/tmp/lifecycle"))
+				Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
 			})
 		})
 
@@ -283,7 +286,7 @@ var _ = Describe("Recipe Builder", func() {
 					},
 				}...)
 
-				Ω(desiredLRP.Setup).Should(Equal(expectedSetup))
+				Expect(desiredLRP.Setup).To(Equal(expectedSetup))
 			})
 
 			It("runs the ssh daemon in the container", func() {
@@ -323,36 +326,38 @@ var _ = Describe("Recipe Builder", func() {
 					},
 				}...)
 
-				Ω(desiredLRP.Action).Should(Equal(expectedAction))
+				Expect(desiredLRP.Action).To(Equal(expectedAction))
 			})
 
 			It("opens up the default ssh port", func() {
-				Ω(desiredLRP.Ports).Should(Equal([]uint16{
+				Expect(desiredLRP.Ports).To(Equal([]uint16{
 					8080,
 					2222,
 				}))
+
 			})
 
 			It("declares ssh routing information in the LRP", func() {
 				cfRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
 					{Hostnames: []string{"route1", "route2"}, Port: 8080},
 				})
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				sshRoutePayload, err := json.Marshal(routes.SSHRoute{
 					ContainerPort:   2222,
 					PrivateKey:      "pem-user-private-key",
 					HostFingerprint: "host-fingerprint",
 				})
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 				sshRouteMessage := json.RawMessage(sshRoutePayload)
 
-				Ω(desiredLRP.Routes).Should(Equal(receptor.RoutingInfo{
+				Expect(desiredLRP.Routes).To(Equal(receptor.RoutingInfo{
 					cfroutes.CF_ROUTER: &cfRouteMessage,
 					routes.DIEGO_SSH:   &sshRouteMessage,
 				}))
+
 			})
 
 			Context("when generating the host key fails", func() {
@@ -361,7 +366,7 @@ var _ = Describe("Recipe Builder", func() {
 				})
 
 				It("should return an error", func() {
-					Ω(err).Should(HaveOccurred())
+					Expect(err).To(HaveOccurred())
 				})
 			})
 
@@ -377,7 +382,7 @@ var _ = Describe("Recipe Builder", func() {
 				})
 
 				It("should return an error", func() {
-					Ω(err).Should(HaveOccurred())
+					Expect(err).To(HaveOccurred())
 				})
 			})
 		})
@@ -390,22 +395,23 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("does not error", func() {
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("uses an unprivileged container", func() {
-			Ω(desiredLRP.Privileged).Should(BeFalse())
+			Expect(desiredLRP.Privileged).To(BeFalse())
 		})
 
 		It("converts the docker image url into a root fs path", func() {
-			Ω(desiredLRP.RootFS).Should(Equal("docker:///user/repo#tag"))
+			Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
 		})
 
 		It("uses the docker lifecycle", func() {
-			Ω(desiredLRP.Setup.(*models.SerialAction).Actions[0]).Should(Equal(&models.DownloadAction{
+			Expect(desiredLRP.Setup.(*models.SerialAction).Actions[0]).To(Equal(&models.DownloadAction{
 				From: "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 				To:   "/tmp/lifecycle",
 			}))
+
 		})
 
 		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {
@@ -415,7 +421,7 @@ var _ = Describe("Recipe Builder", func() {
 				})
 
 				It("builds correct rootFS path", func() {
-					Ω(desiredLRP.RootFS).Should(Equal(expectedRootFSPath))
+					Expect(desiredLRP.RootFS).To(Equal(expectedRootFSPath))
 				})
 			}
 		}
@@ -448,12 +454,12 @@ var _ = Describe("Recipe Builder", func() {
 			})
 
 			It("errors", func() {
-				Ω(err).Should(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
 		It("does not set the container's LANG", func() {
-			Ω(desiredLRP.EnvironmentVariables).Should(BeEmpty())
+			Expect(desiredLRP.EnvironmentVariables).To(BeEmpty())
 		})
 	})
 
@@ -464,7 +470,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(recipebuilder.ErrMultipleAppSources))
+			Expect(err).To(MatchError(recipebuilder.ErrMultipleAppSources))
 		})
 	})
 
@@ -475,7 +481,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(recipebuilder.ErrAppSourceMissing))
+			Expect(err).To(MatchError(recipebuilder.ErrAppSourceMissing))
 		})
 	})
 
@@ -485,19 +491,19 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("does not error", func() {
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("sets a default FD limit on the run action", func() {
 			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
-			Ω(ok).Should(BeTrue())
-			Ω(parallelRunAction.Actions).Should(HaveLen(1))
+			Expect(ok).To(BeTrue())
+			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
 			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
-			Ω(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
-			Ω(runAction.ResourceLimits.Nofile).ShouldNot(BeNil())
-			Ω(*runAction.ResourceLimits.Nofile).Should(Equal(recipebuilder.DefaultFileDescriptorLimit))
+			Expect(runAction.ResourceLimits.Nofile).NotTo(BeNil())
+			Expect(*runAction.ResourceLimits.Nofile).To(Equal(recipebuilder.DefaultFileDescriptorLimit))
 		})
 	})
 
@@ -507,7 +513,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Ω(err).Should(MatchError(recipebuilder.ErrNoLifecycleDefined))
+			Expect(err).To(MatchError(recipebuilder.ErrNoLifecycleDefined))
 		})
 	})
 })

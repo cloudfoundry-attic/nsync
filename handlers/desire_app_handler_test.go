@@ -67,7 +67,7 @@ var _ = Describe("DesireAppHandler", func() {
 
 		var err error
 		request, err = http.NewRequest("POST", "", nil)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		request.Form = url.Values{
 			":process_guid": []string{"some-guid"},
 		}
@@ -76,7 +76,7 @@ var _ = Describe("DesireAppHandler", func() {
 	JustBeforeEach(func() {
 		if request.Body == nil {
 			jsonBytes, err := json.Marshal(&desireAppRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			reader := bytes.NewReader(jsonBytes)
 
 			request.Body = ioutil.NopCloser(reader)
@@ -108,20 +108,20 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("creates the desired LRP", func() {
-			Ω(fakeReceptor.CreateDesiredLRPCallCount()).Should(Equal(1))
+			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
 
-			Ω(fakeReceptor.GetDesiredLRPCallCount()).Should(Equal(1))
-			Ω(fakeReceptor.CreateDesiredLRPArgsForCall(0)).Should(Equal(newlyDesiredLRP))
+			Expect(fakeReceptor.GetDesiredLRPCallCount()).To(Equal(1))
+			Expect(fakeReceptor.CreateDesiredLRPArgsForCall(0)).To(Equal(newlyDesiredLRP))
 
-			Ω(builder.BuildArgsForCall(0)).Should(Equal(&desireAppRequest))
+			Expect(builder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 		})
 
 		It("responds with 202 Accepted", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
+			Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 		})
 
 		It("increments the desired LRPs counter", func() {
-			Ω(metricSender.GetCounter("LRPsDesired")).Should(Equal(uint64(1)))
+			Expect(metricSender.GetCounter("LRPsDesired")).To(Equal(uint64(1)))
 		})
 
 		Context("when the receptor fails", func() {
@@ -130,7 +130,7 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("responds with a ServiceUnavailabe error", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusServiceUnavailable))
+				Expect(responseRecorder.Code).To(Equal(http.StatusServiceUnavailable))
 			})
 		})
 
@@ -149,7 +149,7 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("responds with 500 Accepted", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusInternalServerError))
+				Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 	})
@@ -163,7 +163,7 @@ var _ = Describe("DesireAppHandler", func() {
 				Port:      8080,
 			}
 			cfRoutePayload, err := json.Marshal(cfRoute)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			cfRouteMessage := json.RawMessage(cfRoutePayload)
 			opaqueRoutingMessage = json.RawMessage([]byte(`{"some": "value"}`))
@@ -185,24 +185,25 @@ var _ = Describe("DesireAppHandler", func() {
 			Eventually(fakeReceptor.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 			processGuid, updateRequest := fakeReceptor.UpdateDesiredLRPArgsForCall(0)
-			Ω(processGuid).Should(Equal("some-guid"))
-			Ω(*updateRequest.Instances).Should(Equal(2))
-			Ω(*updateRequest.Annotation).Should(Equal("last-modified-etag"))
+			Expect(processGuid).To(Equal("some-guid"))
+			Expect(*updateRequest.Instances).To(Equal(2))
+			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
 
 			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			})
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			expectedCfRouteMessage := json.RawMessage(expectedRoutePayload)
-			Ω(updateRequest.Routes).Should(Equal(receptor.RoutingInfo{
+			Expect(updateRequest.Routes).To(Equal(receptor.RoutingInfo{
 				cfroutes.CF_ROUTER:        &expectedCfRouteMessage,
 				"some-other-routing-data": &opaqueRoutingMessage,
 			}))
+
 		})
 
 		It("responds with 202 Accepted", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
+			Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 		})
 
 		Context("when the receptor fails", func() {
@@ -211,7 +212,7 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("responds with a ServiceUnavailabe error", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusServiceUnavailable))
+				Expect(responseRecorder.Code).To(Equal(http.StatusServiceUnavailable))
 			})
 		})
 	})
@@ -223,11 +224,11 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(BeZero())
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 
 		It("logs an error", func() {
@@ -235,9 +236,9 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not touch the LRP", func() {
-			Ω(fakeReceptor.CreateDesiredLRPCallCount()).Should(Equal(0))
-			Ω(fakeReceptor.UpdateDesiredLRPCallCount()).Should(Equal(0))
-			Ω(fakeReceptor.DeleteDesiredLRPCallCount()).Should(Equal(0))
+			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(0))
 		})
 
 	})
@@ -248,11 +249,11 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(BeZero())
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 
 		It("logs an error", func() {
@@ -260,9 +261,9 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not touch the LRP", func() {
-			Ω(fakeReceptor.CreateDesiredLRPCallCount()).Should(Equal(0))
-			Ω(fakeReceptor.UpdateDesiredLRPCallCount()).Should(Equal(0))
-			Ω(fakeReceptor.DeleteDesiredLRPCallCount()).Should(Equal(0))
+			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(0))
 		})
 	})
 })

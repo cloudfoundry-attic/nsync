@@ -106,7 +106,7 @@ var _ = Describe("Fetcher", func() {
 					})))
 
 				Eventually(resultsChan).Should(BeClosed())
-				Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
+				Expect(fakeCC.ReceivedRequests()).To(HaveLen(2))
 			})
 		})
 
@@ -361,7 +361,7 @@ var _ = Describe("Fetcher", func() {
 				Eventually(resultsChan).Should(BeClosed())
 				Eventually(errorsChan).Should(BeClosed())
 
-				Ω(fakeCC.ReceivedRequests()).Should(HaveLen(2))
+				Expect(fakeCC.ReceivedRequests()).To(HaveLen(2))
 			})
 		})
 
@@ -375,7 +375,7 @@ var _ = Describe("Fetcher", func() {
 				Eventually(resultsChan).Should(BeClosed())
 				Eventually(errorsChan).Should(BeClosed())
 
-				Ω(fakeCC.ReceivedRequests()).Should(HaveLen(0))
+				Expect(fakeCC.ReceivedRequests()).To(HaveLen(0))
 			})
 		})
 

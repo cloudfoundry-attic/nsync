@@ -67,7 +67,7 @@ var _ = Describe("Differ", func() {
 	})
 
 	AfterEach(func() {
-		Ω(existingLRPMap).Should(Equal(existingLRPMap))
+		Expect(existingLRPMap).To(Equal(existingLRPMap))
 		Eventually(staleChan).Should(BeClosed())
 		Eventually(missingChan).Should(BeClosed())
 		Eventually(deletedChan).Should(BeClosed())

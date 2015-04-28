@@ -185,7 +185,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				var processGuids []string
 				decoder := json.NewDecoder(req.Body)
 				err := decoder.Decode(&processGuids)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				appResponses := make([]json.RawMessage, 0, len(processGuids))
 				for _, processGuid := range processGuids {
@@ -193,7 +193,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}
 
 				payload, err := json.Marshal(appResponses)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				w.Write(payload)
 			}),
@@ -232,7 +232,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"health_check_timeout_in_seconds": 123456,
 				"etag": "old-etag-1"
 			}`), &existing1)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			err = json.Unmarshal([]byte(`{
 				"disk_mb": 1024,
@@ -253,7 +253,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"health_check_timeout_in_seconds": 123456,
 				"etag": "old-etag-2"
 			}`), &existing2)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			builder := recipebuilder.New(
 				lagertest.NewTestLogger("test"),
@@ -266,16 +266,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 			)
 
 			desired1, err = builder.Build(&existing1)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			desired2, err = builder.Build(&existing2)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			err = receptorClient.CreateDesiredLRP(*desired1)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			err = receptorClient.CreateDesiredLRP(*desired2)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -341,7 +341,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				desiredLRPsWithoutModificationTag := func() []models.DesiredLRP {
 					lrps, err := bbs.DesiredLRPs()
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
 					result := []models.DesiredLRP{}
 					for _, lrp := range lrps {
@@ -534,19 +534,19 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}
 
 				err := bbs.DesireLRP(logger, otherDomainDesired)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				otherDomainDesired, err = bbs.DesiredLRPByProcessGuid("some-other-lrp")
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("leaves them alone", func() {
 				Eventually(bbs.DesiredLRPs, 5).Should(HaveLen(4))
 
 				nowDesired, err := bbs.DesiredLRPs()
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
-				Ω(nowDesired).Should(ContainElement(otherDomainDesired))
+				Expect(nowDesired).To(ContainElement(otherDomainDesired))
 			})
 		})
 	})
@@ -583,7 +583,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			otherSession = consulRunner.NewSession("other-session")
 			err := otherSession.AcquireLock(shared.LockSchemaPath(bulkerLockName), []byte("something-else"))
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {

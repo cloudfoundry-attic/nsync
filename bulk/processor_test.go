@@ -230,7 +230,7 @@ var _ = Describe("Processor", func() {
 				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 				Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 
-				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("excess-process-guid"))
+				Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 			})
 		})
 
@@ -250,7 +250,7 @@ var _ = Describe("Processor", func() {
 			It("creates a desired LRP for the missing app", func() {
 				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
 				Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Ω(receptorClient.CreateDesiredLRPArgsForCall(0).ProcessGuid).Should(Equal("new-process-guid"))
+				Expect(receptorClient.CreateDesiredLRPArgsForCall(0).ProcessGuid).To(Equal("new-process-guid"))
 			})
 
 			Context("when fetching desire app requests from the CC fails", func() {
@@ -289,7 +289,7 @@ var _ = Describe("Processor", func() {
 
 						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("excess-process-guid"))
+						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 					})
 				})
 			})
@@ -311,13 +311,13 @@ var _ = Describe("Processor", func() {
 					It("continues to send the deletes and updates", func() {
 						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("excess-process-guid"))
+						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
 						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
 						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
-						Ω(updatedGuid).Should(Equal("stale-process-guid"))
+						Expect(updatedGuid).To(Equal("stale-process-guid"))
 					})
 				})
 			})
@@ -339,13 +339,13 @@ var _ = Describe("Processor", func() {
 					It("continues to send the deletes and updates", func() {
 						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("excess-process-guid"))
+						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
 						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
 						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
-						Ω(updatedGuid).Should(Equal("stale-process-guid"))
+						Expect(updatedGuid).To(Equal("stale-process-guid"))
 					})
 				})
 			})
@@ -357,15 +357,16 @@ var _ = Describe("Processor", func() {
 				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
 
-				Ω(receptorClient.CreateDesiredLRPArgsForCall(0)).Should(Equal(receptor.DesiredLRPCreateRequest{
+				Expect(receptorClient.CreateDesiredLRPArgsForCall(0)).To(Equal(receptor.DesiredLRPCreateRequest{
 					ProcessGuid: "new-process-guid",
 					Annotation:  "new-etag",
 				}))
-				Ω(receptorClient.DeleteDesiredLRPArgsForCall(0)).Should(Equal("excess-process-guid"))
+
+				Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
 				d, ttl := receptorClient.UpsertDomainArgsForCall(0)
-				Ω(d).Should(Equal("cf-apps"))
-				Ω(ttl).Should(Equal(1 * time.Second))
+				Expect(d).To(Equal("cf-apps"))
+				Expect(ttl).To(Equal(1 * time.Second))
 			})
 
 			Context("and the create request fails", func() {
@@ -407,7 +408,7 @@ var _ = Describe("Processor", func() {
 					{Hostnames: []string{"host-stale-process-guid"}, Port: 8080},
 				}
 				cfRoutePayload, err := json.Marshal(cfRoute)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 
 				expectedRoutingInfo := receptor.RoutingInfo{
@@ -416,12 +417,13 @@ var _ = Describe("Processor", func() {
 				}
 
 				processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
-				Ω(processGuid).Should(Equal("stale-process-guid"))
-				Ω(updateReq).Should(Equal(receptor.DesiredLRPUpdateRequest{
+				Expect(processGuid).To(Equal("stale-process-guid"))
+				Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
 					Annotation: &expectedEtag,
 					Instances:  &expectedInstances,
 					Routes:     expectedRoutingInfo,
 				}))
+
 			})
 
 			Context("when updating the desired lrp fails", func() {

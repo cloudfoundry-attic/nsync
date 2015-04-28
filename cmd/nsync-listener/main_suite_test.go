@@ -32,23 +32,23 @@ func TestListener(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	listener, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-listener", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	receptor, err := gexec.Build("github.com/cloudfoundry-incubator/receptor/cmd/receptor", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	payload, err := json.Marshal(map[string]string{
 		"listener": listener,
 		"receptor": receptor,
 	})
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return payload
 }, func(payload []byte) {
 	binaries := map[string]string{}
 
 	err := json.Unmarshal(payload, &binaries)
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	listenerPath = string(binaries["listener"])
 	receptorPath = string(binaries["receptor"])

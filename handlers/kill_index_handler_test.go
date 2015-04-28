@@ -32,7 +32,7 @@ var _ = Describe("KillIndexHandler", func() {
 
 		var err error
 		request, err = http.NewRequest("POST", "", nil)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		request.Form = url.Values{
 			":process_guid": []string{"process-guid-0"},
 			":index":        []string{"1"},
@@ -45,15 +45,15 @@ var _ = Describe("KillIndexHandler", func() {
 	})
 
 	It("invokes the receptor to kill", func() {
-		Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(Equal(1))
+		Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(Equal(1))
 
 		processGuid, stopIndex := fakeReceptor.KillActualLRPByProcessGuidAndIndexArgsForCall(0)
-		Ω(processGuid).Should(Equal("process-guid-0"))
-		Ω(stopIndex).Should(Equal(1))
+		Expect(processGuid).To(Equal("process-guid-0"))
+		Expect(stopIndex).To(Equal(1))
 	})
 
 	It("responds with 202 Accepted", func() {
-		Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
+		Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 	})
 
 	Context("when the receptor fails", func() {
@@ -62,7 +62,7 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 
 		It("responds with a ServiceUnavailabe error", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusServiceUnavailable))
+			Expect(responseRecorder.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 	})
 
@@ -72,11 +72,11 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 
 		It("does not call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(BeZero())
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
 
@@ -86,11 +86,11 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 
 		It("does not call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(BeZero())
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
 
@@ -100,11 +100,11 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 
 		It("does not call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(BeZero())
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
 
@@ -117,11 +117,11 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 
 		It("does call the receptor", func() {
-			Ω(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).Should(Equal(1))
+			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(Equal(1))
 		})
 
 		It("responds with 400 Bad Request", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
 

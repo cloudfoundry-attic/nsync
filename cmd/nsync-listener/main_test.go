@@ -78,7 +78,7 @@ var _ = Describe("Nsync Listener", func() {
         "stack": "some-stack",
         "log_guid": "the-log-guid"
 			}`))
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		req.Header.Set("Content-Type", "application/json")
 
 		return httpClient.Do(req)
@@ -113,8 +113,8 @@ var _ = Describe("Nsync Listener", func() {
 		})
 
 		It("desires the app in etcd", func() {
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
 			Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
 		})
 	})
@@ -124,26 +124,26 @@ var _ = Describe("Nsync Listener", func() {
 
 		stopApp := func(guid string) (*http.Response, error) {
 			req, err := requestGenerator.CreateRequest(nsync.StopAppRoute, rata.Params{"process_guid": guid}, nil)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			return httpClient.Do(req)
 		}
 
 		BeforeEach(func() {
 			response, err = requestDesireWithInstances(3)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
 			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
 		})
 
 		JustBeforeEach(func() {
 			var err error
 			stopResponse, err = stopApp("the-guid")
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("accepts the request", func() {
-			Ω(stopResponse.StatusCode).Should(Equal(http.StatusAccepted))
+			Expect(stopResponse.StatusCode).To(Equal(http.StatusAccepted))
 		})
 
 		It("deletes the desired LRP", func() {
@@ -154,30 +154,30 @@ var _ = Describe("Nsync Listener", func() {
 	Describe("Kill an app instance", func() {
 		killIndex := func(guid string, index int) (*http.Response, error) {
 			req, err := requestGenerator.CreateRequest(nsync.KillIndexRoute, rata.Params{"process_guid": "the-guid", "index": strconv.Itoa(index)}, nil)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			return httpClient.Do(req)
 		}
 
 		BeforeEach(func() {
 			response, err = requestDesireWithInstances(3)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(response.StatusCode).Should(Equal(http.StatusAccepted))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
 			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
 		})
 
 		It("kills an index", func() {
 			resp, err := killIndex("the-guid", 0)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
 			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(2))
 		})
 
 		It("fails when the index is invalid", func() {
 			resp, err := killIndex("the-guid", 4)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(resp.StatusCode).Should(Equal(http.StatusBadRequest))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
 })
