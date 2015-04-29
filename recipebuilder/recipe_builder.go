@@ -201,6 +201,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
 				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
 				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
+				"-passDaemonEnv",
 			},
 			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
 			ResourceLimits: models.ResourceLimits{
