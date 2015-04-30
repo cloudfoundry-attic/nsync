@@ -316,6 +316,7 @@ var _ = Describe("Recipe Builder", func() {
 							"-hostKey=pem-host-private-key",
 							"-authorizedKey=authorized-user-key",
 							"-inheritDaemonEnv",
+							"-logLevel=fatal",
 						},
 						Env: []models.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
