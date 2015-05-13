@@ -85,6 +85,7 @@ var _ = Describe("Recipe Builder", func() {
 			BeforeEach(func() {
 				desiredAppReq.MemoryMB = recipebuilder.MinCpuProxy - 9999
 			})
+
 			It("returns 1", func() {
 				Expect(desiredLRP.CPUWeight).To(Equal(uint(1)))
 			})
@@ -94,6 +95,7 @@ var _ = Describe("Recipe Builder", func() {
 			BeforeEach(func() {
 				desiredAppReq.MemoryMB = recipebuilder.MaxCpuProxy + 9999
 			})
+
 			It("returns 100", func() {
 				Expect(desiredLRP.CPUWeight).To(Equal(uint(100)))
 			})
@@ -103,6 +105,7 @@ var _ = Describe("Recipe Builder", func() {
 			BeforeEach(func() {
 				desiredAppReq.MemoryMB = (recipebuilder.MinCpuProxy + recipebuilder.MaxCpuProxy) / 2
 			})
+
 			It("returns 50", func() {
 				Expect(desiredLRP.CPUWeight).To(Equal(uint(50)))
 			})
@@ -138,8 +141,9 @@ var _ = Describe("Recipe Builder", func() {
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
-					From: "http://file-server.com/v1/static/some-lifecycle.tgz",
-					To:   "/tmp/lifecycle",
+					From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+					To:       "/tmp/lifecycle",
+					CacheKey: "buildpack-some-stack-lifecycle",
 				},
 				&models.DownloadAction{
 					From:     "http://the-droplet.uri.com",
@@ -220,7 +224,6 @@ var _ = Describe("Recipe Builder", func() {
 						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 					},
 				}))
-
 			})
 		})
 
@@ -271,8 +274,9 @@ var _ = Describe("Recipe Builder", func() {
 			It("setup should download the ssh daemon", func() {
 				expectedSetup := models.Serial([]models.Action{
 					&models.DownloadAction{
-						From: "http://file-server.com/v1/static/some-lifecycle.tgz",
-						To:   "/tmp/lifecycle",
+						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+						To:       "/tmp/lifecycle",
+						CacheKey: "buildpack-some-stack-lifecycle",
 					},
 					&models.DownloadAction{
 						From:     "http://the-droplet.uri.com",
@@ -280,9 +284,9 @@ var _ = Describe("Recipe Builder", func() {
 						CacheKey: "droplets-the-app-guid-the-app-version",
 					},
 					&models.DownloadAction{
-						Artifact: "diego-sshd",
 						From:     "http://file-server.com/v1/static/diego-sshd/diego-sshd.tgz",
 						To:       "/tmp/ssh",
+						CacheKey: "diego-sshd",
 					},
 				}...)
 
@@ -336,7 +340,6 @@ var _ = Describe("Recipe Builder", func() {
 					8080,
 					2222,
 				}))
-
 			})
 
 			It("declares ssh routing information in the LRP", func() {
@@ -359,7 +362,6 @@ var _ = Describe("Recipe Builder", func() {
 					cfroutes.CF_ROUTER: &cfRouteMessage,
 					routes.DIEGO_SSH:   &sshRouteMessage,
 				}))
-
 			})
 
 			Context("when generating the host key fails", func() {
@@ -410,10 +412,10 @@ var _ = Describe("Recipe Builder", func() {
 
 		It("uses the docker lifecycle", func() {
 			Expect(desiredLRP.Setup.(*models.SerialAction).Actions[0]).To(Equal(&models.DownloadAction{
-				From: "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
-				To:   "/tmp/lifecycle",
+				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
+				To:       "/tmp/lifecycle",
+				CacheKey: "docker-lifecycle",
 			}))
-
 		})
 
 		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {

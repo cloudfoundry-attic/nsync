@@ -128,8 +128,9 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	var monitor models.Action
 
 	setup = append(setup, &models.DownloadAction{
-		From: lifecycleURL,
-		To:   "/tmp/lifecycle",
+		From:     lifecycleURL,
+		To:       "/tmp/lifecycle",
+		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
 	})
 
 	switch desiredApp.HealthCheckType {
@@ -178,9 +179,9 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 
 	if desiredApp.AllowSSH {
 		setup = append(setup, &models.DownloadAction{
-			Artifact: "diego-sshd",
 			From:     b.sshdDownloadURL(b.fileServerURL),
 			To:       "/tmp/ssh",
+			CacheKey: "diego-sshd",
 		})
 
 		hostKeyPair, err := b.keyFactory.NewKeyPair(1024)

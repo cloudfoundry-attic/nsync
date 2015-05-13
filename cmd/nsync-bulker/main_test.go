@@ -299,7 +299,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
-						CacheKey: "",
+						CacheKey: "buildpack-some-stack-lifecycle",
 					},
 					&models.DownloadAction{
 						From:     "source-url-1",
@@ -312,7 +312,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
-						CacheKey: "",
+						CacheKey: "buildpack-some-stack-lifecycle",
 					},
 					&models.DownloadAction{
 						From:     "source-url-1",
@@ -325,7 +325,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
-						CacheKey: "",
+						CacheKey: "buildpack-some-stack-lifecycle",
 					},
 					&models.DownloadAction{
 						From:     "source-url-3",
