@@ -49,6 +49,7 @@ func (fetcher *CCFetcher) FetchFingerprints(
 	go func() {
 		defer close(results)
 		defer close(errc)
+		defer logger.Info("done-fetching-desired")
 
 		token := initialBulkToken
 		for {

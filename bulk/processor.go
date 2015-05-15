@@ -233,7 +233,6 @@ func (p *Processor) createMissingDesiredLRPs(
 			}
 
 			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
-
 			for _, desireAppRequest := range desireAppRequests {
 				createReq, err := p.builder.Build(&desireAppRequest)
 				if err != nil {
@@ -253,6 +252,7 @@ func (p *Processor) createMissingDesiredLRPs(
 					continue
 				}
 			}
+			logger.Info("done-processing-batch", lager.Data{"size": len(desireAppRequests)})
 		}
 	}()
 
@@ -288,7 +288,6 @@ func (p *Processor) updateStaleDesiredLRPs(
 			}
 
 			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
-
 			for _, desireAppRequest := range staleAppRequests {
 				existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
 
@@ -314,6 +313,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					continue
 				}
 			}
+			logger.Info("done-processing-batch", lager.Data{"size": len(staleAppRequests)})
 		}
 	}()
 
