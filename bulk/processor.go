@@ -132,7 +132,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	)
 
 	missingApps, missingAppsErrors := p.fetcher.FetchDesiredApps(
-		logger,
+		logger.Session("fetch-missing-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
 		differ.Missing(),
@@ -141,7 +141,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps)
 
 	staleApps, staleAppErrors := p.fetcher.FetchDesiredApps(
-		logger,
+		logger.Session("fetch-stale-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
 		differ.Stale(),

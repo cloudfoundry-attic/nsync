@@ -100,8 +100,6 @@ func (fetcher *CCFetcher) FetchDesiredApps(
 	results := make(chan []cc_messages.DesireAppRequestFromCC)
 	errc := make(chan error, 1)
 
-	logger = logger.Session("fetch-desired-lrps-from-cc")
-
 	go func() {
 		defer close(results)
 		defer close(errc)
