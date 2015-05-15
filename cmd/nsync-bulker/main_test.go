@@ -501,7 +501,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(bbs.Domains, 2*pollingInterval).Should(ContainElement("cf-apps"))
+						Eventually(bbs.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
