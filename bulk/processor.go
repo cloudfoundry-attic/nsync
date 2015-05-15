@@ -14,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
+	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 )
@@ -232,26 +233,41 @@ func (p *Processor) createMissingDesiredLRPs(
 				desireAppRequests = selected
 			}
 
+			workPool := workpool.NewWorkPool(50)
+
+			wg := sync.WaitGroup{}
 			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
 			for _, desireAppRequest := range desireAppRequests {
-				createReq, err := p.builder.Build(&desireAppRequest)
-				if err != nil {
-					logger.Error("failed-to-build-create-desired-lrp-request", err, lager.Data{
-						"desire-app-request": desireAppRequest,
-					})
-					errc <- err
-					continue
-				}
+				desireAppRequest := desireAppRequest
 
-				err = p.receptorClient.CreateDesiredLRP(*createReq)
-				if err != nil {
-					logger.Error("failed-to-create-desired-lrp", err, lager.Data{
-						"create-request": createReq,
-					})
-					errc <- err
-					continue
-				}
+				wg.Add(1)
+				workPool.Submit(func() {
+					defer wg.Done()
+
+					logger.Debug("building-create-desired-lrp-request", lager.Data{"desire-app-request": desireAppRequest})
+					createReq, err := p.builder.Build(&desireAppRequest)
+					if err != nil {
+						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{
+							"desire-app-request": desireAppRequest,
+						})
+						errc <- err
+						return
+					}
+					logger.Debug("succeeded-building-create-desired-lrp-request", lager.Data{"desire-app-request": desireAppRequest})
+
+					logger.Debug("creating-desired-lrp", lager.Data{"create-request": createReq})
+					err = p.receptorClient.CreateDesiredLRP(*createReq)
+					if err != nil {
+						logger.Error("failed-creating-desired-lrp", err, lager.Data{
+							"create-request": createReq,
+						})
+						errc <- err
+						return
+					}
+					logger.Debug("succeeded-creating-desired-lrp", lager.Data{"create-request": createReq})
+				})
 			}
+			wg.Wait()
 			logger.Info("done-processing-batch", lager.Data{"size": len(desireAppRequests)})
 		}
 	}()
@@ -286,33 +302,45 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 				staleAppRequests = selected
 			}
+			workPool := workpool.NewWorkPool(50)
 
+			wg := sync.WaitGroup{}
 			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
 			for _, desireAppRequest := range staleAppRequests {
-				existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
+				desireAppRequest := desireAppRequest
 
-				updateReq := receptor.DesiredLRPUpdateRequest{}
-				updateReq.Instances = &desireAppRequest.NumInstances
-				updateReq.Annotation = &desireAppRequest.ETag
-				updateReq.Routes = cfroutes.CFRoutes{
-					{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
-				}.RoutingInfo()
+				wg.Add(1)
+				workPool.Submit(func() {
+					defer wg.Done()
 
-				for k, v := range existingLRP.Routes {
-					if k != cfroutes.CF_ROUTER {
-						updateReq.Routes[k] = v
+					existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
+
+					updateReq := receptor.DesiredLRPUpdateRequest{}
+					updateReq.Instances = &desireAppRequest.NumInstances
+					updateReq.Annotation = &desireAppRequest.ETag
+					updateReq.Routes = cfroutes.CFRoutes{
+						{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
+					}.RoutingInfo()
+
+					for k, v := range existingLRP.Routes {
+						if k != cfroutes.CF_ROUTER {
+							updateReq.Routes[k] = v
+						}
 					}
-				}
 
-				err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
-				if err != nil {
-					logger.Error("failed-to-update-stale-lrp", err, lager.Data{
-						"update-request": updateReq,
-					})
-					errc <- err
-					continue
-				}
+					logger.Debug("updating-stale-lrp", lager.Data{"update-request": updateReq})
+					err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
+					if err != nil {
+						logger.Error("failed-updating-stale-lrp", err, lager.Data{
+							"update-request": updateReq,
+						})
+						errc <- err
+						return
+					}
+					logger.Debug("succeeded-updating-stale-lrp", lager.Data{"update-request": updateReq})
+				})
 			}
+			wg.Wait()
 			logger.Info("done-processing-batch", lager.Data{"size": len(staleAppRequests)})
 		}
 	}()
