@@ -559,7 +559,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(bbs.Domains, 2*domainTTL).Should(ContainElement("cf-apps"))
+			Eventually(bbs.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
 			consulRunner.Reset()
 		})
