@@ -204,6 +204,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
+				"-background",
 			},
 			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
 			ResourceLimits: models.ResourceLimits{

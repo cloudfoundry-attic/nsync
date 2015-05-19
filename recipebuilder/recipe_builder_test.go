@@ -321,6 +321,7 @@ var _ = Describe("Recipe Builder", func() {
 							"-authorizedKey=authorized-user-key",
 							"-inheritDaemonEnv",
 							"-logLevel=fatal",
+							"-background",
 						},
 						Env: []models.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
