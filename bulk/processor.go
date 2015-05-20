@@ -233,7 +233,11 @@ func (p *Processor) createMissingDesiredLRPs(
 				desireAppRequests = selected
 			}
 
-			workPool := workpool.NewWorkPool(50)
+			workPool, err := workpool.NewWorkPool(50)
+			if err != nil {
+				errc <- err
+				return
+			}
 
 			wg := sync.WaitGroup{}
 			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
@@ -302,7 +306,12 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 				staleAppRequests = selected
 			}
-			workPool := workpool.NewWorkPool(50)
+
+			workPool, err := workpool.NewWorkPool(50)
+			if err != nil {
+				errc <- err
+				return
+			}
 
 			wg := sync.WaitGroup{}
 			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
