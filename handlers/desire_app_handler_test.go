@@ -134,6 +134,16 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 		})
 
+		Context("when the receptor fails with a Conflict error", func() {
+			BeforeEach(func() {
+				fakeReceptor.CreateDesiredLRPReturns(receptor.Error{Type: receptor.DesiredLRPAlreadyExists})
+			})
+
+			It("responds with a Conflict error", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusConflict))
+			})
+		})
+
 		Context("when building the recipe fails to build", func() {
 			BeforeEach(func() {
 				builder.BuildReturns(nil, errors.New("oh no!"))
@@ -213,6 +223,16 @@ var _ = Describe("DesireAppHandler", func() {
 
 			It("responds with a ServiceUnavailabe error", func() {
 				Expect(responseRecorder.Code).To(Equal(http.StatusServiceUnavailable))
+			})
+		})
+
+		Context("when the receptor fails", func() {
+			BeforeEach(func() {
+				fakeReceptor.UpdateDesiredLRPReturns(receptor.Error{Type: receptor.ResourceConflict})
+			})
+
+			It("responds with a Conflict error", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusConflict))
 			})
 		})
 	})

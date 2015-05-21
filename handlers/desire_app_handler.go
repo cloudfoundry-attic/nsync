@@ -67,7 +67,12 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	if existingLRP != nil {
 		err = h.updateDesiredApp(logger, resp, existingLRP, desiredApp)
 		if err != nil {
-			resp.WriteHeader(http.StatusServiceUnavailable)
+			if receptorErr, ok := err.(receptor.Error); ok &&
+				receptorErr.Type == receptor.ResourceConflict {
+				resp.WriteHeader(http.StatusConflict)
+			} else {
+				resp.WriteHeader(http.StatusServiceUnavailable)
+			}
 			return
 		}
 	} else {
@@ -81,7 +86,12 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		err = h.receptorClient.CreateDesiredLRP(*desiredLRP)
 		if err != nil {
 			logger.Error("failed-to-create", err)
-			resp.WriteHeader(http.StatusServiceUnavailable)
+			if receptorErr, ok := err.(receptor.Error); ok &&
+				receptorErr.Type == receptor.DesiredLRPAlreadyExists {
+				resp.WriteHeader(http.StatusConflict)
+			} else {
+				resp.WriteHeader(http.StatusServiceUnavailable)
+			}
 			return
 		}
 	}
