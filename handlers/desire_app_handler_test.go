@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -136,30 +137,51 @@ var _ = Describe("DesireAppHandler", func() {
 
 		Context("when the receptor fails with a Conflict error", func() {
 			BeforeEach(func() {
-				fakeReceptor.CreateDesiredLRPReturns(receptor.Error{Type: receptor.DesiredLRPAlreadyExists})
+				fakeReceptor.CreateDesiredLRPStub = func(_ receptor.DesiredLRPCreateRequest) error {
+					fakeReceptor.GetDesiredLRPReturns(receptor.DesiredLRPResponse{
+						ProcessGuid: "some-guid",
+						Routes:      receptor.RoutingInfo{},
+					}, nil)
+					return receptor.Error{Type: receptor.DesiredLRPAlreadyExists}
+				}
 			})
 
-			It("responds with a Conflict error", func() {
-				Expect(responseRecorder.Code).To(Equal(http.StatusConflict))
+			It("retries", func() {
+				Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
+				Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(1))
+			})
+
+			It("suceeds if the second try is sucessful", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
+			})
+
+			Context("when updating the desired LRP fails with a conflict error", func() {
+				BeforeEach(func() {
+					fakeReceptor.UpdateDesiredLRPReturns(receptor.Error{Type: receptor.ResourceConflict})
+				})
+
+				It("fails with a 409 Conflict if the second try is unsuccessful", func() {
+					Expect(responseRecorder.Code).To(Equal(http.StatusConflict))
+				})
 			})
 		})
 
 		Context("when building the recipe fails to build", func() {
 			BeforeEach(func() {
-				builder.BuildReturns(nil, errors.New("oh no!"))
+				builder.BuildReturns(nil, recipebuilder.ErrAppSourceMissing)
 			})
 
 			It("logs an error", func() {
 				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("failed-to-build-recipe"))
-				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("oh no!"))
+				Eventually(logger.TestSink.Buffer).Should(gbytes.Say(recipebuilder.ErrAppSourceMissing.Message))
 			})
 
 			It("does not desire the LRP", func() {
 				Consistently(fakeReceptor.DeleteDesiredLRPCallCount).Should(Equal(0))
 			})
 
-			It("responds with 500 Accepted", func() {
-				Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
+			It("responds with 400 Bad Request", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 	})
@@ -226,7 +248,7 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 		})
 
-		Context("when the receptor fails", func() {
+		Context("when the receptor fails with a conflict", func() {
 			BeforeEach(func() {
 				fakeReceptor.UpdateDesiredLRPReturns(receptor.Error{Type: receptor.ResourceConflict})
 			})

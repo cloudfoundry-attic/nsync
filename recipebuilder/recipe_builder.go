@@ -42,10 +42,19 @@ const (
 	DiegoSSHDArchive = "diego-sshd.tgz"
 )
 
+type Error struct {
+	Type    string `json:"name"`
+	Message string `json:"message"`
+}
+
+func (err Error) Error() string {
+	return err.Message
+}
+
 var (
-	ErrNoLifecycleDefined = errors.New("no lifecycle binary bundle defined for stack")
-	ErrAppSourceMissing   = errors.New("desired app missing both droplet_uri and docker_image; exactly one is required.")
-	ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
+	ErrNoLifecycleDefined = Error{Type: "ErrNoLifecycleDefined", Message: "no lifecycle binary bundle defined for stack"}
+	ErrAppSourceMissing   = Error{Type: "ErrAppSourceMissing", Message: "desired app missing both droplet_uri and docker_image; exactly one is required."}
+	ErrMultipleAppSources = Error{Type: "ErrMultipleAppSources", Message: "desired app contains both droplet_uri and docker_image; exactly one is required."}
 )
 
 type RecipeBuilder struct {

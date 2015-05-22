@@ -55,48 +55,39 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	existingLRP, err := h.getDesiredLRP(processGuid)
-	if err != nil {
-		logger.Error("unexpected-error-from-get-desired-lrp", err)
-		resp.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
+	statusCode := http.StatusConflict
 
-	desiredLRPCounter.Increment()
-
-	if existingLRP != nil {
-		err = h.updateDesiredApp(logger, resp, existingLRP, desiredApp)
+	for tries := 2; tries > 0 && statusCode == http.StatusConflict; tries-- {
+		existingLRP, err := h.getDesiredLRP(processGuid)
 		if err != nil {
-			if receptorErr, ok := err.(receptor.Error); ok &&
-				receptorErr.Type == receptor.ResourceConflict {
-				resp.WriteHeader(http.StatusConflict)
-			} else {
-				resp.WriteHeader(http.StatusServiceUnavailable)
-			}
-			return
-		}
-	} else {
-		desiredLRP, err := h.recipeBuilder.Build(&desiredApp)
-		if err != nil {
-			logger.Error("failed-to-build-recipe", err)
-			resp.WriteHeader(http.StatusInternalServerError)
-			return
+			logger.Error("unexpected-error-from-get-desired-lrp", err)
+			statusCode = http.StatusServiceUnavailable
+			break
 		}
 
-		err = h.receptorClient.CreateDesiredLRP(*desiredLRP)
+		if existingLRP != nil {
+			err = h.updateDesiredApp(logger, existingLRP, desiredApp)
+		} else {
+			err = h.createDesiredApp(logger, desiredApp)
+		}
+
 		if err != nil {
-			logger.Error("failed-to-create", err)
 			if receptorErr, ok := err.(receptor.Error); ok &&
-				receptorErr.Type == receptor.DesiredLRPAlreadyExists {
-				resp.WriteHeader(http.StatusConflict)
+				(receptorErr.Type == receptor.DesiredLRPAlreadyExists ||
+					receptorErr.Type == receptor.ResourceConflict) {
+				statusCode = http.StatusConflict
+			} else if _, ok := err.(recipebuilder.Error); ok {
+				statusCode = http.StatusBadRequest
 			} else {
-				resp.WriteHeader(http.StatusServiceUnavailable)
+				statusCode = http.StatusServiceUnavailable
 			}
-			return
+		} else {
+			statusCode = http.StatusAccepted
+			desiredLRPCounter.Increment()
 		}
 	}
 
-	resp.WriteHeader(http.StatusAccepted)
+	resp.WriteHeader(statusCode)
 }
 
 func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*receptor.DesiredLRPResponse, error) {
@@ -114,9 +105,27 @@ func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*receptor.DesiredL
 	return nil, err
 }
 
+func (h *DesireAppHandler) createDesiredApp(
+	logger lager.Logger,
+	desireAppMessage cc_messages.DesireAppRequestFromCC,
+) error {
+	desiredLRP, err := h.recipeBuilder.Build(&desireAppMessage)
+	if err != nil {
+		logger.Error("failed-to-build-recipe", err)
+		return err
+	}
+
+	err = h.receptorClient.CreateDesiredLRP(*desiredLRP)
+	if err != nil {
+		logger.Error("failed-to-create-lrp", err)
+		return err
+	}
+
+	return nil
+}
+
 func (h *DesireAppHandler) updateDesiredApp(
 	logger lager.Logger,
-	resp http.ResponseWriter,
 	existingLRP *receptor.DesiredLRPResponse,
 	desireAppMessage cc_messages.DesireAppRequestFromCC,
 ) error {
