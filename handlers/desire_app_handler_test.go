@@ -62,7 +62,7 @@ var _ = Describe("DesireAppHandler", func() {
 		}
 
 		metricSender = fake.NewFakeMetricSender()
-		metrics.Initialize(metricSender)
+		metrics.Initialize(metricSender, nil)
 
 		responseRecorder = httptest.NewRecorder()
 

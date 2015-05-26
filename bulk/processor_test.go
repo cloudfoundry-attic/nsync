@@ -44,7 +44,7 @@ var _ = Describe("Processor", func() {
 
 	BeforeEach(func() {
 		metricSender = fake.NewFakeMetricSender()
-		metrics.Initialize(metricSender)
+		metrics.Initialize(metricSender, nil)
 
 		syncDuration = 900900
 		pollingInterval = 500 * time.Millisecond
