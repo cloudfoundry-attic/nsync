@@ -604,7 +604,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			It("is updated", func() {
-				Eventually(bbs.Domains, 2*domainTTL).Should(ContainElement("cf-apps"))
+				Eventually(func() ([]string, error) {
+					logger := logger.Session("domain-polling")
+					logger.Debug("getting-domains")
+					domains, err := bbs.Domains()
+					logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
+					return domains, err
+				}, 4*domainTTL).Should(ContainElement("cf-apps"))
 			})
 		})
 	})
