@@ -10,11 +10,15 @@ import (
 
 	"github.com/cloudfoundry-incubator/nsync"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lrp_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cb"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/clock"
+	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
@@ -25,7 +29,7 @@ var _ = Describe("Nsync Listener", func() {
 	var (
 		nsyncPort    int
 		exitDuration = 3 * time.Second
-		bbs          *Bbs.BBS
+		lrpBBS       *lrp_bbs.LRPBBS
 
 		requestGenerator *rata.RequestGenerator
 		httpClient       *http.Client
@@ -38,6 +42,8 @@ var _ = Describe("Nsync Listener", func() {
 		process ifrit.Process
 
 		etcdAdapter storeadapter.StoreAdapter
+
+		logger lager.Logger
 	)
 
 	startReceptor := func(address, taskAddress string) ifrit.Process {
@@ -94,7 +100,15 @@ var _ = Describe("Nsync Listener", func() {
 		etcdAdapter = etcdRunner.Adapter()
 		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
 		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
-		bbs = Bbs.NewBBS(etcdAdapter, consulSession, "http://"+receptorTaskAddress, clock.NewClock(), lagertest.NewTestLogger("test"))
+		logger = lagertest.NewTestLogger("test")
+		clock := clock.NewClock()
+		lrpBBS = lrp_bbs.New(
+			etcdAdapter,
+			clock,
+			cb.NewCellClient(),
+			cb.NewAuctioneerClient(),
+			services_bbs.New(consulRunner.NewSession("a-session"), clock, logger.Session("services-bbs")),
+		)
 		receptorProcess = startReceptor(receptorAddress, receptorTaskAddress)
 
 		runner = newNSyncRunner(nsyncPort)
@@ -115,7 +129,7 @@ var _ = Describe("Nsync Listener", func() {
 		It("desires the app in etcd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(bbs.DesiredLRPs, 10).Should(HaveLen(1))
+			Eventually(func() ([]models.DesiredLRP, error) { return lrpBBS.DesiredLRPs(logger) }, 10).Should(HaveLen(1))
 		})
 	})
 
@@ -133,7 +147,7 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
+			Eventually(func() ([]models.ActualLRP, error) { return lrpBBS.ActualLRPs(logger) }, 10).Should(HaveLen(3))
 		})
 
 		JustBeforeEach(func() {
@@ -147,7 +161,7 @@ var _ = Describe("Nsync Listener", func() {
 		})
 
 		It("deletes the desired LRP", func() {
-			Eventually(bbs.DesiredLRPs).Should(HaveLen(0))
+			Eventually(func() ([]models.DesiredLRP, error) { return lrpBBS.DesiredLRPs(logger) }).Should(HaveLen(0))
 		})
 	})
 
@@ -163,7 +177,7 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(3))
+			Eventually(func() ([]models.ActualLRP, error) { return lrpBBS.ActualLRPs(logger) }, 10).Should(HaveLen(3))
 		})
 
 		It("kills an index", func() {
@@ -171,7 +185,7 @@ var _ = Describe("Nsync Listener", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
-			Eventually(bbs.ActualLRPs, 10).Should(HaveLen(2))
+			Eventually(func() ([]models.ActualLRP, error) { return lrpBBS.ActualLRPs(logger) }, 10).Should(HaveLen(2))
 		})
 
 		It("fails when the index is invalid", func() {

@@ -21,7 +21,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		bbs            *Bbs.BBS
+		fullBBS        *bbs.BBS
 		fakeCC         *ghttp.Server
 		receptorClient receptor.Client
 
@@ -85,14 +85,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	itIsMissingDomain := func() {
 		It("is missing domain", func() {
-			Eventually(bbs.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
+			Eventually(fullBBS.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
-		bbs = Bbs.NewBBS(etcdClient, consulSession, receptorURL, clock.NewClock(), logger)
+		fullBBS = bbs.NewBBS(etcdClient, consulSession, receptorURL, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
@@ -288,7 +288,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("once the state has been synced with CC", func() {
 			JustBeforeEach(func() {
-				Eventually(bbs.DesiredLRPs, 5).Should(HaveLen(3))
+				Eventually(func() ([]models.DesiredLRP, error) { return fullBBS.DesiredLRPs(logger) }, 5).Should(HaveLen(3))
 			})
 
 			It("it (adds), (updates), and (removes extra) LRPs", func() {
@@ -340,7 +340,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}
 
 				desiredLRPsWithoutModificationTag := func() []models.DesiredLRP {
-					lrps, err := bbs.DesiredLRPs()
+					lrps, err := fullBBS.DesiredLRPs(logger)
 					Expect(err).NotTo(HaveOccurred())
 
 					result := []models.DesiredLRP{}
@@ -495,13 +495,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
-						Eventually(bbs.Domains).Should(ContainElement("cf-apps"))
+						Eventually(fullBBS.Domains).Should(ContainElement("cf-apps"))
 					})
 				})
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(bbs.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
+						Eventually(fullBBS.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
@@ -510,7 +510,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Eventually(func() ([]string, error) {
 							logger := logger.Session("domain-polling")
 							logger.Debug("getting-domains")
-							domains, err := bbs.Domains()
+							domains, err := fullBBS.Domains()
 							logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 							return domains, err
 						}, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
@@ -533,17 +533,17 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 				}
 
-				err := bbs.DesireLRP(logger, otherDomainDesired)
+				err := fullBBS.DesireLRP(logger, otherDomainDesired)
 				Expect(err).NotTo(HaveOccurred())
 
-				otherDomainDesired, err = bbs.DesiredLRPByProcessGuid("some-other-lrp")
+				otherDomainDesired, err = fullBBS.DesiredLRPByProcessGuid(logger, "some-other-lrp")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("leaves them alone", func() {
-				Eventually(bbs.DesiredLRPs, 5).Should(HaveLen(4))
+				Eventually(func() ([]models.DesiredLRP, error) { return fullBBS.DesiredLRPs(logger) }, 5).Should(HaveLen(4))
 
-				nowDesired, err := bbs.DesiredLRPs()
+				nowDesired, err := fullBBS.DesiredLRPs(logger)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(nowDesired).To(ContainElement(otherDomainDesired))
@@ -559,7 +559,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(bbs.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
+			Eventually(fullBBS.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
 			consulRunner.Reset()
 		})
@@ -607,7 +607,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Eventually(func() ([]string, error) {
 					logger := logger.Session("domain-polling")
 					logger.Debug("getting-domains")
-					domains, err := bbs.Domains()
+					domains, err := fullBBS.Domains()
 					logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 					return domains, err
 				}, 4*domainTTL).Should(ContainElement("cf-apps"))
