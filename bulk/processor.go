@@ -233,27 +233,16 @@ func (p *Processor) createMissingDesiredLRPs(
 				desireAppRequests = selected
 			}
 
-			workPool, err := workpool.NewWorkPool(50)
-			if err != nil {
-				errc <- err
-				return
-			}
+			works := make([]func(), len(desireAppRequests))
 
-			wg := sync.WaitGroup{}
-			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
-			for _, desireAppRequest := range desireAppRequests {
+			for i, desireAppRequest := range desireAppRequests {
 				desireAppRequest := desireAppRequest
 
-				wg.Add(1)
-				workPool.Submit(func() {
-					defer wg.Done()
-
+				works[i] = func() {
 					logger.Debug("building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 					createReq, err := p.builder.Build(&desireAppRequest)
 					if err != nil {
-						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{
-							"process-guid": desireAppRequest.ProcessGuid,
-						})
+						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{"process-guid": desireAppRequest.ProcessGuid})
 						errc <- err
 						return
 					}
@@ -262,16 +251,22 @@ func (p *Processor) createMissingDesiredLRPs(
 					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(createReq))
 					err = p.receptorClient.CreateDesiredLRP(*createReq)
 					if err != nil {
-						logger.Error("failed-creating-desired-lrp", err, lager.Data{
-							"process-guid": createReq.ProcessGuid,
-						})
+						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": createReq.ProcessGuid})
 						errc <- err
 						return
 					}
 					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(createReq))
-				})
+				}
 			}
-			wg.Wait()
+
+			throttler, err := workpool.NewThrottler(50, works)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
+			throttler.Work()
 			logger.Info("done-processing-batch", lager.Data{"size": len(desireAppRequests)})
 		}
 	}()
@@ -307,23 +302,14 @@ func (p *Processor) updateStaleDesiredLRPs(
 				staleAppRequests = selected
 			}
 
-			workPool, err := workpool.NewWorkPool(50)
-			if err != nil {
-				errc <- err
-				return
-			}
+			works := make([]func(), len(staleAppRequests))
 
-			wg := sync.WaitGroup{}
-			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
-			for _, desireAppRequest := range staleAppRequests {
+			for i, desireAppRequest := range staleAppRequests {
 				desireAppRequest := desireAppRequest
 
-				wg.Add(1)
-				workPool.Submit(func() {
-					defer wg.Done()
+				works[i] = func() {
 					processGuid := desireAppRequest.ProcessGuid
-
-					existingLRP := existingLRPMap[processGuid]
+					existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
 
 					updateReq := receptor.DesiredLRPUpdateRequest{}
 					updateReq.Instances = &desireAppRequest.NumInstances
@@ -348,9 +334,17 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 					logger.Debug("succeeded-updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
-				})
+				}
 			}
-			wg.Wait()
+
+			throttler, err := workpool.NewThrottler(50, works)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			logger.Info("processing-batch", lager.Data{"size": len(staleAppRequests)})
+			throttler.Work()
 			logger.Info("done-processing-batch", lager.Data{"size": len(staleAppRequests)})
 		}
 	}()
