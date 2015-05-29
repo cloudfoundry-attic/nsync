@@ -248,27 +248,27 @@ func (p *Processor) createMissingDesiredLRPs(
 				workPool.Submit(func() {
 					defer wg.Done()
 
-					logger.Debug("building-create-desired-lrp-request", lager.Data{"desire-app-request": desireAppRequest})
+					logger.Debug("building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 					createReq, err := p.builder.Build(&desireAppRequest)
 					if err != nil {
 						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{
-							"desire-app-request": desireAppRequest,
+							"process-guid": desireAppRequest.ProcessGuid,
 						})
 						errc <- err
 						return
 					}
-					logger.Debug("succeeded-building-create-desired-lrp-request", lager.Data{"desire-app-request": desireAppRequest})
+					logger.Debug("succeeded-building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 
-					logger.Debug("creating-desired-lrp", lager.Data{"create-request": createReq})
+					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(createReq))
 					err = p.receptorClient.CreateDesiredLRP(*createReq)
 					if err != nil {
 						logger.Error("failed-creating-desired-lrp", err, lager.Data{
-							"create-request": createReq,
+							"process-guid": createReq.ProcessGuid,
 						})
 						errc <- err
 						return
 					}
-					logger.Debug("succeeded-creating-desired-lrp", lager.Data{"create-request": createReq})
+					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(createReq))
 				})
 			}
 			wg.Wait()
@@ -321,8 +321,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 				wg.Add(1)
 				workPool.Submit(func() {
 					defer wg.Done()
+					processGuid := desireAppRequest.ProcessGuid
 
-					existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
+					existingLRP := existingLRPMap[processGuid]
 
 					updateReq := receptor.DesiredLRPUpdateRequest{}
 					updateReq.Instances = &desireAppRequest.NumInstances
@@ -337,16 +338,16 @@ func (p *Processor) updateStaleDesiredLRPs(
 						}
 					}
 
-					logger.Debug("updating-stale-lrp", lager.Data{"update-request": updateReq})
-					err := p.receptorClient.UpdateDesiredLRP(desireAppRequest.ProcessGuid, updateReq)
+					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
+					err := p.receptorClient.UpdateDesiredLRP(processGuid, updateReq)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
-							"update-request": updateReq,
+							"process-guid": processGuid,
 						})
 						errc <- err
 						return
 					}
-					logger.Debug("succeeded-updating-stale-lrp", lager.Data{"update-request": updateReq})
+					logger.Debug("succeeded-updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
 				})
 			}
 			wg.Wait()
@@ -441,4 +442,40 @@ func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*r
 	}
 
 	return result
+}
+
+func updateDesiredRequestDebugData(processGuid string, updateDesiredRequest *receptor.DesiredLRPUpdateRequest) lager.Data {
+	return lager.Data{
+		"process-guid": processGuid,
+		"instances":    updateDesiredRequest.Instances,
+	}
+}
+
+func createDesiredReqDebugData(createDesiredRequest *receptor.DesiredLRPCreateRequest) lager.Data {
+	return lager.Data{
+		"process-guid": createDesiredRequest.ProcessGuid,
+		"log-guid":     createDesiredRequest.LogGuid,
+		"metric-guid":  createDesiredRequest.MetricsGuid,
+		"root-fs":      createDesiredRequest.RootFS,
+		"instances":    createDesiredRequest.Instances,
+		"timeout":      createDesiredRequest.StartTimeout,
+		"disk":         createDesiredRequest.DiskMB,
+		"memory":       createDesiredRequest.MemoryMB,
+		"cpu":          createDesiredRequest.CPUWeight,
+		"privileged":   createDesiredRequest.Privileged,
+	}
+}
+
+func desireAppRequestDebugData(desireAppRequest *cc_messages.DesireAppRequestFromCC) lager.Data {
+	return lager.Data{
+		"process-guid": desireAppRequest.ProcessGuid,
+		"log-guid":     desireAppRequest.LogGuid,
+		"stack":        desireAppRequest.Stack,
+		"memory":       desireAppRequest.MemoryMB,
+		"disk":         desireAppRequest.DiskMB,
+		"file":         desireAppRequest.FileDescriptors,
+		"instances":    desireAppRequest.NumInstances,
+		"allow-ssh":    desireAppRequest.AllowSSH,
+		"etag":         desireAppRequest.ETag,
+	}
 }

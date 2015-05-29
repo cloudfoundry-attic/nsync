@@ -53,7 +53,7 @@ func (fetcher *CCFetcher) FetchFingerprints(
 
 		token := initialBulkToken
 		for {
-			logger.Info("fetching-desired", lager.Data{"token": token})
+			logger.Info("fetching-desired")
 
 			req, err := http.NewRequest("GET", fetcher.fingerprintURL(token), nil)
 			if err != nil {
