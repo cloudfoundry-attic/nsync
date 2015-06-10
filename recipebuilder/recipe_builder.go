@@ -237,7 +237,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}
 
 	setupAction := models.Serial(setup...)
-	actionAction := models.Parallel(actions...)
+	actionAction := models.Codependent(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,

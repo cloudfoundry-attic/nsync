@@ -153,7 +153,7 @@ var _ = Describe("Recipe Builder", func() {
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
 
-			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
+			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
 			Expect(ok).To(BeTrue())
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
@@ -296,7 +296,7 @@ var _ = Describe("Recipe Builder", func() {
 			It("runs the ssh daemon in the container", func() {
 				expectedNumFiles := uint64(32)
 
-				expectedAction := models.Parallel([]models.Action{
+				expectedAction := models.Codependent([]models.Action{
 					&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
@@ -499,7 +499,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("sets a default FD limit on the run action", func() {
-			parallelRunAction, ok := desiredLRP.Action.(*models.ParallelAction)
+			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
 			Expect(ok).To(BeTrue())
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 

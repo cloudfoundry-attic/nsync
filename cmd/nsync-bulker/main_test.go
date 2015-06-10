@@ -361,7 +361,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Parallel(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -410,7 +410,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Parallel(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -459,7 +459,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Parallel(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
