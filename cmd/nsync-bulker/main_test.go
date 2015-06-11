@@ -53,6 +53,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
 			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
 			ConsulCluster: consulRunner.ConsulCluster(),
+			ClientCert:    assetsPath + "client.crt",
+			ClientKey:     assetsPath + "client.key",
+			CACert:        assetsPath + "ca.crt",
 		}))
 	}
 
@@ -495,13 +498,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
-						Eventually(fullBBS.Domains).Should(ContainElement("cf-apps"))
+						Eventually(fullBBS.Domains, 10*pollingInterval).Should(ContainElement("cf-apps"))
 					})
 				})
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(fullBBS.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
+						Eventually(fullBBS.Domains, 10*pollingInterval).Should(ContainElement("cf-apps"))
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
@@ -610,7 +613,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					domains, err := fullBBS.Domains()
 					logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 					return domains, err
-				}, 4*domainTTL).Should(ContainElement("cf-apps"))
+				}, 10*pollingInterval).Should(ContainElement("cf-apps"))
 			})
 		})
 	})

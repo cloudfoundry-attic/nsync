@@ -15,6 +15,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cb"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/storeadapter"
+	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/clock"
@@ -52,6 +53,9 @@ var _ = Describe("Nsync Listener", func() {
 			TaskHandlerAddress: taskAddress,
 			EtcdCluster:        strings.Join(etcdRunner.NodeURLS(), ","),
 			ConsulCluster:      consulRunner.ConsulCluster(),
+			ClientCert:         assetsPath + "client.crt",
+			ClientKey:          assetsPath + "client.key",
+			CACert:             assetsPath + "ca.crt",
 		}))
 	}
 
@@ -97,7 +101,12 @@ var _ = Describe("Nsync Listener", func() {
 		requestGenerator = rata.NewRequestGenerator(nsyncURL, nsync.Routes)
 		httpClient = http.DefaultClient
 
-		etcdAdapter = etcdRunner.Adapter()
+		etcdAdapter = etcdRunner.Adapter(
+			&etcdstorerunner.SSLConfig{
+				CertFile: assetsPath + "client.crt",
+				KeyFile:  assetsPath + "client.key",
+				CAFile:   assetsPath + "ca.crt",
+			})
 		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
 		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
 		logger = lagertest.NewTestLogger("test")

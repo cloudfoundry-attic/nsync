@@ -26,6 +26,8 @@ var etcdClient storeadapter.StoreAdapter
 var consulRunner *consuladapter.ClusterRunner
 var consulSession *consuladapter.Session
 
+const assetsPath = "../../../../cloudfoundry/storeadapter/assets/"
+
 func TestBulker(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Bulker Suite")
@@ -54,7 +56,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	etcdPort := 5001 + GinkgoParallelNode()
 	receptorPort = 6001 + GinkgoParallelNode()
 
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1,
+		&etcdstorerunner.SSLConfig{
+			CertFile: assetsPath + "server.crt",
+			KeyFile:  assetsPath + "server.key",
+			CAFile:   assetsPath + "ca.crt",
+		})
 
 	consulRunner = consuladapter.NewClusterRunner(
 		9001+config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength,
@@ -64,7 +71,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	bulkerPath = string(binaries["bulker"])
 	receptorPath = string(binaries["receptor"])
-	etcdClient = etcdRunner.Adapter()
+	etcdClient = etcdRunner.Adapter(&etcdstorerunner.SSLConfig{
+		CertFile: assetsPath + "client.crt",
+		KeyFile:  assetsPath + "client.key",
+		CAFile:   assetsPath + "ca.crt",
+	})
 })
 
 var _ = BeforeEach(func() {

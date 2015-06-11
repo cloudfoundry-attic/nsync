@@ -25,6 +25,8 @@ var natsPort int
 var consulRunner *consuladapter.ClusterRunner
 var consulSession *consuladapter.Session
 
+const assetsPath = "../../../../cloudfoundry/storeadapter/assets/"
+
 func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Listener Suite")
@@ -57,7 +59,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	etcdPort := 5001 + GinkgoParallelNode()
 	receptorPort = 6001 + GinkgoParallelNode()*2
 
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1,
+		&etcdstorerunner.SSLConfig{
+			CertFile: assetsPath + "server.crt",
+			KeyFile:  assetsPath + "server.key",
+			CAFile:   assetsPath + "ca.crt",
+		})
 
 	consulRunner = consuladapter.NewClusterRunner(
 		9001+config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength,
