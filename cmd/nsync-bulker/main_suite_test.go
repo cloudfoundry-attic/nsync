@@ -54,7 +54,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	etcdPort := 5001 + GinkgoParallelNode()
 	receptorPort = 6001 + GinkgoParallelNode()
 
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1, nil)
 
 	consulRunner = consuladapter.NewClusterRunner(
 		9001+config.GinkgoConfig.ParallelNode*consuladapter.PortOffsetLength,
@@ -64,7 +64,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	bulkerPath = string(binaries["bulker"])
 	receptorPath = string(binaries["receptor"])
-	etcdClient = etcdRunner.Adapter()
+	etcdClient = etcdRunner.Adapter(nil)
 })
 
 var _ = BeforeEach(func() {

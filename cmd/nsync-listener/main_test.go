@@ -97,7 +97,7 @@ var _ = Describe("Nsync Listener", func() {
 		requestGenerator = rata.NewRequestGenerator(nsyncURL, nsync.Routes)
 		httpClient = http.DefaultClient
 
-		etcdAdapter = etcdRunner.Adapter()
+		etcdAdapter = etcdRunner.Adapter(nil)
 		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
 		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
 		logger = lagertest.NewTestLogger("test")
