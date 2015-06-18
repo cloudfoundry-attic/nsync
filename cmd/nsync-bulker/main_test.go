@@ -495,7 +495,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
-						Eventually(fullBBS.Domains).Should(ContainElement("cf-apps"))
+						Eventually(func() []string {
+							resp, err := fullBBS.Domains()
+							Expect(err).NotTo(HaveOccurred())
+							return resp
+						}).Should(ContainElement("cf-apps"))
 					})
 				})
 
