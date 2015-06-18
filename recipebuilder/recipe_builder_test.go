@@ -283,11 +283,6 @@ var _ = Describe("Recipe Builder", func() {
 						To:       ".",
 						CacheKey: "droplets-the-app-guid-the-app-version",
 					},
-					&models.DownloadAction{
-						From:     "http://file-server.com/v1/static/diego-sshd/diego-sshd.tgz",
-						To:       "/tmp/ssh",
-						CacheKey: "diego-sshd",
-					},
 				}...)
 
 				Expect(desiredLRP.Setup).To(Equal(expectedSetup))
@@ -314,7 +309,7 @@ var _ = Describe("Recipe Builder", func() {
 						LogSource: "APP",
 					},
 					&models.RunAction{
-						Path: "/tmp/ssh/diego-sshd",
+						Path: "/tmp/lifecycle/diego-sshd",
 						Args: []string{
 							"-address=0.0.0.0:2222",
 							"-hostKey=pem-host-private-key",

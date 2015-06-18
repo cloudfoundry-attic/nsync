@@ -38,8 +38,6 @@ const (
 	DefaultSSHPort = uint16(2222)
 
 	DefaultLANG = "en_US.UTF-8"
-
-	DiegoSSHDArchive = "diego-sshd.tgz"
 )
 
 type Error struct {
@@ -187,12 +185,6 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	desiredAppPorts := []uint16{DefaultPort}
 
 	if desiredApp.AllowSSH {
-		setup = append(setup, &models.DownloadAction{
-			From:     b.sshdDownloadURL(b.fileServerURL),
-			To:       "/tmp/ssh",
-			CacheKey: "diego-sshd",
-		})
-
 		hostKeyPair, err := b.keyFactory.NewKeyPair(1024)
 		if err != nil {
 			buildLogger.Error("new-host-key-pair-failed", err)
@@ -206,7 +198,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		}
 
 		actions = append(actions, &models.RunAction{
-			Path: "/tmp/ssh/diego-sshd",
+			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
 				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
 				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
@@ -281,15 +273,6 @@ func (b RecipeBuilder) lifecycleDownloadURL(lifecyclePath string, fileServerURL 
 	}
 
 	return urljoiner.Join(fileServerURL, staticPath, lifecyclePath)
-}
-
-func (b RecipeBuilder) sshdDownloadURL(fileServerURL string) string {
-	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
-	if err != nil {
-		panic("couldn't generate the download path for the diego ssh daemon: " + err.Error())
-	}
-
-	return urljoiner.Join(fileServerURL, staticPath, "diego-sshd", DiegoSSHDArchive)
 }
 
 func createLrpEnv(env []models.EnvironmentVariable) []models.EnvironmentVariable {
