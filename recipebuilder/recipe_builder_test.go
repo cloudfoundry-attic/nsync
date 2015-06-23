@@ -163,6 +163,7 @@ var _ = Describe("Recipe Builder", func() {
 			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
+					User:      "vcap",
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
@@ -218,6 +219,7 @@ var _ = Describe("Recipe Builder", func() {
 				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
+						User:           "vcap",
 						Path:           "/tmp/lifecycle/healthcheck",
 						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
@@ -293,6 +295,7 @@ var _ = Describe("Recipe Builder", func() {
 
 				expectedAction := models.Codependent([]models.Action{
 					&models.RunAction{
+						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
 							"app",
@@ -309,6 +312,7 @@ var _ = Describe("Recipe Builder", func() {
 						LogSource: "APP",
 					},
 					&models.RunAction{
+						User: "vcap",
 						Path: "/tmp/lifecycle/diego-sshd",
 						Args: []string{
 							"-address=0.0.0.0:2222",

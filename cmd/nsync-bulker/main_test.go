@@ -362,6 +362,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
+						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -375,6 +376,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
+							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
@@ -411,6 +413,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
+						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
 						Env: []models.EnvironmentVariable{
@@ -424,6 +427,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
+							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
@@ -460,6 +464,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
+						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-3", "execution-metadata-3"},
 						Env: []models.EnvironmentVariable{
@@ -471,6 +476,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Monitor: &models.TimeoutAction{
 						Timeout: 30 * time.Second,
 						Action: &models.RunAction{
+							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
@@ -533,6 +539,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					RootFS:      models.PreloadedRootFS("some-stack"),
 					Instances:   1,
 					Action: &models.RunAction{
+						User: "me",
 						Path: "reboot",
 					},
 				}

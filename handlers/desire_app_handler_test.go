@@ -96,6 +96,7 @@ var _ = Describe("DesireAppHandler", func() {
 				Instances:   1,
 				RootFS:      models.PreloadedRootFS("stack-2"),
 				Action: &models.RunAction{
+					User: "me",
 					Path: "ls",
 				},
 				Annotation: "last-modified-etag",

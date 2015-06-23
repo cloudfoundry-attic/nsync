@@ -146,6 +146,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		monitor = &models.TimeoutAction{
 			Timeout: 30 * time.Second,
 			Action: &models.RunAction{
+				User:      "vcap",
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{"-port=8080"},
 				LogSource: HealthLogSource,
@@ -165,6 +166,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 	}
 
 	actions = append(actions, &models.RunAction{
+		User: "vcap",
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
 			[]string{"app"},
@@ -198,6 +200,7 @@ func (b *RecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*
 		}
 
 		actions = append(actions, &models.RunAction{
+			User: "vcap",
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
 				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
