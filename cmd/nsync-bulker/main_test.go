@@ -51,6 +51,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 	startReceptor := func() ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
 			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
+			BBSAddress:    bbsURL.String(),
 			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
 			ConsulCluster: consulRunner.ConsulCluster(),
 		}))
@@ -85,7 +86,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	itIsMissingDomain := func() {
 		It("is missing domain", func() {
-			Eventually(fullBBS.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
+			Eventually(receptorClient.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
@@ -502,7 +503,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
 						Eventually(func() []string {
-							resp, err := fullBBS.Domains()
+							resp, err := receptorClient.Domains()
 							Expect(err).NotTo(HaveOccurred())
 							return resp
 						}).Should(ContainElement("cf-apps"))
@@ -511,7 +512,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(fullBBS.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
+						Eventually(receptorClient.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
@@ -520,7 +521,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Eventually(func() ([]string, error) {
 							logger := logger.Session("domain-polling")
 							logger.Debug("getting-domains")
-							domains, err := fullBBS.Domains()
+							domains, err := receptorClient.Domains()
 							logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 							return domains, err
 						}, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
@@ -570,7 +571,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(fullBBS.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
+			Eventually(receptorClient.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
 			consulRunner.Reset()
 		})
@@ -618,7 +619,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Eventually(func() ([]string, error) {
 					logger := logger.Session("domain-polling")
 					logger.Debug("getting-domains")
-					domains, err := fullBBS.Domains()
+					domains, err := receptorClient.Domains()
 					logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 					return domains, err
 				}, 4*domainTTL).Should(ContainElement("cf-apps"))

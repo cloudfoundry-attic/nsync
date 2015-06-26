@@ -52,6 +52,7 @@ var _ = Describe("Nsync Listener", func() {
 			TaskHandlerAddress: taskAddress,
 			EtcdCluster:        strings.Join(etcdRunner.NodeURLS(), ","),
 			ConsulCluster:      consulRunner.ConsulCluster(),
+			BBSAddress:         bbsURL.String(),
 		}))
 	}
 
