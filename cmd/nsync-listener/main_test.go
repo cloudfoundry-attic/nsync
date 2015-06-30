@@ -192,7 +192,7 @@ var _ = Describe("Nsync Listener", func() {
 		It("fails when the index is invalid", func() {
 			resp, err := killIndex("the-guid", 4)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})
 })

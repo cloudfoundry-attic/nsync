@@ -59,7 +59,7 @@ func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request
 		switch e := err.(type) {
 		case receptor.Error:
 			if e.Type == receptor.ActualLRPIndexNotFound {
-				status = http.StatusBadRequest
+				status = http.StatusNotFound
 			}
 		default:
 		}

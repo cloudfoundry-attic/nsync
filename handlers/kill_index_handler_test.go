@@ -66,6 +66,16 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 	})
 
+	Context("when the receptor cannot find the guid", func() {
+		BeforeEach(func() {
+			fakeReceptor.KillActualLRPByProcessGuidAndIndexReturns(receptor.Error{Type: receptor.ActualLRPIndexNotFound})
+		})
+
+		It("responds with a NotFound error", func() {
+			Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
 	Context("when the process guid is missing", func() {
 		BeforeEach(func() {
 			request.Form.Del(":process_guid")
@@ -120,8 +130,8 @@ var _ = Describe("KillIndexHandler", func() {
 			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(Equal(1))
 		})
 
-		It("responds with 400 Bad Request", func() {
-			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+		It("responds with 404 Not Found", func() {
+			Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
