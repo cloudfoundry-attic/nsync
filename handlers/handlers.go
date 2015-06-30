@@ -4,14 +4,15 @@ import (
 	"net/http"
 
 	"github.com/cloudfoundry-incubator/nsync"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )
 
-func New(logger lager.Logger, diegoClient receptor.Client, recipebuilder RecipeBuilder) http.Handler {
+func New(logger lager.Logger, diegoClient receptor.Client, recipebuilders map[string]recipebuilder.RecipeBuilder) http.Handler {
 
-	desireAppHandler := NewDesireAppHandler(logger, diegoClient, recipebuilder)
+	desireAppHandler := NewDesireAppHandler(logger, diegoClient, recipebuilders)
 	stopAppHandler := NewStopAppHandler(logger, diegoClient)
 	killIndexHandler := NewKillIndexHandler(logger, diegoClient)
 

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
@@ -17,6 +19,7 @@ import (
 	"github.com/cloudfoundry/dropsonde/metrics"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/pivotal-golang/clock/fakeclock"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -28,9 +31,10 @@ var _ = Describe("Processor", func() {
 		fingerprintsToFetch []cc_messages.CCDesiredAppFingerprint
 		existingDesired     []receptor.DesiredLRPResponse
 
-		receptorClient *fake_receptor.FakeClient
-		fetcher        *fakes.FakeFetcher
-		recipeBuilder  *fakes.FakeRecipeBuilder
+		receptorClient         *fake_receptor.FakeClient
+		fetcher                *fakes.FakeFetcher
+		buildpackRecipeBuilder *fakes.FakeRecipeBuilder
+		dockerRecipeBuilder    *fakes.FakeRecipeBuilder
 
 		processor ifrit.Runner
 
@@ -40,6 +44,8 @@ var _ = Describe("Processor", func() {
 		clock        *fakeclock.FakeClock
 
 		pollingInterval time.Duration
+
+		logger *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
@@ -53,6 +59,7 @@ var _ = Describe("Processor", func() {
 		fingerprintsToFetch = []cc_messages.CCDesiredAppFingerprint{
 			{ProcessGuid: "current-process-guid", ETag: "current-etag"},
 			{ProcessGuid: "stale-process-guid", ETag: "new-etag"},
+			{ProcessGuid: "docker-process-guid", ETag: "new-etag"},
 			{ProcessGuid: "new-process-guid", ETag: "new-etag"},
 		}
 
@@ -62,6 +69,13 @@ var _ = Describe("Processor", func() {
 			{
 				ProcessGuid: "stale-process-guid",
 				Annotation:  "stale-etag",
+				Routes: receptor.RoutingInfo{
+					"router-route-data": &staleRouteMessage,
+				},
+			},
+			{
+				ProcessGuid: "docker-process-guid",
+				Annotation:  "docker-etag",
 				Routes: receptor.RoutingInfo{
 					"router-route-data": &staleRouteMessage,
 				},
@@ -100,6 +114,9 @@ var _ = Describe("Processor", func() {
 					ETag:        fingerprint.ETag,
 					Routes:      []string{"host-" + fingerprint.ProcessGuid},
 				}
+				if strings.HasPrefix(fingerprint.ProcessGuid, "docker") {
+					lrp.DockerImageUrl = "some-image"
+				}
 				results = append(results, lrp)
 			}
 
@@ -113,8 +130,20 @@ var _ = Describe("Processor", func() {
 			return desired, errors
 		}
 
-		recipeBuilder = new(fakes.FakeRecipeBuilder)
-		recipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
+		buildpackRecipeBuilder = new(fakes.FakeRecipeBuilder)
+		buildpackRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
+			createRequest := receptor.DesiredLRPCreateRequest{
+				ProcessGuid: ccRequest.ProcessGuid,
+				Annotation:  ccRequest.ETag,
+			}
+			return &createRequest, nil
+		}
+		buildpackRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+			return 8080, nil
+		}
+
+		dockerRecipeBuilder = new(fakes.FakeRecipeBuilder)
+		dockerRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
 			createRequest := receptor.DesiredLRPCreateRequest{
 				ProcessGuid: ccRequest.ProcessGuid,
 				Annotation:  ccRequest.ETag,
@@ -130,15 +159,20 @@ var _ = Describe("Processor", func() {
 			return nil
 		}
 
+		logger = lagertest.NewTestLogger("test")
+
 		processor = bulk.NewProcessor(
 			receptorClient,
 			500*time.Millisecond,
 			time.Second,
 			10,
 			false,
-			lagertest.NewTestLogger("test"),
+			logger,
 			fetcher,
-			recipeBuilder,
+			map[string]recipebuilder.RecipeBuilder{
+				"buildpack": buildpackRecipeBuilder,
+				"docker":    dockerRecipeBuilder,
+			},
 			clock,
 		)
 	})
@@ -172,7 +206,7 @@ var _ = Describe("Processor", func() {
 		It("does not call the differ, the fetcher, or the receptor client for updates", func() {
 			Consistently(fetcher.FetchFingerprintsCallCount).Should(Equal(0))
 			Consistently(fetcher.FetchDesiredAppsCallCount).Should(Equal(0))
-			Consistently(recipeBuilder.BuildCallCount).Should(Equal(0))
+			Consistently(buildpackRecipeBuilder.BuildCallCount).Should(Equal(0))
 			Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 			Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(0))
@@ -210,7 +244,7 @@ var _ = Describe("Processor", func() {
 
 		It("sends the creates and updates for the apps it got but not the deletes", func() {
 			Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-			Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+			Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
 		})
 	})
@@ -236,10 +270,10 @@ var _ = Describe("Processor", func() {
 
 		Context("and the differ discovers missing apps", func() {
 			It("uses the recipe builder to construct the create LRP request", func() {
-				Eventually(recipeBuilder.BuildCallCount).Should(Equal(1))
-				Consistently(recipeBuilder.BuildCallCount).Should(Equal(1))
+				Eventually(buildpackRecipeBuilder.BuildCallCount).Should(Equal(1))
+				Consistently(buildpackRecipeBuilder.BuildCallCount).Should(Equal(1))
 
-				Eventually(recipeBuilder.BuildArgsForCall(0)).Should(Equal(
+				Eventually(buildpackRecipeBuilder.BuildArgsForCall(0)).Should(Equal(
 					&cc_messages.DesireAppRequestFromCC{
 						ProcessGuid: "new-process-guid",
 						ETag:        "new-etag",
@@ -296,7 +330,7 @@ var _ = Describe("Processor", func() {
 
 			Context("when building the desire LRP request fails", func() {
 				BeforeEach(func() {
-					recipeBuilder.BuildReturns(nil, errors.New("nope"))
+					buildpackRecipeBuilder.BuildReturns(nil, errors.New("nope"))
 				})
 
 				It("keeps calm and carries on", func() {
@@ -313,8 +347,8 @@ var _ = Describe("Processor", func() {
 						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
-						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
-						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
 						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
 						Expect(updatedGuid).To(Equal("stale-process-guid"))
@@ -341,8 +375,8 @@ var _ = Describe("Processor", func() {
 						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
 						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
-						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
-						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
 						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
 						Expect(updatedGuid).To(Equal("stale-process-guid"))
@@ -398,24 +432,41 @@ var _ = Describe("Processor", func() {
 		})
 
 		Context("and the differ detects stale lrps", func() {
-			It("sends the correct update desired lrp request", func() {
-				Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(1))
+			var (
+				expectedEtag      = "new-etag"
+				expectedInstances = 0
 
-				expectedEtag := "new-etag"
-				expectedInstances := 0
+				expectedRouteHost   string
+				expectedPort        uint16
+				expectedRoutingInfo receptor.RoutingInfo
+
+				expectedClientCallCount int
+			)
+
+			BeforeEach(func() {
+				expectedPort = 8080
+				expectedRouteHost = "host-stale-process-guid"
+				expectedClientCallCount = 2
+			})
+
+			JustBeforeEach(func() {
+				Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(expectedClientCallCount))
+
 				opaqueRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
 				cfRoute := cfroutes.CFRoutes{
-					{Hostnames: []string{"host-stale-process-guid"}, Port: 8080},
+					{Hostnames: []string{expectedRouteHost}, Port: expectedPort},
 				}
 				cfRoutePayload, err := json.Marshal(cfRoute)
 				Expect(err).NotTo(HaveOccurred())
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 
-				expectedRoutingInfo := receptor.RoutingInfo{
+				expectedRoutingInfo = receptor.RoutingInfo{
 					"router-route-data": &opaqueRouteMessage,
 					cfroutes.CF_ROUTER:  &cfRouteMessage,
 				}
+			})
 
+			It("sends the correct update desired lrp request", func() {
 				processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
 				Expect(processGuid).To(Equal("stale-process-guid"))
 				Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
@@ -423,23 +474,71 @@ var _ = Describe("Processor", func() {
 					Instances:  &expectedInstances,
 					Routes:     expectedRoutingInfo,
 				}))
-
 			})
 
-			Context("when updating the desired lrp fails", func() {
+			Context("with exposed docker port", func() {
 				BeforeEach(func() {
-					receptorClient.UpdateDesiredLRPReturns(errors.New("boom"))
+					expectedRouteHost = "host-docker-process-guid"
+					expectedPort = 7070
+
+					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+						return expectedPort, nil
+					}
 				})
 
-				It("does not update the domain", func() {
-					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				It("sends the correct port in the desired lrp request", func() {
+					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(1)
+					Expect(processGuid).To(Equal("docker-process-guid"))
+					Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
+						Annotation: &expectedEtag,
+						Instances:  &expectedInstances,
+						Routes:     expectedRoutingInfo,
+					}))
+				})
+			})
+
+			Context("with incorrect docker port", func() {
+				BeforeEach(func() {
+					expectedClientCallCount = 1
+					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+						return 0, errors.New("our-specific-test-error")
+					}
 				})
 
-				It("sends all the other updates", func() {
-					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				It("sends the correct update desired lrp request", func() {
+					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
+					Expect(processGuid).To(Equal("stale-process-guid"))
+					Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
+						Annotation: &expectedEtag,
+						Instances:  &expectedInstances,
+						Routes:     expectedRoutingInfo,
+					}))
+				})
+
+				It("logs an error for the incorrect docker port", func() {
+					Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`"data":{"error":"our-specific-test-error","process-guid":"docker-process-guid"`))
+				})
+
+				It("propagates the error", func() {
+					Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`sync.not-bumping-freshness-because-of","log_level":2,"data":{"error":"our-specific-test-error"`))
 				})
 			})
 		})
+
+		Context("when updating the desired lrp fails", func() {
+			BeforeEach(func() {
+				receptorClient.UpdateDesiredLRPReturns(errors.New("boom"))
+			})
+
+			It("does not update the domain", func() {
+				Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+			})
+
+			It("sends all the other updates", func() {
+				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
+				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+			})
+		})
+
 	})
 })

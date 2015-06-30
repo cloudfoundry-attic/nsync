@@ -131,7 +131,15 @@ func main() {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
 
-	recipeBuilder := recipebuilder.New(logger, lifecycles, *fileServerURL, keys.RSAKeyPairFactory)
+	recipeBuilderConfig := recipebuilder.Config{
+		Lifecycles:    lifecycles,
+		FileServerURL: *fileServerURL,
+		KeyFactory:    keys.RSAKeyPairFactory,
+	}
+	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
+		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),
+		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
+	}
 
 	lockMaintainer := nsyncBBS.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
@@ -148,7 +156,7 @@ func main() {
 			Username:  *ccUsername,
 			Password:  *ccPassword,
 		},
-		recipeBuilder,
+		recipeBuilders,
 		clock.NewClock(),
 	)
 

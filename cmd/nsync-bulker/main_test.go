@@ -256,14 +256,16 @@ var _ = Describe("Syncing desired state with CC", func() {
 			}`), &existing2)
 			Expect(err).NotTo(HaveOccurred())
 
-			builder := recipebuilder.New(
+			builder := recipebuilder.NewBuildpackRecipeBuilder(
 				lagertest.NewTestLogger("test"),
-				map[string]string{
-					"buildpack/some-stack": "some-health-check.tar.gz",
-					"docker":               "the/docker/lifecycle/path.tgz",
+				recipebuilder.Config{
+					Lifecycles: map[string]string{
+						"buildpack/some-stack": "some-health-check.tar.gz",
+						"docker":               "the/docker/lifecycle/path.tgz",
+					},
+					FileServerURL: "http://file-server.com",
+					KeyFactory:    keys.RSAKeyPairFactory,
 				},
-				"http://file-server.com",
-				keys.RSAKeyPairFactory,
 			)
 
 			desired1, err = builder.Build(&existing1)

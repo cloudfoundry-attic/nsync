@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,8 @@ var _ = Describe("DesireAppHandler", func() {
 	var (
 		logger           *lagertest.TestLogger
 		fakeReceptor     *fake_receptor.FakeClient
-		builder          *fakes.FakeRecipeBuilder
+		buildpackBuilder *fakes.FakeRecipeBuilder
+		dockerBuilder    *fakes.FakeRecipeBuilder
 		desireAppRequest cc_messages.DesireAppRequestFromCC
 		metricSender     *fake.FakeMetricSender
 
@@ -41,7 +43,8 @@ var _ = Describe("DesireAppHandler", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		fakeReceptor = new(fake_receptor.FakeClient)
-		builder = new(fakes.FakeRecipeBuilder)
+		buildpackBuilder = new(fakes.FakeRecipeBuilder)
+		dockerBuilder = new(fakes.FakeRecipeBuilder)
 
 		desireAppRequest = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "some-guid",
@@ -83,7 +86,10 @@ var _ = Describe("DesireAppHandler", func() {
 			request.Body = ioutil.NopCloser(reader)
 		}
 
-		handler := handlers.NewDesireAppHandler(logger, fakeReceptor, builder)
+		handler := handlers.NewDesireAppHandler(logger, fakeReceptor, map[string]recipebuilder.RecipeBuilder{
+			"buildpack": buildpackBuilder,
+			"docker":    dockerBuilder,
+		})
 		handler.DesireApp(responseRecorder, request)
 	})
 
@@ -106,7 +112,7 @@ var _ = Describe("DesireAppHandler", func() {
 				Type:    receptor.DesiredLRPNotFound,
 				Message: "Desired LRP with guid 'new-process-guid' not found",
 			})
-			builder.BuildReturns(&newlyDesiredLRP, nil)
+			buildpackBuilder.BuildReturns(&newlyDesiredLRP, nil)
 		})
 
 		It("creates the desired LRP", func() {
@@ -115,7 +121,7 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(fakeReceptor.GetDesiredLRPCallCount()).To(Equal(1))
 			Expect(fakeReceptor.CreateDesiredLRPArgsForCall(0)).To(Equal(newlyDesiredLRP))
 
-			Expect(builder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
+			Expect(buildpackBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 		})
 
 		It("responds with 202 Accepted", func() {
@@ -169,12 +175,12 @@ var _ = Describe("DesireAppHandler", func() {
 
 		Context("when building the recipe fails to build", func() {
 			BeforeEach(func() {
-				builder.BuildReturns(nil, recipebuilder.ErrAppSourceMissing)
+				buildpackBuilder.BuildReturns(nil, recipebuilder.ErrDropletSourceMissing)
 			})
 
 			It("logs an error", func() {
 				Eventually(logger.TestSink.Buffer).Should(gbytes.Say("failed-to-build-recipe"))
-				Eventually(logger.TestSink.Buffer).Should(gbytes.Say(recipebuilder.ErrAppSourceMissing.Message))
+				Eventually(logger.TestSink.Buffer).Should(gbytes.Say(recipebuilder.ErrDropletSourceMissing.Message))
 			})
 
 			It("does not desire the LRP", func() {
@@ -185,12 +191,55 @@ var _ = Describe("DesireAppHandler", func() {
 				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
+
+		Context("when the LRP has docker image", func() {
+			var newlyDesiredDockerLRP receptor.DesiredLRPCreateRequest
+
+			BeforeEach(func() {
+				desireAppRequest.DropletUri = ""
+				desireAppRequest.DockerImageUrl = "docker:///user/repo#tag"
+
+				newlyDesiredDockerLRP = receptor.DesiredLRPCreateRequest{
+					ProcessGuid: "new-process-guid",
+					Instances:   1,
+					RootFS:      "docker:///user/repo#tag",
+					Action: &models.RunAction{
+						User: "me",
+						Path: "ls",
+					},
+					Annotation: "last-modified-etag",
+				}
+
+				dockerBuilder.BuildReturns(&newlyDesiredDockerLRP, nil)
+			})
+
+			It("creates the desired LRP", func() {
+				Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
+
+				Expect(fakeReceptor.GetDesiredLRPCallCount()).To(Equal(1))
+				Expect(fakeReceptor.CreateDesiredLRPArgsForCall(0)).To(Equal(newlyDesiredDockerLRP))
+
+				Expect(dockerBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
+			})
+
+			It("responds with 202 Accepted", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
+			})
+
+			It("increments the desired LRPs counter", func() {
+				Expect(metricSender.GetCounter("LRPsDesired")).To(Equal(uint64(1)))
+			})
+		})
 	})
 
 	Context("when desired LRP already exists", func() {
 		var opaqueRoutingMessage json.RawMessage
 
 		BeforeEach(func() {
+			buildpackBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint16, error) {
+				return 8080, nil
+			}
+
 			cfRoute := cfroutes.CFRoute{
 				Hostnames: []string{"route1"},
 				Port:      8080,
@@ -214,7 +263,7 @@ var _ = Describe("DesireAppHandler", func() {
 			Eventually(fakeReceptor.GetDesiredLRPCallCount).Should(Equal(1))
 		})
 
-		It("updates the LRP without stepping on opaque routing data", func() {
+		opaqueRoutingDataCheck := func(port uint16) {
 			Eventually(fakeReceptor.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 			processGuid, updateRequest := fakeReceptor.UpdateDesiredLRPArgsForCall(0)
@@ -223,7 +272,7 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
 
 			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
-				{Hostnames: []string{"route1", "route2"}, Port: 8080},
+				{Hostnames: []string{"route1", "route2"}, Port: port},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -232,11 +281,21 @@ var _ = Describe("DesireAppHandler", func() {
 				cfroutes.CF_ROUTER:        &expectedCfRouteMessage,
 				"some-other-routing-data": &opaqueRoutingMessage,
 			}))
+		}
 
+		It("updates the LRP without stepping on opaque routing data", func() {
+			opaqueRoutingDataCheck(8080)
 		})
 
 		It("responds with 202 Accepted", func() {
 			Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
+		})
+
+		It("uses buildpack builder", func() {
+			Expect(dockerBuilder.ExtractExposedPortCallCount()).To(Equal(0))
+			Expect(buildpackBuilder.ExtractExposedPortCallCount()).To(Equal(1))
+
+			Expect(buildpackBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(""))
 		})
 
 		Context("when the receptor fails", func() {
@@ -256,6 +315,58 @@ var _ = Describe("DesireAppHandler", func() {
 
 			It("responds with a Conflict error", func() {
 				Expect(responseRecorder.Code).To(Equal(http.StatusConflict))
+			})
+		})
+
+		Context("when the LRP has docker image", func() {
+			var (
+				existingDesiredDockerLRP receptor.DesiredLRPCreateRequest
+				expectedPort             uint16
+				expectedMetadata         string
+			)
+
+			BeforeEach(func() {
+				desireAppRequest.DropletUri = ""
+				desireAppRequest.DockerImageUrl = "docker:///user/repo#tag"
+
+				expectedMetadata = fmt.Sprintf(`{"ports": {"port": %d, "protocol":"http"}}`, expectedPort)
+				desireAppRequest.ExecutionMetadata = expectedMetadata
+
+				dockerBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint16, error) {
+					return expectedPort, nil
+				}
+
+				existingDesiredDockerLRP = receptor.DesiredLRPCreateRequest{
+					ProcessGuid: "new-process-guid",
+					Instances:   1,
+					RootFS:      "docker:///user/repo#tag",
+					Action: &models.RunAction{
+						User: "me",
+						Path: "ls",
+					},
+					Annotation: "last-modified-etag",
+				}
+
+				dockerBuilder.BuildReturns(&existingDesiredDockerLRP, nil)
+			})
+
+			It("checks to see if LRP already exists", func() {
+				Eventually(fakeReceptor.GetDesiredLRPCallCount).Should(Equal(1))
+			})
+
+			It("updates the LRP without stepping on opaque routing data", func() {
+				opaqueRoutingDataCheck(expectedPort)
+			})
+
+			It("responds with 202 Accepted", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
+			})
+
+			It("uses docker builder", func() {
+				Expect(buildpackBuilder.ExtractExposedPortCallCount()).To(Equal(0))
+				Expect(dockerBuilder.ExtractExposedPortCallCount()).To(Equal(1))
+
+				Expect(dockerBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(expectedMetadata))
 			})
 		})
 	})

@@ -23,11 +23,6 @@ const (
 	syncDesiredLRPsDuration = metric.Duration("DesiredLRPSyncDuration")
 )
 
-//go:generate counterfeiter -o fakes/fake_recipe_builder.go . RecipeBuilder
-type RecipeBuilder interface {
-	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
-}
-
 type Processor struct {
 	receptorClient  receptor.Client
 	pollingInterval time.Duration
@@ -36,7 +31,7 @@ type Processor struct {
 	skipCertVerify  bool
 	logger          lager.Logger
 	fetcher         Fetcher
-	builder         RecipeBuilder
+	builders        map[string]recipebuilder.RecipeBuilder
 	clock           clock.Clock
 }
 
@@ -48,7 +43,7 @@ func NewProcessor(
 	skipCertVerify bool,
 	logger lager.Logger,
 	fetcher Fetcher,
-	builder RecipeBuilder,
+	builders map[string]recipebuilder.RecipeBuilder,
 	clock clock.Clock,
 ) *Processor {
 	return &Processor{
@@ -59,7 +54,7 @@ func NewProcessor(
 		skipCertVerify:  skipCertVerify,
 		logger:          logger,
 		fetcher:         fetcher,
-		builder:         builder,
+		builders:        builders,
 		clock:           clock,
 	}
 }
@@ -237,10 +232,14 @@ func (p *Processor) createMissingDesiredLRPs(
 
 			for i, desireAppRequest := range desireAppRequests {
 				desireAppRequest := desireAppRequest
+				var builder recipebuilder.RecipeBuilder = p.builders["buildpack"]
+				if desireAppRequest.DockerImageUrl != "" {
+					builder = p.builders["docker"]
+				}
 
 				works[i] = func() {
 					logger.Debug("building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
-					createReq, err := p.builder.Build(&desireAppRequest)
+					createReq, err := builder.Build(&desireAppRequest)
 					if err != nil {
 						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{"process-guid": desireAppRequest.ProcessGuid})
 						errc <- err
@@ -306,6 +305,10 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 			for i, desireAppRequest := range staleAppRequests {
 				desireAppRequest := desireAppRequest
+				var builder recipebuilder.RecipeBuilder = p.builders["buildpack"]
+				if desireAppRequest.DockerImageUrl != "" {
+					builder = p.builders["docker"]
+				}
 
 				works[i] = func() {
 					processGuid := desireAppRequest.ProcessGuid
@@ -314,8 +317,18 @@ func (p *Processor) updateStaleDesiredLRPs(
 					updateReq := receptor.DesiredLRPUpdateRequest{}
 					updateReq.Instances = &desireAppRequest.NumInstances
 					updateReq.Annotation = &desireAppRequest.ETag
+
+					exposedPort, err := builder.ExtractExposedPort(desireAppRequest.ExecutionMetadata)
+					if err != nil {
+						logger.Error("failed-updating-stale-lrp", err, lager.Data{
+							"process-guid": processGuid,
+						})
+						errc <- err
+						return
+					}
+
 					updateReq.Routes = cfroutes.CFRoutes{
-						{Hostnames: desireAppRequest.Routes, Port: recipebuilder.DefaultPort},
+						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
 					}.RoutingInfo()
 
 					for k, v := range existingLRP.Routes {
@@ -325,7 +338,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					}
 
 					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
-					err := p.receptorClient.UpdateDesiredLRP(processGuid, updateReq)
+					err = p.receptorClient.UpdateDesiredLRP(processGuid, updateReq)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid": processGuid,

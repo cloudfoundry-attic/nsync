@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/cloudfoundry-incubator/nsync/bulk"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
@@ -17,6 +17,15 @@ type FakeRecipeBuilder struct {
 	}
 	buildReturns struct {
 		result1 *receptor.DesiredLRPCreateRequest
+		result2 error
+	}
+	ExtractExposedPortStub        func(desiredAppMetadata string) (uint16, error)
+	extractExposedPortMutex       sync.RWMutex
+	extractExposedPortArgsForCall []struct {
+		desiredAppMetadata string
+	}
+	extractExposedPortReturns struct {
+		result1 uint16
 		result2 error
 	}
 }
@@ -54,4 +63,37 @@ func (fake *FakeRecipeBuilder) BuildReturns(result1 *receptor.DesiredLRPCreateRe
 	}{result1, result2}
 }
 
-var _ bulk.RecipeBuilder = new(FakeRecipeBuilder)
+func (fake *FakeRecipeBuilder) ExtractExposedPort(desiredAppMetadata string) (uint16, error) {
+	fake.extractExposedPortMutex.Lock()
+	fake.extractExposedPortArgsForCall = append(fake.extractExposedPortArgsForCall, struct {
+		desiredAppMetadata string
+	}{desiredAppMetadata})
+	fake.extractExposedPortMutex.Unlock()
+	if fake.ExtractExposedPortStub != nil {
+		return fake.ExtractExposedPortStub(desiredAppMetadata)
+	} else {
+		return fake.extractExposedPortReturns.result1, fake.extractExposedPortReturns.result2
+	}
+}
+
+func (fake *FakeRecipeBuilder) ExtractExposedPortCallCount() int {
+	fake.extractExposedPortMutex.RLock()
+	defer fake.extractExposedPortMutex.RUnlock()
+	return len(fake.extractExposedPortArgsForCall)
+}
+
+func (fake *FakeRecipeBuilder) ExtractExposedPortArgsForCall(i int) string {
+	fake.extractExposedPortMutex.RLock()
+	defer fake.extractExposedPortMutex.RUnlock()
+	return fake.extractExposedPortArgsForCall[i].desiredAppMetadata
+}
+
+func (fake *FakeRecipeBuilder) ExtractExposedPortReturns(result1 uint16, result2 error) {
+	fake.ExtractExposedPortStub = nil
+	fake.extractExposedPortReturns = struct {
+		result1 uint16
+		result2 error
+	}{result1, result2}
+}
+
+var _ recipebuilder.RecipeBuilder = new(FakeRecipeBuilder)

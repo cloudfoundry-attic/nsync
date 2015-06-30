@@ -13,27 +13,28 @@ import (
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/pivotal-golang/lager"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/pivotal-golang/lager/lagertest"
 )
 
-var _ = Describe("Recipe Builder", func() {
+var _ = Describe("Docker Recipe Builder", func() {
 	var (
-		builder        *recipebuilder.RecipeBuilder
+		builder        *recipebuilder.DockerRecipeBuilder
 		err            error
 		desiredAppReq  cc_messages.DesireAppRequestFromCC
 		desiredLRP     *receptor.DesiredLRPCreateRequest
 		lifecycles     map[string]string
 		egressRules    []models.SecurityGroupRule
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
+		logger         *lagertest.TestLogger
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
 
 	BeforeEach(func() {
-		logger := lager.NewLogger("fakelogger")
+		logger = lagertest.NewTestLogger("test")
 
 		lifecycles = map[string]string{
 			"buildpack/some-stack": "some-lifecycle.tgz",
@@ -49,14 +50,15 @@ var _ = Describe("Recipe Builder", func() {
 		}
 
 		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
-		builder = recipebuilder.New(logger, lifecycles, "http://file-server.com", fakeKeyFactory)
+		config := recipebuilder.Config{lifecycles, "http://file-server.com", fakeKeyFactory}
+		builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
 
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
-			DropletUri:        "http://the-droplet.uri.com",
 			Stack:             "some-stack",
 			StartCommand:      "the-start-command with-arguments",
-			ExecutionMetadata: "the-execution-metadata",
+			DockerImageUrl:    "user/repo:tag",
+			ExecutionMetadata: "{}",
 			Environment: cc_messages.Environment{
 				{Name: "foo", Value: "bar"},
 			},
@@ -125,30 +127,25 @@ var _ = Describe("Recipe Builder", func() {
 			}.RoutingInfo()))
 
 			Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
-			Expect(desiredLRP.RootFS).To(Equal(models.PreloadedRootFS("some-stack")))
+			Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
 			Expect(desiredLRP.MemoryMB).To(Equal(128))
 			Expect(desiredLRP.DiskMB).To(Equal(512))
 			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
-			Expect(desiredLRP.Privileged).To(BeTrue())
+			Expect(desiredLRP.Privileged).To(BeFalse())
 			Expect(desiredLRP.StartTimeout).To(Equal(uint(123456)))
 
 			Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 			Expect(desiredLRP.LogSource).To(Equal("CELL"))
 
-			Expect(desiredLRP.EnvironmentVariables).To(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+			Expect(desiredLRP.EnvironmentVariables).NotTo(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
 
 			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
 			expectedSetup := models.Serial([]models.Action{
 				&models.DownloadAction{
-					From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 					To:       "/tmp/lifecycle",
-					CacheKey: "buildpack-some-stack-lifecycle",
-				},
-				&models.DownloadAction{
-					From:     "http://the-droplet.uri.com",
-					To:       ".",
-					CacheKey: "droplets-the-app-guid-the-app-version",
+					CacheKey: "docker-lifecycle",
 				},
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
@@ -177,7 +174,7 @@ var _ = Describe("Recipe Builder", func() {
 			Expect(runAction.Args).To(Equal([]string{
 				"app",
 				"the-start-command with-arguments",
-				"the-execution-metadata",
+				"{}",
 			}))
 
 			Expect(runAction.LogSource).To(Equal("APP"))
@@ -276,18 +273,14 @@ var _ = Describe("Recipe Builder", func() {
 			It("setup should download the ssh daemon", func() {
 				expectedSetup := models.Serial([]models.Action{
 					&models.DownloadAction{
-						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+						From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 						To:       "/tmp/lifecycle",
-						CacheKey: "buildpack-some-stack-lifecycle",
-					},
-					&models.DownloadAction{
-						From:     "http://the-droplet.uri.com",
-						To:       ".",
-						CacheKey: "droplets-the-app-guid-the-app-version",
+						CacheKey: "docker-lifecycle",
 					},
 				}...)
 
 				Expect(desiredLRP.Setup).To(Equal(expectedSetup))
+				Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
 			})
 
 			It("runs the ssh daemon in the container", func() {
@@ -300,7 +293,7 @@ var _ = Describe("Recipe Builder", func() {
 						Args: []string{
 							"app",
 							"the-start-command with-arguments",
-							"the-execution-metadata",
+							"{}",
 						},
 						Env: []models.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
@@ -394,7 +387,7 @@ var _ = Describe("Recipe Builder", func() {
 	Context("when there is a docker image url instead of a droplet uri", func() {
 		BeforeEach(func() {
 			desiredAppReq.DockerImageUrl = "user/repo:tag"
-			desiredAppReq.DropletUri = ""
+			desiredAppReq.ExecutionMetadata = "{}"
 		})
 
 		It("does not error", func() {
@@ -415,6 +408,107 @@ var _ = Describe("Recipe Builder", func() {
 				To:       "/tmp/lifecycle",
 				CacheKey: "docker-lifecycle",
 			}))
+		})
+
+		It("exposes the default port", func() {
+			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+			Expect(ok).To(BeTrue())
+			Expect(parallelRunAction.Actions).To(HaveLen(1))
+
+			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+			Expect(ok).To(BeTrue())
+
+			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+				{Hostnames: []string{"route1", "route2"}, Port: 8080},
+			}.RoutingInfo()))
+
+			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
+
+			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+				Timeout: 30 * time.Second,
+				Action: &models.RunAction{
+					Path:      "/tmp/lifecycle/healthcheck",
+					Args:      []string{"-port=8080"},
+					LogSource: "HEALTH",
+					User:      "vcap",
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &defaultNofile,
+					},
+				},
+			}))
+
+			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+				Name:  "PORT",
+				Value: "8080",
+			}))
+		})
+
+		Context("when the docker image exposes several ports in its metadata", func() {
+			BeforeEach(func() {
+				desiredAppReq.ExecutionMetadata = `{"ports":[
+				  {"Port":320, "Protocol": "udp"},
+					{"Port":8081, "Protocol": "tcp"}
+				]}`
+			})
+
+			It("exposes the first encountered tcp port", func() {
+				parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+				Expect(ok).To(BeTrue())
+				Expect(parallelRunAction.Actions).To(HaveLen(1))
+
+				runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+				Expect(ok).To(BeTrue())
+
+				Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+					{Hostnames: []string{"route1", "route2"}, Port: 8081},
+				}.RoutingInfo()))
+
+				Expect(desiredLRP.Ports).To(Equal([]uint16{8081}))
+
+				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+					Timeout: 30 * time.Second,
+					Action: &models.RunAction{
+						Path:      "/tmp/lifecycle/healthcheck",
+						Args:      []string{"-port=8081"},
+						LogSource: "HEALTH",
+						User:      "vcap",
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &defaultNofile,
+						},
+					},
+				}))
+
+				Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+					Name:  "PORT",
+					Value: "8081",
+				}))
+			})
+		})
+
+		Context("when the docker image exposes several non-tcp ports in its metadata", func() {
+			BeforeEach(func() {
+				desiredAppReq.ExecutionMetadata = `{"ports":[
+				  {"Port":319, "Protocol": "udp"},
+					{"Port":320, "Protocol": "udp"}
+				]}`
+			})
+
+			It("errors", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(logger.TestSink.Buffer()).To(gbytes.Say("parsing-exposed-ports-failed"))
+				Expect(logger.TestSink.Buffer()).To(gbytes.Say("No tcp ports found in image metadata"))
+			})
+		})
+
+		Context("when the docker image execution metadata is not valid json", func() {
+			BeforeEach(func() {
+				desiredAppReq.ExecutionMetadata = "invalid-json"
+			})
+
+			It("errors", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(logger.TestSink.Buffer()).To(gbytes.Say("parsing-exposed-ports-failed"))
+			})
 		})
 
 		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {
@@ -484,7 +578,7 @@ var _ = Describe("Recipe Builder", func() {
 		})
 
 		It("should error", func() {
-			Expect(err).To(MatchError(recipebuilder.ErrAppSourceMissing))
+			Expect(err).To(MatchError(recipebuilder.ErrDockerImageMissing))
 		})
 	})
 
@@ -510,13 +604,4 @@ var _ = Describe("Recipe Builder", func() {
 		})
 	})
 
-	Context("when requesting a stack with no associated health-check", func() {
-		BeforeEach(func() {
-			desiredAppReq.Stack = "some-other-stack"
-		})
-
-		It("should error", func() {
-			Expect(err).To(MatchError(recipebuilder.ErrNoLifecycleDefined))
-		})
-	})
 })

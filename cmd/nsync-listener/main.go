@@ -68,9 +68,17 @@ func main() {
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 
-	recipeBuilder := recipebuilder.New(logger, lifecycles, *fileServerURL, keys.RSAKeyPairFactory)
+	recipeBuilderConfig := recipebuilder.Config{
+		Lifecycles:    lifecycles,
+		FileServerURL: *fileServerURL,
+		KeyFactory:    keys.RSAKeyPairFactory,
+	}
+	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
+		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),
+		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
+	}
 
-	handler := handlers.New(logger, diegoAPIClient, recipeBuilder)
+	handler := handlers.New(logger, diegoAPIClient, recipeBuilders)
 
 	address, err := getNsyncListenerAddress()
 	if err != nil {

@@ -22,14 +22,14 @@ type RecipeBuilder interface {
 }
 
 type DesireAppHandler struct {
-	recipeBuilder  RecipeBuilder
+	recipeBuilders map[string]recipebuilder.RecipeBuilder
 	receptorClient receptor.Client
 	logger         lager.Logger
 }
 
-func NewDesireAppHandler(logger lager.Logger, receptorClient receptor.Client, builder RecipeBuilder) DesireAppHandler {
+func NewDesireAppHandler(logger lager.Logger, receptorClient receptor.Client, builders map[string]recipebuilder.RecipeBuilder) DesireAppHandler {
 	return DesireAppHandler{
-		recipeBuilder:  builder,
+		recipeBuilders: builders,
 		receptorClient: receptorClient,
 		logger:         logger,
 	}
@@ -109,7 +109,12 @@ func (h *DesireAppHandler) createDesiredApp(
 	logger lager.Logger,
 	desireAppMessage cc_messages.DesireAppRequestFromCC,
 ) error {
-	desiredLRP, err := h.recipeBuilder.Build(&desireAppMessage)
+	var builder recipebuilder.RecipeBuilder = h.recipeBuilders["buildpack"]
+	if desireAppMessage.DockerImageUrl != "" {
+		builder = h.recipeBuilders["docker"]
+	}
+
+	desiredLRP, err := builder.Build(&desireAppMessage)
 	if err != nil {
 		logger.Error("failed-to-build-recipe", err)
 		return err
@@ -131,8 +136,18 @@ func (h *DesireAppHandler) updateDesiredApp(
 ) error {
 	routes := existingLRP.Routes
 
+	var builder recipebuilder.RecipeBuilder = h.recipeBuilders["buildpack"]
+	if desireAppMessage.DockerImageUrl != "" {
+		builder = h.recipeBuilders["docker"]
+	}
+	port, err := builder.ExtractExposedPort(desireAppMessage.ExecutionMetadata)
+	if err != nil {
+		logger.Error("failed to-get-exposed-port", err)
+		return err
+	}
+
 	cfRoutesJson, err := json.Marshal(cfroutes.CFRoutes{
-		{Hostnames: desireAppMessage.Routes, Port: recipebuilder.DefaultPort},
+		{Hostnames: desireAppMessage.Routes, Port: port},
 	})
 	if err != nil {
 		logger.Error("failed-to-marshal-routes", err)
