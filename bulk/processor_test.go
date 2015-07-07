@@ -441,6 +441,9 @@ var _ = Describe("Processor", func() {
 				expectedRoutingInfo receptor.RoutingInfo
 
 				expectedClientCallCount int
+
+				processGuids []string
+				updateReqs   []receptor.DesiredLRPUpdateRequest
 			)
 
 			BeforeEach(func() {
@@ -464,12 +467,17 @@ var _ = Describe("Processor", func() {
 					"router-route-data": &opaqueRouteMessage,
 					cfroutes.CF_ROUTER:  &cfRouteMessage,
 				}
+
+				for i := 0; i < expectedClientCallCount; i++ {
+					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(i)
+					processGuids = append(processGuids, processGuid)
+					updateReqs = append(updateReqs, updateReq)
+				}
 			})
 
 			It("sends the correct update desired lrp request", func() {
-				processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
-				Expect(processGuid).To(Equal("stale-process-guid"))
-				Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
+				Expect(processGuids).To(ContainElement("stale-process-guid"))
+				Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
 					Annotation: &expectedEtag,
 					Instances:  &expectedInstances,
 					Routes:     expectedRoutingInfo,
@@ -487,9 +495,8 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("sends the correct port in the desired lrp request", func() {
-					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(1)
-					Expect(processGuid).To(Equal("docker-process-guid"))
-					Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
+					Expect(processGuids).To(ContainElement("docker-process-guid"))
+					Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
 						Annotation: &expectedEtag,
 						Instances:  &expectedInstances,
 						Routes:     expectedRoutingInfo,
@@ -506,9 +513,8 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("sends the correct update desired lrp request", func() {
-					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(0)
-					Expect(processGuid).To(Equal("stale-process-guid"))
-					Expect(updateReq).To(Equal(receptor.DesiredLRPUpdateRequest{
+					Expect(processGuids).To(ContainElement("stale-process-guid"))
+					Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
 						Annotation: &expectedEtag,
 						Instances:  &expectedInstances,
 						Routes:     expectedRoutingInfo,
