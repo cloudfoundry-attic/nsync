@@ -14,7 +14,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lrp_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cb"
-	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -134,7 +133,7 @@ var _ = Describe("Nsync Listener", func() {
 		It("desires the app in etcd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(func() ([]oldmodels.DesiredLRP, error) { return lrpBBS.DesiredLRPs(logger) }, 10).Should(HaveLen(1))
+			Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 10).Should(HaveLen(1))
 		})
 	})
 
@@ -166,7 +165,7 @@ var _ = Describe("Nsync Listener", func() {
 		})
 
 		It("deletes the desired LRP", func() {
-			Eventually(func() ([]oldmodels.DesiredLRP, error) { return lrpBBS.DesiredLRPs(logger) }).Should(HaveLen(0))
+			Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }).Should(HaveLen(0))
 		})
 	})
 

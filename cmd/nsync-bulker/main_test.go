@@ -291,7 +291,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("once the state has been synced with CC", func() {
 			JustBeforeEach(func() {
-				Eventually(func() ([]models.DesiredLRP, error) { return fullBBS.DesiredLRPs(logger) }, 5).Should(HaveLen(3))
+				Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 5).Should(HaveLen(3))
 			})
 
 			It("it (adds), (updates), and (removes extra) LRPs", func() {
@@ -342,26 +342,26 @@ var _ = Describe("Syncing desired state with CC", func() {
 					cfroutes.CF_ROUTER: &routeMessage,
 				}
 
-				desiredLRPsWithoutModificationTag := func() []models.DesiredLRP {
-					lrps, err := fullBBS.DesiredLRPs(logger)
+				desiredLRPsWithoutModificationTag := func() []receptor.DesiredLRPResponse {
+					lrps, err := receptorClient.DesiredLRPs()
 					Expect(err).NotTo(HaveOccurred())
 
-					result := []models.DesiredLRP{}
+					result := []receptor.DesiredLRPResponse{}
 					for _, lrp := range lrps {
-						lrp.ModificationTag = models.ModificationTag{}
+						lrp.ModificationTag = receptor.ModificationTag{}
 						result = append(result, lrp)
 					}
 					return result
 				}
 
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
 					ProcessGuid:  "process-guid-1",
 					Domain:       "cf-apps",
 					Instances:    42,
 					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions1,
 					StartTimeout: 123456,
-					EnvironmentVariables: []models.EnvironmentVariable{
+					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
@@ -405,14 +405,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 				newRoutes := map[string]*json.RawMessage{
 					cfroutes.CF_ROUTER: &newRouteMessage,
 				}
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
 					ProcessGuid:  "process-guid-2",
 					Domain:       "cf-apps",
 					Instances:    4,
 					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions2,
 					StartTimeout: 123456,
-					EnvironmentVariables: []models.EnvironmentVariable{
+					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
@@ -456,14 +456,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 				emptyRoutes := map[string]*json.RawMessage{
 					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(models.DesiredLRP{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
 					ProcessGuid:  "process-guid-3",
 					Domain:       "cf-apps",
 					Instances:    4,
 					RootFS:       models.PreloadedRootFS("some-stack"),
 					Setup:        expectedSetupActions3,
 					StartTimeout: 123456,
-					EnvironmentVariables: []models.EnvironmentVariable{
+					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.Codependent(&models.RunAction{
@@ -533,10 +533,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		Context("when LRPs in a different domain exist", func() {
-			var otherDomainDesired models.DesiredLRP
+			var otherDomainDesired receptor.DesiredLRPCreateRequest
+			var otherDomainDesiredResponse receptor.DesiredLRPResponse
 
 			BeforeEach(func() {
-				otherDomainDesired = models.DesiredLRP{
+				otherDomainDesired = receptor.DesiredLRPCreateRequest{
 					ProcessGuid: "some-other-lrp",
 					Domain:      "some-domain",
 					RootFS:      models.PreloadedRootFS("some-stack"),
@@ -547,20 +548,21 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 				}
 
-				err := fullBBS.DesireLRP(logger, otherDomainDesired)
+				err := receptorClient.CreateDesiredLRP(otherDomainDesired)
 				Expect(err).NotTo(HaveOccurred())
 
-				otherDomainDesired, err = fullBBS.DesiredLRPByProcessGuid(logger, "some-other-lrp")
+				otherDomainDesiredResponse, err = receptorClient.GetDesiredLRP("some-other-lrp")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("leaves them alone", func() {
-				Eventually(func() ([]models.DesiredLRP, error) { return fullBBS.DesiredLRPs(logger) }, 5).Should(HaveLen(4))
+				Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 5).Should(HaveLen(4))
 
-				nowDesired, err := fullBBS.DesiredLRPs(logger)
+				nowDesired, err := receptorClient.DesiredLRPs()
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(nowDesired).To(ContainElement(otherDomainDesired))
+				otherDomainDesiredResponse.Ports = []uint16{}
+				Expect(nowDesired).To(ContainElement(otherDomainDesiredResponse))
 			})
 		})
 	})

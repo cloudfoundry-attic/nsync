@@ -19,10 +19,10 @@ type FakeRecipeBuilder struct {
 		result1 *receptor.DesiredLRPCreateRequest
 		result2 error
 	}
-	ExtractExposedPortStub        func(desiredAppMetadata string) (uint16, error)
+	ExtractExposedPortStub        func(executionMetadata string) (uint16, error)
 	extractExposedPortMutex       sync.RWMutex
 	extractExposedPortArgsForCall []struct {
-		desiredAppMetadata string
+		executionMetadata string
 	}
 	extractExposedPortReturns struct {
 		result1 uint16
@@ -63,14 +63,14 @@ func (fake *FakeRecipeBuilder) BuildReturns(result1 *receptor.DesiredLRPCreateRe
 	}{result1, result2}
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPort(desiredAppMetadata string) (uint16, error) {
+func (fake *FakeRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint16, error) {
 	fake.extractExposedPortMutex.Lock()
 	fake.extractExposedPortArgsForCall = append(fake.extractExposedPortArgsForCall, struct {
-		desiredAppMetadata string
-	}{desiredAppMetadata})
+		executionMetadata string
+	}{executionMetadata})
 	fake.extractExposedPortMutex.Unlock()
 	if fake.ExtractExposedPortStub != nil {
-		return fake.ExtractExposedPortStub(desiredAppMetadata)
+		return fake.ExtractExposedPortStub(executionMetadata)
 	} else {
 		return fake.extractExposedPortReturns.result1, fake.extractExposedPortReturns.result2
 	}
@@ -85,7 +85,7 @@ func (fake *FakeRecipeBuilder) ExtractExposedPortCallCount() int {
 func (fake *FakeRecipeBuilder) ExtractExposedPortArgsForCall(i int) string {
 	fake.extractExposedPortMutex.RLock()
 	defer fake.extractExposedPortMutex.RUnlock()
-	return fake.extractExposedPortArgsForCall[i].desiredAppMetadata
+	return fake.extractExposedPortArgsForCall[i].executionMetadata
 }
 
 func (fake *FakeRecipeBuilder) ExtractExposedPortReturns(result1 uint16, result2 error) {
