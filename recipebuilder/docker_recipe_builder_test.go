@@ -146,6 +146,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "docker-lifecycle",
+					User:     "vcap",
 				},
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
@@ -276,6 +277,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 						From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "docker-lifecycle",
+						User:     "vcap",
 					},
 				}...)
 
@@ -407,6 +409,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 				To:       "/tmp/lifecycle",
 				CacheKey: "docker-lifecycle",
+				User:     "vcap",
 			}))
 		})
 

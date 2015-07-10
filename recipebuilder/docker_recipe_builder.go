@@ -87,6 +87,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
+		User:     "vcap",
 	})
 
 	var exposedPort = DefaultPort

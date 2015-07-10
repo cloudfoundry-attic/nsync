@@ -40,6 +40,7 @@ var _ = Describe("Differ", func() {
 			Action: &models.DownloadAction{
 				From: "http://example.com",
 				To:   "/tmp/internet",
+				User: "diego",
 			},
 			Annotation: "some-etag-1",
 		}

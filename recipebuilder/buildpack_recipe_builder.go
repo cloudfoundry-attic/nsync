@@ -72,6 +72,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
+		User:     "vcap",
 	})
 
 	var exposedPort = DefaultPort
@@ -97,6 +98,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		From:     desiredApp.DropletUri,
 		To:       ".",
 		CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
+		User:     "vcap",
 	})
 
 	actions = append(actions, &models.RunAction{

@@ -145,11 +145,13 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "buildpack-some-stack-lifecycle",
+					User:     "vcap",
 				},
 				&models.DownloadAction{
 					From:     "http://the-droplet.uri.com",
 					To:       ".",
 					CacheKey: "droplets-the-app-guid-the-app-version",
+					User:     "vcap",
 				},
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
@@ -280,11 +282,13 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
+						User:     "vcap",
 					},
 					&models.DownloadAction{
 						From:     "http://the-droplet.uri.com",
 						To:       ".",
 						CacheKey: "droplets-the-app-guid-the-app-version",
+						User:     "vcap",
 					},
 				}...)
 

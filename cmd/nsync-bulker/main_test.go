@@ -303,11 +303,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
+						User:     "vcap",
 					},
 					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
 						CacheKey: "droplets-process-guid-1",
+						User:     "vcap",
 					},
 				)
 
@@ -316,11 +318,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
+						User:     "vcap",
 					},
 					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
 						CacheKey: "droplets-process-guid-2",
+						User:     "vcap",
 					},
 				)
 
@@ -329,11 +333,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
+						User:     "vcap",
 					},
 					&models.DownloadAction{
 						From:     "source-url-3",
 						To:       ".",
 						CacheKey: "droplets-process-guid-3",
+						User:     "vcap",
 					},
 				)
 
