@@ -392,7 +392,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
-					DiskMB:    1024,
+					DiskMB:    2048,
 					MemoryMB:  256,
 					CPUWeight: 1,
 					Ports: []uint16{
@@ -443,7 +443,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
-					DiskMB:    1024,
+					DiskMB:    2048,
 					MemoryMB:  256,
 					CPUWeight: 1,
 					Ports: []uint16{
@@ -492,7 +492,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
 						},
 					},
-					DiskMB:    512,
+					DiskMB:    1536,
 					MemoryMB:  128,
 					CPUWeight: 1,
 					Ports: []uint16{
