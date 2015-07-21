@@ -299,48 +299,48 @@ var _ = Describe("Syncing desired state with CC", func() {
 				nofile := uint64(16)
 
 				expectedSetupActions1 := models.Serial(
-					models.WrapAction(&models.DownloadAction{
+					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
 						User:     "vcap",
-					}),
-					models.WrapAction(&models.DownloadAction{
+					},
+					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
 						CacheKey: "droplets-process-guid-1",
 						User:     "vcap",
-					}),
+					},
 				)
 
 				expectedSetupActions2 := models.Serial(
-					models.WrapAction(&models.DownloadAction{
+					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
 						User:     "vcap",
-					}),
-					models.WrapAction(&models.DownloadAction{
+					},
+					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
 						CacheKey: "droplets-process-guid-2",
 						User:     "vcap",
-					}),
+					},
 				)
 
 				expectedSetupActions3 := models.Serial(
-					models.WrapAction(&models.DownloadAction{
+					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
 						User:     "vcap",
-					}),
-					models.WrapAction(&models.DownloadAction{
+					},
+					&models.DownloadAction{
 						From:     "source-url-3",
 						To:       ".",
 						CacheKey: "droplets-process-guid-3",
 						User:     "vcap",
-					}),
+					},
 				)
 
 				routeMessage := json.RawMessage([]byte(`[{"hostnames":["route-1","route-2","new-route"],"port":8080}]`))
@@ -370,7 +370,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(models.WrapAction(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
@@ -381,15 +381,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					})),
+					}),
 					Monitor: models.Timeout(
-						models.WrapAction(&models.RunAction{
+						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
-						}),
+						},
 						30*time.Second,
 					),
 					DiskMB:    2048,
@@ -421,7 +421,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(models.WrapAction(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
@@ -432,15 +432,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					})),
+					}),
 					Monitor: models.Timeout(
-						models.WrapAction(&models.RunAction{
+						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
-						}),
+						},
 						30*time.Second,
 					),
 					DiskMB:    2048,
@@ -472,7 +472,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(models.WrapAction(&models.RunAction{
+					Action: models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-3", "execution-metadata-3"},
@@ -481,15 +481,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					})),
+					}),
 					Monitor: models.Timeout(
-						models.WrapAction(&models.RunAction{
+						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
-						}),
+						},
 						30*time.Second,
 					),
 					DiskMB:    1536,
