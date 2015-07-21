@@ -1,10 +1,10 @@
 package bulk_test
 
 import (
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
@@ -37,11 +37,11 @@ var _ = Describe("Differ", func() {
 			ProcessGuid: "process-guid-1",
 			Instances:   1,
 			RootFS:      models.PreloadedRootFS("stack-1"),
-			Action: &models.DownloadAction{
+			Action: models.WrapAction(&models.DownloadAction{
 				From: "http://example.com",
 				To:   "/tmp/internet",
 				User: "diego",
-			},
+			}),
 			Annotation: "some-etag-1",
 		}
 
