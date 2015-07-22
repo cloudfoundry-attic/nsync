@@ -522,7 +522,7 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("logs an error for the incorrect docker port", func() {
-					Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`"data":{"error":"our-specific-test-error","process-guid":"docker-process-guid"`))
+					Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`"data":{"error":"our-specific-test-error","execution-metadata":"","process-guid":"docker-process-guid"`))
 				})
 
 				It("propagates the error", func() {

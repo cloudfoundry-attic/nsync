@@ -510,8 +510,59 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			It("errors", func() {
 				Expect(err).To(HaveOccurred())
-				Expect(logger.TestSink.Buffer()).To(gbytes.Say("parsing-exposed-ports-failed"))
+				Expect(logger.TestSink.Buffer()).To(gbytes.Say("parsing-execution-metadata-failed"))
 			})
+		})
+
+		testSetupActionUser := func(user string) func() {
+			return func() {
+				serialAction, ok := desiredLRP.Setup.(*models.SerialAction)
+				Expect(ok).To(BeTrue())
+				Expect(serialAction.Actions).To(HaveLen(1))
+
+				downloadAction, ok := serialAction.Actions[0].(*models.DownloadAction)
+				Expect(ok).To(BeTrue())
+				Expect(downloadAction.User).To(Equal(user))
+			}
+		}
+
+		testRunActionUser := func(user string) func() {
+			return func() {
+				parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+				Expect(ok).To(BeTrue())
+				Expect(parallelRunAction.Actions).To(HaveLen(1))
+
+				runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+				Expect(ok).To(BeTrue())
+				Expect(runAction.User).To(Equal(user))
+			}
+		}
+
+		testHealthcheckActionUser := func(user string) func() {
+			return func() {
+				timeoutAction, ok := desiredLRP.Monitor.(*models.TimeoutAction)
+				Expect(ok).To(BeTrue())
+
+				healthcheckRunAction, ok := timeoutAction.Action.(*models.RunAction)
+				Expect(ok).To(BeTrue())
+				Expect(healthcheckRunAction.User).To(Equal(user))
+			}
+		}
+
+		Context("when the docker image exposes a user in its metadata", func() {
+			BeforeEach(func() {
+				desiredAppReq.ExecutionMetadata = `{"user":"custom"}`
+			})
+
+			It("builds a setup action with the correct user", testSetupActionUser("custom"))
+			It("builds a run action with the correct user", testRunActionUser("custom"))
+			It("builds a healthcheck action with the correct user", testHealthcheckActionUser("custom"))
+		})
+
+		Context("when the docker image does not exposes a user in its metadata", func() {
+			It("builds a setup action with the default user", testSetupActionUser("vcap"))
+			It("builds a run action with the default user", testRunActionUser("vcap"))
+			It("builds a healthcheck action with the default user", testHealthcheckActionUser("vcap"))
 		})
 
 		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {

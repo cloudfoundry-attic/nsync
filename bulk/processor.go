@@ -321,7 +321,8 @@ func (p *Processor) updateStaleDesiredLRPs(
 					exposedPort, err := builder.ExtractExposedPort(desireAppRequest.ExecutionMetadata)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
-							"process-guid": processGuid,
+							"process-guid":       processGuid,
+							"execution-metadata": desireAppRequest.ExecutionMetadata,
 						})
 						errc <- err
 						return

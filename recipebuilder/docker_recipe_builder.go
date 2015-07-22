@@ -83,15 +83,28 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	var actions []models.Action
 	var monitor models.Action
 
+	executionMetadata, err := NewDockerExecutionMetadata(desiredApp.ExecutionMetadata)
+	if err != nil {
+		b.logger.Error("parsing-execution-metadata-failed", err, lager.Data{
+			"desired-app-metadata": executionMetadata,
+		})
+		return nil, err
+	}
+
+	user, err := extractUser(executionMetadata)
+	if err != nil {
+		return nil, err
+	}
+
 	setup = append(setup, &models.DownloadAction{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
-		User:     "vcap",
+		User:     user,
 	})
 
 	var exposedPort = DefaultPort
-	exposedPort, err = b.ExtractExposedPort(desiredApp.ExecutionMetadata)
+	exposedPort, err = extractExposedPort(executionMetadata, b.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +115,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		monitor = &models.TimeoutAction{
 			Timeout: 30 * time.Second,
 			Action: &models.RunAction{
-				User:      "vcap",
+				User:      user,
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
 				LogSource: HealthLogSource,
@@ -114,7 +127,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	}
 
 	actions = append(actions, &models.RunAction{
-		User: "vcap",
+		User: user,
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
 			[]string{"app"},
@@ -148,7 +161,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		}
 
 		actions = append(actions, &models.RunAction{
-			User: "vcap",
+			User: user,
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
 				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
@@ -218,17 +231,17 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 }
 
 func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint16, error) {
-	var exposedPort uint16 = DefaultPort
-	var portFound bool = true
-	metadata := ExecutionMetadata{}
-	err := json.Unmarshal([]byte(executionMetadata), &metadata)
+	metadata, err := NewDockerExecutionMetadata(executionMetadata)
 	if err != nil {
-		b.logger.Error("parsing-exposed-ports-failed", err, lager.Data{
-			"desired-app-metadata": executionMetadata,
-		})
 		return 0, err
 	}
-	exposedPorts := metadata.ExposedPorts
+	return extractExposedPort(metadata, b.logger)
+}
+
+func extractExposedPort(executionMetadata DockerExecutionMetadata, logger lager.Logger) (uint16, error) {
+	var exposedPort uint16 = DefaultPort
+	var portFound bool = true
+	exposedPorts := executionMetadata.ExposedPorts
 	for _, port := range exposedPorts {
 		portFound = false
 		if port.Protocol == "tcp" {
@@ -240,13 +253,21 @@ func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint1
 
 	if !portFound {
 		err := fmt.Errorf("No tcp ports found in image metadata")
-		b.logger.Error("parsing-exposed-ports-failed", err, lager.Data{
+		logger.Error("parsing-exposed-ports-failed", err, lager.Data{
 			"desired-app-metadata": executionMetadata,
 		})
 		return 0, err
 	}
 
 	return exposedPort, nil
+}
+
+func extractUser(executionMetadata DockerExecutionMetadata) (string, error) {
+	if len(executionMetadata.User) > 0 {
+		return executionMetadata.User, nil
+	} else {
+		return "vcap", nil
+	}
 }
 
 func convertDockerURI(dockerURI string) (string, error) {

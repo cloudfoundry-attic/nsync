@@ -43,18 +43,6 @@ type Config struct {
 	KeyFactory    keys.SSHKeyFactory
 }
 
-type ExecutionMetadata struct {
-	Cmd          []string `json:"cmd,omitempty"`
-	Entrypoint   []string `json:"entrypoint,omitempty"`
-	Workdir      string   `json:"workdir,omitempty"`
-	ExposedPorts []Port   `json:"ports,omitempty"`
-}
-
-type Port struct {
-	Port     uint16
-	Protocol string
-}
-
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder
 type RecipeBuilder interface {
 	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
