@@ -365,12 +365,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:       "cf-apps",
 					Instances:    42,
 					RootFS:       models.PreloadedRootFS("some-stack"),
-					Setup:        expectedSetupActions1,
+					Setup:        models.WrapAction(expectedSetupActions1),
 					StartTimeout: 123456,
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(&models.RunAction{
+					Action: models.WrapAction(models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
@@ -381,8 +381,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					}),
-					Monitor: models.Timeout(
+					})),
+					Monitor: models.WrapAction(models.Timeout(
 						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
@@ -391,7 +391,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
 						},
 						30*time.Second,
-					),
+					)),
 					DiskMB:    2048,
 					MemoryMB:  256,
 					CPUWeight: 1,
@@ -416,12 +416,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:       "cf-apps",
 					Instances:    4,
 					RootFS:       models.PreloadedRootFS("some-stack"),
-					Setup:        expectedSetupActions2,
+					Setup:        models.WrapAction(expectedSetupActions2),
 					StartTimeout: 123456,
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(&models.RunAction{
+					Action: models.WrapAction(models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-1", "execution-metadata-1"},
@@ -432,8 +432,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					}),
-					Monitor: models.Timeout(
+					})),
+					Monitor: models.WrapAction(models.Timeout(
 						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
@@ -442,7 +442,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
 						},
 						30*time.Second,
-					),
+					)),
 					DiskMB:    2048,
 					MemoryMB:  256,
 					CPUWeight: 1,
@@ -467,12 +467,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:       "cf-apps",
 					Instances:    4,
 					RootFS:       models.PreloadedRootFS("some-stack"),
-					Setup:        expectedSetupActions3,
+					Setup:        models.WrapAction(expectedSetupActions3),
 					StartTimeout: 123456,
 					EnvironmentVariables: []receptor.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
-					Action: models.Codependent(&models.RunAction{
+					Action: models.WrapAction(models.Codependent(&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{"app", "start-command-3", "execution-metadata-3"},
@@ -481,8 +481,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
 						LogSource:      recipebuilder.AppLogSource,
-					}),
-					Monitor: models.Timeout(
+					})),
+					Monitor: models.WrapAction(models.Timeout(
 						&models.RunAction{
 							User:           "vcap",
 							Path:           "/tmp/lifecycle/healthcheck",
@@ -491,7 +491,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
 						},
 						30*time.Second,
-					),
+					)),
 					DiskMB:    1536,
 					MemoryMB:  128,
 					CPUWeight: 1,
