@@ -146,7 +146,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "docker-lifecycle",
-					User:     "vcap",
+					User:     "root",
 				},
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
@@ -161,7 +161,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 				Timeout: 30 * time.Second,
 				Action: &models.RunAction{
-					User:      "vcap",
+					User:      "root",
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
@@ -217,7 +217,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
 					Timeout: 30 * time.Second,
 					Action: &models.RunAction{
-						User:           "vcap",
+						User:           "root",
 						Path:           "/tmp/lifecycle/healthcheck",
 						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
@@ -277,7 +277,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 						From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "docker-lifecycle",
-						User:     "vcap",
+						User:     "root",
 					},
 				}...)
 
@@ -290,7 +290,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				expectedAction := models.Codependent([]models.Action{
 					&models.RunAction{
-						User: "vcap",
+						User: "root",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
 							"app",
@@ -307,7 +307,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 						LogSource: "APP",
 					},
 					&models.RunAction{
-						User: "vcap",
+						User: "root",
 						Path: "/tmp/lifecycle/diego-sshd",
 						Args: []string{
 							"-address=0.0.0.0:2222",
@@ -409,7 +409,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 				To:       "/tmp/lifecycle",
 				CacheKey: "docker-lifecycle",
-				User:     "vcap",
+				User:     "root",
 			}))
 		})
 
@@ -433,7 +433,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
-					User:      "vcap",
+					User:      "root",
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &defaultNofile,
 					},
@@ -474,7 +474,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 						Path:      "/tmp/lifecycle/healthcheck",
 						Args:      []string{"-port=8081"},
 						LogSource: "HEALTH",
-						User:      "vcap",
+						User:      "root",
 						ResourceLimits: models.ResourceLimits{
 							Nofile: &defaultNofile,
 						},
@@ -560,9 +560,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		Context("when the docker image does not exposes a user in its metadata", func() {
-			It("builds a setup action with the default user", testSetupActionUser("vcap"))
-			It("builds a run action with the default user", testRunActionUser("vcap"))
-			It("builds a healthcheck action with the default user", testHealthcheckActionUser("vcap"))
+			It("builds a setup action with the default user", testSetupActionUser("root"))
+			It("builds a run action with the default user", testRunActionUser("root"))
+			It("builds a healthcheck action with the default user", testHealthcheckActionUser("root"))
 		})
 
 		testRootFSPath := func(imageUrl string, expectedRootFSPath string) func() {

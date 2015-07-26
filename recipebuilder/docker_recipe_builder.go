@@ -266,7 +266,7 @@ func extractUser(executionMetadata DockerExecutionMetadata) (string, error) {
 	if len(executionMetadata.User) > 0 {
 		return executionMetadata.User, nil
 	} else {
-		return "vcap", nil
+		return "root", nil
 	}
 }
 
