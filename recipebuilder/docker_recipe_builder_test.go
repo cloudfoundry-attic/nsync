@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys/fake_keys"
 	"github.com/cloudfoundry-incubator/diego-ssh/routes"
@@ -12,7 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -26,7 +27,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		desiredAppReq  cc_messages.DesireAppRequestFromCC
 		desiredLRP     *receptor.DesiredLRPCreateRequest
 		lifecycles     map[string]string
-		egressRules    []models.SecurityGroupRule
+		egressRules    []*models.SecurityGroupRule
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
 	)
@@ -41,7 +42,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			"docker":               "the/docker/lifecycle/path.tgz",
 		}
 
-		egressRules = []models.SecurityGroupRule{
+		egressRules = []*models.SecurityGroupRule{
 			{
 				Protocol:     "TCP",
 				Destinations: []string{"0.0.0.0/0"},
@@ -59,7 +60,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			StartCommand:      "the-start-command with-arguments",
 			DockerImageUrl:    "user/repo:tag",
 			ExecutionMetadata: "{}",
-			Environment: cc_messages.Environment{
+			Environment: []*models.EnvironmentVariable{
 				{Name: "foo", Value: "bar"},
 			},
 			MemoryMB:        128,
@@ -141,8 +142,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-			expectedSetup := models.Serial([]models.Action{
-				&models.DownloadAction{
+			expectedSetup := oldmodels.Serial([]oldmodels.Action{
+				&oldmodels.DownloadAction{
 					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "docker-lifecycle",
@@ -151,21 +152,21 @@ var _ = Describe("Docker Recipe Builder", func() {
 			}...)
 			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
 
-			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+			parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
 			Expect(ok).To(BeTrue())
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+			runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
 			Expect(ok).To(BeTrue())
 
-			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+			Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
 				Timeout: 30 * time.Second,
-				Action: &models.RunAction{
+				Action: &oldmodels.RunAction{
 					User:      "root",
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
-					ResourceLimits: models.ResourceLimits{
+					ResourceLimits: oldmodels.ResourceLimits{
 						Nofile: &defaultNofile,
 					},
 				},
@@ -181,21 +182,21 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Expect(runAction.LogSource).To(Equal("APP"))
 
 			numFiles := uint64(32)
-			Expect(runAction.ResourceLimits).To(Equal(models.ResourceLimits{
+			Expect(runAction.ResourceLimits).To(Equal(oldmodels.ResourceLimits{
 				Nofile: &numFiles,
 			}))
 
-			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
 				Name:  "foo",
 				Value: "bar",
 			}))
 
-			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
 				Name:  "PORT",
 				Value: "8080",
 			}))
 
-			Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
+			Expect(desiredLRP.EgressRules).To(ConsistOf(models.SecurityGroupRulesFromProto(egressRules)))
 		})
 
 		Context("when no health check is specified", func() {
@@ -205,23 +206,23 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			It("sets up the port check for backwards compatibility", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
+				for _, action := range desiredLRP.Setup.(*oldmodels.SerialAction).Actions {
 					switch a := action.(type) {
-					case *models.DownloadAction:
+					case *oldmodels.DownloadAction:
 						downloadDestinations = append(downloadDestinations, a.To)
 					}
 				}
 
 				Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
 
-				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+				Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
 					Timeout: 30 * time.Second,
-					Action: &models.RunAction{
+					Action: &oldmodels.RunAction{
 						User:           "root",
 						Path:           "/tmp/lifecycle/healthcheck",
 						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
-						ResourceLimits: models.ResourceLimits{Nofile: &defaultNofile},
+						ResourceLimits: oldmodels.ResourceLimits{Nofile: &defaultNofile},
 					},
 				}))
 			})
@@ -238,9 +239,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			It("still downloads the lifecycle, since we need it for the launcher", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.(*models.SerialAction).Actions {
+				for _, action := range desiredLRP.Setup.(*oldmodels.SerialAction).Actions {
 					switch a := action.(type) {
-					case *models.DownloadAction:
+					case *oldmodels.DownloadAction:
 						downloadDestinations = append(downloadDestinations, a.To)
 					}
 				}
@@ -272,8 +273,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("setup should download the ssh daemon", func() {
-				expectedSetup := models.Serial([]models.Action{
-					&models.DownloadAction{
+				expectedSetup := oldmodels.Serial([]oldmodels.Action{
+					&oldmodels.DownloadAction{
 						From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "docker-lifecycle",
@@ -288,8 +289,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 			It("runs the ssh daemon in the container", func() {
 				expectedNumFiles := uint64(32)
 
-				expectedAction := models.Codependent([]models.Action{
-					&models.RunAction{
+				expectedAction := oldmodels.Codependent([]oldmodels.Action{
+					&oldmodels.RunAction{
 						User: "root",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
@@ -297,16 +298,16 @@ var _ = Describe("Docker Recipe Builder", func() {
 							"the-start-command with-arguments",
 							"{}",
 						},
-						Env: []models.EnvironmentVariable{
+						Env: []oldmodels.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: models.ResourceLimits{
+						ResourceLimits: oldmodels.ResourceLimits{
 							Nofile: &expectedNumFiles,
 						},
 						LogSource: "APP",
 					},
-					&models.RunAction{
+					&oldmodels.RunAction{
 						User: "root",
 						Path: "/tmp/lifecycle/diego-sshd",
 						Args: []string{
@@ -316,11 +317,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 							"-inheritDaemonEnv",
 							"-logLevel=fatal",
 						},
-						Env: []models.EnvironmentVariable{
+						Env: []oldmodels.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: models.ResourceLimits{
+						ResourceLimits: oldmodels.ResourceLimits{
 							Nofile: &expectedNumFiles,
 						},
 					},
@@ -405,7 +406,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		It("uses the docker lifecycle", func() {
-			Expect(desiredLRP.Setup.(*models.SerialAction).Actions[0]).To(Equal(&models.DownloadAction{
+			Expect(desiredLRP.Setup.(*oldmodels.SerialAction).Actions[0]).To(Equal(&oldmodels.DownloadAction{
 				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 				To:       "/tmp/lifecycle",
 				CacheKey: "docker-lifecycle",
@@ -414,11 +415,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		It("exposes the default port", func() {
-			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+			parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
 			Expect(ok).To(BeTrue())
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+			runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
 			Expect(ok).To(BeTrue())
 
 			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
@@ -427,20 +428,20 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
 
-			Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+			Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
 				Timeout: 30 * time.Second,
-				Action: &models.RunAction{
+				Action: &oldmodels.RunAction{
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
 					User:      "root",
-					ResourceLimits: models.ResourceLimits{
+					ResourceLimits: oldmodels.ResourceLimits{
 						Nofile: &defaultNofile,
 					},
 				},
 			}))
 
-			Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
 				Name:  "PORT",
 				Value: "8080",
 			}))
@@ -455,11 +456,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("exposes the first encountered tcp port", func() {
-				parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+				parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
 				Expect(ok).To(BeTrue())
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-				runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+				runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
 				Expect(ok).To(BeTrue())
 
 				Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
@@ -468,20 +469,20 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				Expect(desiredLRP.Ports).To(Equal([]uint16{8081}))
 
-				Expect(desiredLRP.Monitor).To(Equal(&models.TimeoutAction{
+				Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
 					Timeout: 30 * time.Second,
-					Action: &models.RunAction{
+					Action: &oldmodels.RunAction{
 						Path:      "/tmp/lifecycle/healthcheck",
 						Args:      []string{"-port=8081"},
 						LogSource: "HEALTH",
 						User:      "root",
-						ResourceLimits: models.ResourceLimits{
+						ResourceLimits: oldmodels.ResourceLimits{
 							Nofile: &defaultNofile,
 						},
 					},
 				}))
 
-				Expect(runAction.Env).To(ContainElement(models.EnvironmentVariable{
+				Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
 					Name:  "PORT",
 					Value: "8081",
 				}))
@@ -516,11 +517,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		testSetupActionUser := func(user string) func() {
 			return func() {
-				serialAction, ok := desiredLRP.Setup.(*models.SerialAction)
+				serialAction, ok := desiredLRP.Setup.(*oldmodels.SerialAction)
 				Expect(ok).To(BeTrue())
 				Expect(serialAction.Actions).To(HaveLen(1))
 
-				downloadAction, ok := serialAction.Actions[0].(*models.DownloadAction)
+				downloadAction, ok := serialAction.Actions[0].(*oldmodels.DownloadAction)
 				Expect(ok).To(BeTrue())
 				Expect(downloadAction.User).To(Equal(user))
 			}
@@ -528,11 +529,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		testRunActionUser := func(user string) func() {
 			return func() {
-				parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+				parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
 				Expect(ok).To(BeTrue())
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-				runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+				runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
 				Expect(ok).To(BeTrue())
 				Expect(runAction.User).To(Equal(user))
 			}
@@ -540,10 +541,10 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		testHealthcheckActionUser := func(user string) func() {
 			return func() {
-				timeoutAction, ok := desiredLRP.Monitor.(*models.TimeoutAction)
+				timeoutAction, ok := desiredLRP.Monitor.(*oldmodels.TimeoutAction)
 				Expect(ok).To(BeTrue())
 
-				healthcheckRunAction, ok := timeoutAction.Action.(*models.RunAction)
+				healthcheckRunAction, ok := timeoutAction.Action.(*oldmodels.RunAction)
 				Expect(ok).To(BeTrue())
 				Expect(healthcheckRunAction.User).To(Equal(user))
 			}
@@ -646,11 +647,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		It("sets a default FD limit on the run action", func() {
-			parallelRunAction, ok := desiredLRP.Action.(*models.CodependentAction)
+			parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
 			Expect(ok).To(BeTrue())
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-			runAction, ok := parallelRunAction.Actions[0].(*models.RunAction)
+			runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
 			Expect(ok).To(BeTrue())
 
 			Expect(runAction.ResourceLimits.Nofile).NotTo(BeNil())

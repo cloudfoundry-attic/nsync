@@ -3,10 +3,11 @@ package recipebuilder
 import (
 	"fmt"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
@@ -81,7 +82,8 @@ func cpuWeight(memoryMB int) uint {
 	return uint(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
 }
 
-func createLrpEnv(env []models.EnvironmentVariable, exposedPort uint16) []models.EnvironmentVariable {
-	env = append(env, models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPort)})
-	return env
+func createLrpEnv(env []*models.EnvironmentVariable, exposedPort uint16) []oldmodels.EnvironmentVariable {
+	oldEnv := models.EnvironmentVariablesFromProto(env)
+	oldEnv = append(oldEnv, oldmodels.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPort)})
+	return oldEnv
 }

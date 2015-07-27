@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	ssh_routes "github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -53,7 +54,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 	lifecycleURL := lifecycleDownloadURL(lifecyclePath, b.config.FileServerURL)
 
-	rootFSPath := models.PreloadedRootFS(desiredApp.Stack)
+	rootFSPath := oldmodels.PreloadedRootFS(desiredApp.Stack)
 
 	var privilegedContainer bool = true
 	var containerEnvVars []receptor.EnvironmentVariable
@@ -64,11 +65,11 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		numFiles = desiredApp.FileDescriptors
 	}
 
-	var setup []models.Action
-	var actions []models.Action
-	var monitor models.Action
+	var setup []oldmodels.Action
+	var actions []oldmodels.Action
+	var monitor oldmodels.Action
 
-	setup = append(setup, &models.DownloadAction{
+	setup = append(setup, &oldmodels.DownloadAction{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
@@ -80,28 +81,28 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
 		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = &models.TimeoutAction{
+		monitor = &oldmodels.TimeoutAction{
 			Timeout: 30 * time.Second,
-			Action: &models.RunAction{
+			Action: &oldmodels.RunAction{
 				User:      "vcap",
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
 				LogSource: HealthLogSource,
-				ResourceLimits: models.ResourceLimits{
+				ResourceLimits: oldmodels.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
 			},
 		}
 	}
 
-	setup = append(setup, &models.DownloadAction{
+	setup = append(setup, &oldmodels.DownloadAction{
 		From:     desiredApp.DropletUri,
 		To:       ".",
 		CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
 		User:     "vcap",
 	})
 
-	actions = append(actions, &models.RunAction{
+	actions = append(actions, &oldmodels.RunAction{
 		User: "vcap",
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
@@ -109,9 +110,9 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment.BBSEnvironment(), exposedPort),
+		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
 		LogSource: AppLogSource,
-		ResourceLimits: models.ResourceLimits{
+		ResourceLimits: oldmodels.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
@@ -135,7 +136,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			return nil, err
 		}
 
-		actions = append(actions, &models.RunAction{
+		actions = append(actions, &oldmodels.RunAction{
 			User: "vcap",
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
@@ -145,8 +146,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment(), exposedPort),
-			ResourceLimits: models.ResourceLimits{
+			Env: createLrpEnv(desiredApp.Environment, exposedPort),
+			ResourceLimits: oldmodels.ResourceLimits{
 				Nofile: &numFiles,
 			},
 		})
@@ -167,8 +168,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
-	setupAction := models.Serial(setup...)
-	actionAction := models.Codependent(actions...)
+	setupAction := oldmodels.Serial(setup...)
+	actionAction := oldmodels.Codependent(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -201,7 +202,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 
-		EgressRules: desiredApp.EgressRules,
+		EgressRules: models.SecurityGroupRulesFromProto(desiredApp.EgressRules),
 	}, nil
 }
 

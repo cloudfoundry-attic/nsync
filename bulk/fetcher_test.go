@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
@@ -257,7 +258,7 @@ var _ = Describe("Fetcher", func() {
 						DropletUri:   "source-url-1",
 						Stack:        "stack-1",
 						StartCommand: "start-command-1",
-						Environment: cc_messages.Environment{
+						Environment: []*models.EnvironmentVariable{
 							{Name: "env-key-1", Value: "env-value-1"},
 							{Name: "env-key-2", Value: "env-value-2"},
 						},
@@ -277,7 +278,7 @@ var _ = Describe("Fetcher", func() {
 						DropletUri:   "source-url-2",
 						Stack:        "stack-2",
 						StartCommand: "start-command-2",
-						Environment: cc_messages.Environment{
+						Environment: []*models.EnvironmentVariable{
 							{Name: "env-key-3", Value: "env-value-3"},
 							{Name: "env-key-4", Value: "env-value-4"},
 						},
@@ -297,7 +298,7 @@ var _ = Describe("Fetcher", func() {
 						DropletUri:      "source-url-3",
 						Stack:           "stack-3",
 						StartCommand:    "start-command-3",
-						Environment:     cc_messages.Environment{},
+						Environment:     []*models.EnvironmentVariable{},
 						MemoryMB:        128,
 						DiskMB:          512,
 						FileDescriptors: 8,

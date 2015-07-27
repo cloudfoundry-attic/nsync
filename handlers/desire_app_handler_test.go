@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -17,7 +18,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -51,7 +52,7 @@ var _ = Describe("DesireAppHandler", func() {
 			DropletUri:   "http://the-droplet.uri.com",
 			Stack:        "some-stack",
 			StartCommand: "the-start-command",
-			Environment: cc_messages.Environment{
+			Environment: []*models.EnvironmentVariable{
 				{Name: "foo", Value: "bar"},
 				{Name: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
 			},
@@ -100,8 +101,8 @@ var _ = Describe("DesireAppHandler", func() {
 			newlyDesiredLRP = receptor.DesiredLRPCreateRequest{
 				ProcessGuid: "new-process-guid",
 				Instances:   1,
-				RootFS:      models.PreloadedRootFS("stack-2"),
-				Action: &models.RunAction{
+				RootFS:      oldmodels.PreloadedRootFS("stack-2"),
+				Action: &oldmodels.RunAction{
 					User: "me",
 					Path: "ls",
 				},
@@ -203,7 +204,7 @@ var _ = Describe("DesireAppHandler", func() {
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
 					RootFS:      "docker:///user/repo#tag",
-					Action: &models.RunAction{
+					Action: &oldmodels.RunAction{
 						User: "me",
 						Path: "ls",
 					},
@@ -340,7 +341,7 @@ var _ = Describe("DesireAppHandler", func() {
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
 					RootFS:      "docker:///user/repo#tag",
-					Action: &models.RunAction{
+					Action: &oldmodels.RunAction{
 						User: "me",
 						Path: "ls",
 					},

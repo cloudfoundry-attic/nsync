@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	ssh_routes "github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -79,9 +80,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		numFiles = desiredApp.FileDescriptors
 	}
 
-	var setup []models.Action
-	var actions []models.Action
-	var monitor models.Action
+	var setup []oldmodels.Action
+	var actions []oldmodels.Action
+	var monitor oldmodels.Action
 
 	executionMetadata, err := NewDockerExecutionMetadata(desiredApp.ExecutionMetadata)
 	if err != nil {
@@ -96,7 +97,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		return nil, err
 	}
 
-	setup = append(setup, &models.DownloadAction{
+	setup = append(setup, &oldmodels.DownloadAction{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
@@ -112,21 +113,21 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
 		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = &models.TimeoutAction{
+		monitor = &oldmodels.TimeoutAction{
 			Timeout: 30 * time.Second,
-			Action: &models.RunAction{
+			Action: &oldmodels.RunAction{
 				User:      user,
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
 				LogSource: HealthLogSource,
-				ResourceLimits: models.ResourceLimits{
+				ResourceLimits: oldmodels.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
 			},
 		}
 	}
 
-	actions = append(actions, &models.RunAction{
+	actions = append(actions, &oldmodels.RunAction{
 		User: user,
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
@@ -134,9 +135,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment.BBSEnvironment(), exposedPort),
+		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
 		LogSource: AppLogSource,
-		ResourceLimits: models.ResourceLimits{
+		ResourceLimits: oldmodels.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
@@ -160,7 +161,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			return nil, err
 		}
 
-		actions = append(actions, &models.RunAction{
+		actions = append(actions, &oldmodels.RunAction{
 			User: user,
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
@@ -170,8 +171,8 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment(), exposedPort),
-			ResourceLimits: models.ResourceLimits{
+			Env: createLrpEnv(desiredApp.Environment, exposedPort),
+			ResourceLimits: oldmodels.ResourceLimits{
 				Nofile: &numFiles,
 			},
 		})
@@ -192,8 +193,8 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
-	setupAction := models.Serial(setup...)
-	actionAction := models.Codependent(actions...)
+	setupAction := oldmodels.Serial(setup...)
+	actionAction := oldmodels.Codependent(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -226,7 +227,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 
-		EgressRules: desiredApp.EgressRules,
+		EgressRules: models.SecurityGroupRulesFromProto(desiredApp.EgressRules),
 	}, nil
 }
 
