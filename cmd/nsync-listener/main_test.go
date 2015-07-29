@@ -11,13 +11,9 @@ import (
 	"github.com/cloudfoundry-incubator/nsync"
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lrp_bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/cb"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
@@ -29,7 +25,6 @@ var _ = Describe("Nsync Listener", func() {
 	var (
 		nsyncPort    int
 		exitDuration = 3 * time.Second
-		lrpBBS       *lrp_bbs.LRPBBS
 
 		requestGenerator *rata.RequestGenerator
 		httpClient       *http.Client
@@ -103,14 +98,6 @@ var _ = Describe("Nsync Listener", func() {
 		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
 		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
 		logger = lagertest.NewTestLogger("test")
-		clock := clock.NewClock()
-		lrpBBS = lrp_bbs.New(
-			etcdAdapter,
-			clock,
-			cb.NewCellClient(),
-			cb.NewAuctioneerClient(),
-			services_bbs.New(consulRunner.NewSession("a-session"), clock, logger.Session("services-bbs")),
-		)
 		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
 		receptorProcess = startReceptor(receptorAddress, receptorTaskAddress)
 		receptorClient = receptor.NewClient(receptorURL)
