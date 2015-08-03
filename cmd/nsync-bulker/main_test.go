@@ -392,7 +392,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    2048,
+					DiskMB:    1024,
 					MemoryMB:  256,
 					CPUWeight: 1,
 					Ports: []uint16{
@@ -443,7 +443,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    2048,
+					DiskMB:    1024,
 					MemoryMB:  256,
 					CPUWeight: 1,
 					Ports: []uint16{
@@ -492,7 +492,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    1536,
+					DiskMB:    512,
 					MemoryMB:  128,
 					CPUWeight: 1,
 					Ports: []uint16{

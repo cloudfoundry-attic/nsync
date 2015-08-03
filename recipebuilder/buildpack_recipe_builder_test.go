@@ -129,7 +129,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
 			Expect(desiredLRP.RootFS).To(Equal(models.PreloadedRootFS("some-stack")))
 			Expect(desiredLRP.MemoryMB).To(Equal(128))
-			Expect(desiredLRP.DiskMB).To(Equal(1536))
+			Expect(desiredLRP.DiskMB).To(Equal(512))
 			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
 			Expect(desiredLRP.Privileged).To(BeTrue())
 			Expect(desiredLRP.StartTimeout).To(Equal(uint(123456)))

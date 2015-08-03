@@ -184,7 +184,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		CPUWeight: cpuWeight(desiredApp.MemoryMB),
 
 		MemoryMB: desiredApp.MemoryMB,
-		DiskMB:   desiredApp.DiskMB + 1024, // TEMPORARY GARDEN-LINUX FIX
+		DiskMB:   desiredApp.DiskMB,
 
 		Ports: desiredAppPorts,
 
