@@ -379,7 +379,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							{Name: "env-key-2", Value: "env-value-2"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
+						ResourceLimits: &models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
@@ -388,7 +388,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
+							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
 						},
 						30*time.Second,
 					)),
@@ -430,7 +430,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							{Name: "env-key-2", Value: "env-value-2"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
+						ResourceLimits: &models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
@@ -439,7 +439,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
+							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
 						},
 						30*time.Second,
 					)),
@@ -479,7 +479,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Env: []*models.EnvironmentVariable{
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: &models.ResourceLimits{Nofile: nofile},
+						ResourceLimits: &models.ResourceLimits{Nofile: &nofile},
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
@@ -488,7 +488,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Path:           "/tmp/lifecycle/healthcheck",
 							Args:           []string{"-port=8080"},
 							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: defaultNofile},
+							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
 						},
 						30*time.Second,
 					)),
