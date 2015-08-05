@@ -56,7 +56,7 @@ var _ = Describe("Fetcher", func() {
 			BeforeEach(func() {
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("GET", "/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
+						ghttp.VerifyRequest("GET", "/v3/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
 						ghttp.VerifyBasicAuth("the-username", "the-password"),
 						ghttp.RespondWith(200, `{
 						"token": {"id":"the-token-id"},
@@ -73,7 +73,7 @@ var _ = Describe("Fetcher", func() {
 					}`),
 					),
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("GET", "/internal/bulk/apps", `batch_size=2&format=fingerprint&token={"id":"the-token-id"}`),
+						ghttp.VerifyRequest("GET", "/v3/internal/bulk/apps", `batch_size=2&format=fingerprint&token={"id":"the-token-id"}`),
 						ghttp.VerifyBasicAuth("the-username", "the-password"),
 						ghttp.RespondWith(200, `{
 							"token": {"id":"another-token-id"},
@@ -115,7 +115,7 @@ var _ = Describe("Fetcher", func() {
 			BeforeEach(func() {
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("GET", "/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
+						ghttp.VerifyRequest("GET", "/v3/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
 						ghttp.VerifyBasicAuth("the-username", "the-password"),
 						ghttp.RespondWith(200, `{
 							"fingerprints": [
@@ -206,7 +206,7 @@ var _ = Describe("Fetcher", func() {
 			BeforeEach(func() {
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("GET", "/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
+						ghttp.VerifyRequest("GET", "/v3/internal/bulk/apps", "batch_size=2&format=fingerprint&token={}"),
 						ghttp.RespondWith(200, `{
 							"token": {"id":"another-token-id"},
 							"fingerprints": [
@@ -311,7 +311,7 @@ var _ = Describe("Fetcher", func() {
 
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/internal/bulk/apps"),
+						ghttp.VerifyRequest("POST", "/v3/internal/bulk/apps"),
 						ghttp.VerifyBasicAuth("the-username", "the-password"),
 						ghttp.VerifyJSON(`[
 							"process-guid-1",
@@ -321,7 +321,7 @@ var _ = Describe("Fetcher", func() {
 						ghttp.RespondWithJSONEncoded(200, desireRequests[:2]),
 					),
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/internal/bulk/apps"),
+						ghttp.VerifyRequest("POST", "/v3/internal/bulk/apps"),
 						ghttp.VerifyBasicAuth("the-username", "the-password"),
 						ghttp.VerifyJSON(`[
 							"process-guid-3"
@@ -444,7 +444,7 @@ var _ = Describe("Fetcher", func() {
 			BeforeEach(func() {
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/internal/bulk/apps"),
+						ghttp.VerifyRequest("POST", "/v3/internal/bulk/apps"),
 						ghttp.RespondWithJSONEncoded(200, []cc_messages.DesireAppRequestFromCC{}),
 					),
 				)

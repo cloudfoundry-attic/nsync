@@ -195,9 +195,9 @@ func (fetcher *CCFetcher) doRequest(
 }
 
 func (fetcher *CCFetcher) fingerprintURL(bulkToken string) string {
-	return fmt.Sprintf("%s/internal/bulk/apps?batch_size=%d&format=fingerprint&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
+	return fmt.Sprintf("%s/v3/internal/bulk/apps?batch_size=%d&format=fingerprint&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
 }
 
 func (fetcher *CCFetcher) desiredURL() string {
-	return fmt.Sprintf("%s/internal/bulk/apps", fetcher.BaseURI)
+	return fmt.Sprintf("%s/v3/internal/bulk/apps", fetcher.BaseURI)
 }

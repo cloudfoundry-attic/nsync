@@ -161,7 +161,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}`,
 		}
 
-		fakeCC.RouteToHandler("GET", "/internal/bulk/apps",
+		fakeCC.RouteToHandler("GET", "/v3/internal/bulk/apps",
 			ghttp.RespondWith(200, `{
 					"token": {},
 					"fingerprints": [
@@ -181,7 +181,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}`),
 		)
 
-		fakeCC.RouteToHandler("POST", "/internal/bulk/apps",
+		fakeCC.RouteToHandler("POST", "/v3/internal/bulk/apps",
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				var processGuids []string
 				decoder := json.NewDecoder(req.Body)
