@@ -5,10 +5,10 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
+	"github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
@@ -60,7 +60,7 @@ func (err Error) Error() string {
 }
 
 func lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
-	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	staticPath, err := fileserver.Routes.CreatePathForRoute(fileserver.StaticRoute, nil)
 	if err != nil {
 		panic("couldn't generate the download path for the bundle of app lifecycle binaries: " + err.Error())
 	}
