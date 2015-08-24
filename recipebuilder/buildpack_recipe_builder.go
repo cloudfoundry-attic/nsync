@@ -11,7 +11,6 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -54,7 +53,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 	lifecycleURL := lifecycleDownloadURL(lifecyclePath, b.config.FileServerURL)
 
-	rootFSPath := oldmodels.PreloadedRootFS(desiredApp.Stack)
+	rootFSPath := models.PreloadedRootFS(desiredApp.Stack)
 
 	var privilegedContainer bool = true
 	var containerEnvVars []receptor.EnvironmentVariable
@@ -65,11 +64,11 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		numFiles = desiredApp.FileDescriptors
 	}
 
-	var setup []oldmodels.Action
-	var actions []oldmodels.Action
-	var monitor oldmodels.Action
+	var setup []models.ActionInterface
+	var actions []models.ActionInterface
+	var monitor models.ActionInterface
 
-	setup = append(setup, &oldmodels.DownloadAction{
+	setup = append(setup, &models.DownloadAction{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
@@ -81,28 +80,28 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
 		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = &oldmodels.TimeoutAction{
-			Timeout: 30 * time.Second,
-			Action: &oldmodels.RunAction{
+		monitor = models.Timeout(
+			&models.RunAction{
 				User:      "vcap",
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
 				LogSource: HealthLogSource,
-				ResourceLimits: oldmodels.ResourceLimits{
+				ResourceLimits: &models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
 			},
-		}
+			30*time.Second,
+		)
 	}
 
-	setup = append(setup, &oldmodels.DownloadAction{
+	setup = append(setup, &models.DownloadAction{
 		From:     desiredApp.DropletUri,
 		To:       ".",
 		CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
 		User:     "vcap",
 	})
 
-	actions = append(actions, &oldmodels.RunAction{
+	actions = append(actions, &models.RunAction{
 		User: "vcap",
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
@@ -112,7 +111,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		),
 		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
 		LogSource: AppLogSource,
-		ResourceLimits: oldmodels.ResourceLimits{
+		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
@@ -136,7 +135,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			return nil, err
 		}
 
-		actions = append(actions, &oldmodels.RunAction{
+		actions = append(actions, &models.RunAction{
 			User: "vcap",
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
@@ -147,7 +146,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 				"-logLevel=fatal",
 			},
 			Env: createLrpEnv(desiredApp.Environment, exposedPort),
-			ResourceLimits: oldmodels.ResourceLimits{
+			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
 		})
@@ -168,8 +167,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
-	setupAction := oldmodels.Serial(setup...)
-	actionAction := oldmodels.Codependent(actions...)
+	setupAction := models.Serial(setup...)
+	actionAction := models.Codependent(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -196,13 +195,13 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		MetricsGuid: desiredApp.LogGuid,
 
 		EnvironmentVariables: containerEnvVars,
-		Setup:                setupAction,
-		Action:               actionAction,
-		Monitor:              monitor,
+		Setup:                models.WrapAction(setupAction),
+		Action:               models.WrapAction(actionAction),
+		Monitor:              models.WrapAction(monitor),
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 
-		EgressRules: models.SecurityGroupRulesFromProto(desiredApp.EgressRules),
+		EgressRules: desiredApp.EgressRules,
 	}, nil
 }
 

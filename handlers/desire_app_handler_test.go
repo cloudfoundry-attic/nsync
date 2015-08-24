@@ -102,10 +102,10 @@ var _ = Describe("DesireAppHandler", func() {
 				ProcessGuid: "new-process-guid",
 				Instances:   1,
 				RootFS:      oldmodels.PreloadedRootFS("stack-2"),
-				Action: &oldmodels.RunAction{
+				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
-				},
+				}),
 				Annotation: "last-modified-etag",
 			}
 
@@ -204,10 +204,10 @@ var _ = Describe("DesireAppHandler", func() {
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
 					RootFS:      "docker:///user/repo#tag",
-					Action: &oldmodels.RunAction{
+					Action: models.WrapAction(&models.RunAction{
 						User: "me",
 						Path: "ls",
-					},
+					}),
 					Annotation: "last-modified-etag",
 				}
 
@@ -341,10 +341,10 @@ var _ = Describe("DesireAppHandler", func() {
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
 					RootFS:      "docker:///user/repo#tag",
-					Action: &oldmodels.RunAction{
+					Action: models.WrapAction(&models.RunAction{
 						User: "me",
 						Path: "ls",
-					},
+					}),
 					Annotation: "last-modified-etag",
 				}
 

@@ -22,17 +22,14 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/pivotal-golang/clock"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		fullBBS        *bbs.BBS
 		fakeCC         *ghttp.Server
 		receptorClient receptor.Client
 
@@ -93,7 +90,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
-		fullBBS = bbs.NewBBS(etcdClient, consulSession, receptorURL, clock.NewClock(), logger)
 
 		fakeCC = ghttp.NewServer()
 		receptorProcess = startReceptor()
@@ -548,10 +544,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "some-domain",
 					RootFS:      models.PreloadedRootFS("some-stack"),
 					Instances:   1,
-					Action: &models.RunAction{
+					Action: models.WrapAction(&models.RunAction{
 						User: "me",
 						Path: "reboot",
-					},
+					}),
 				}
 
 				err := receptorClient.CreateDesiredLRP(otherDomainDesired)

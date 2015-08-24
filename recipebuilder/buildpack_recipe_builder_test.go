@@ -13,7 +13,6 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -141,41 +140,39 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-			expectedSetup := oldmodels.Serial([]oldmodels.Action{
-				&oldmodels.DownloadAction{
+			expectedSetup := models.Serial(
+				&models.DownloadAction{
 					From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "buildpack-some-stack-lifecycle",
 					User:     "vcap",
 				},
-				&oldmodels.DownloadAction{
+				&models.DownloadAction{
 					From:     "http://the-droplet.uri.com",
 					To:       ".",
 					CacheKey: "droplets-the-app-guid-the-app-version",
 					User:     "vcap",
 				},
-			}...)
-			Expect(desiredLRP.Setup).To(Equal(expectedSetup))
+			)
+			Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
 
-			parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
-			Expect(ok).To(BeTrue())
+			parallelRunAction := desiredLRP.Action.CodependentAction
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-			runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
-			Expect(ok).To(BeTrue())
+			runAction := parallelRunAction.Actions[0].RunAction
 
-			Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
-				Timeout: 30 * time.Second,
-				Action: &oldmodels.RunAction{
+			Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
+				&models.RunAction{
 					User:      "vcap",
 					Path:      "/tmp/lifecycle/healthcheck",
 					Args:      []string{"-port=8080"},
 					LogSource: "HEALTH",
-					ResourceLimits: oldmodels.ResourceLimits{
+					ResourceLimits: &models.ResourceLimits{
 						Nofile: &defaultNofile,
 					},
 				},
-			}))
+				30*time.Second,
+			)))
 
 			Expect(runAction.Path).To(Equal("/tmp/lifecycle/launcher"))
 			Expect(runAction.Args).To(Equal([]string{
@@ -187,21 +184,21 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(runAction.LogSource).To(Equal("APP"))
 
 			numFiles := uint64(32)
-			Expect(runAction.ResourceLimits).To(Equal(oldmodels.ResourceLimits{
+			Expect(runAction.ResourceLimits).To(Equal(&models.ResourceLimits{
 				Nofile: &numFiles,
 			}))
 
-			Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
 				Name:  "foo",
 				Value: "bar",
 			}))
 
-			Expect(runAction.Env).To(ContainElement(oldmodels.EnvironmentVariable{
+			Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
 				Name:  "PORT",
 				Value: "8080",
 			}))
 
-			Expect(desiredLRP.EgressRules).To(ConsistOf(models.SecurityGroupRulesFromProto(egressRules)))
+			Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
 		})
 
 		Context("when no health check is specified", func() {
@@ -211,25 +208,25 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 			It("sets up the port check for backwards compatibility", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.(*oldmodels.SerialAction).Actions {
-					switch a := action.(type) {
-					case *oldmodels.DownloadAction:
-						downloadDestinations = append(downloadDestinations, a.To)
+				for _, action := range desiredLRP.Setup.SerialAction.Actions {
+					downloadAction := action.DownloadAction
+					if downloadAction != nil {
+						downloadDestinations = append(downloadDestinations, downloadAction.To)
 					}
 				}
 
 				Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
 
-				Expect(desiredLRP.Monitor).To(Equal(&oldmodels.TimeoutAction{
-					Timeout: 30 * time.Second,
-					Action: &oldmodels.RunAction{
+				Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
+					&models.RunAction{
 						User:           "vcap",
 						Path:           "/tmp/lifecycle/healthcheck",
 						Args:           []string{"-port=8080"},
 						LogSource:      "HEALTH",
-						ResourceLimits: oldmodels.ResourceLimits{Nofile: &defaultNofile},
+						ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
 					},
-				}))
+					30*time.Second,
+				)))
 			})
 		})
 
@@ -239,15 +236,15 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 
 			It("does not populate the monitor action", func() {
-				Expect(desiredLRP.Monitor).To(BeNil())
+				Expect(desiredLRP.Monitor.GetValue()).To(BeNil())
 			})
 
 			It("still downloads the lifecycle, since we need it for the launcher", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.(*oldmodels.SerialAction).Actions {
-					switch a := action.(type) {
-					case *oldmodels.DownloadAction:
-						downloadDestinations = append(downloadDestinations, a.To)
+				for _, action := range desiredLRP.Setup.SerialAction.Actions {
+					downloadAction := action.DownloadAction
+					if downloadAction != nil {
+						downloadDestinations = append(downloadDestinations, downloadAction.To)
 					}
 				}
 
@@ -278,29 +275,29 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 
 			It("setup should download the ssh daemon", func() {
-				expectedSetup := oldmodels.Serial([]oldmodels.Action{
-					&oldmodels.DownloadAction{
+				expectedSetup := models.Serial(
+					&models.DownloadAction{
 						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
 						User:     "vcap",
 					},
-					&oldmodels.DownloadAction{
+					&models.DownloadAction{
 						From:     "http://the-droplet.uri.com",
 						To:       ".",
 						CacheKey: "droplets-the-app-guid-the-app-version",
 						User:     "vcap",
 					},
-				}...)
+				)
 
-				Expect(desiredLRP.Setup).To(Equal(expectedSetup))
+				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
 			})
 
 			It("runs the ssh daemon in the container", func() {
 				expectedNumFiles := uint64(32)
 
-				expectedAction := oldmodels.Codependent([]oldmodels.Action{
-					&oldmodels.RunAction{
+				expectedAction := models.Codependent(
+					&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
@@ -308,16 +305,16 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							"the-start-command with-arguments",
 							"the-execution-metadata",
 						},
-						Env: []oldmodels.EnvironmentVariable{
+						Env: []*models.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: oldmodels.ResourceLimits{
+						ResourceLimits: &models.ResourceLimits{
 							Nofile: &expectedNumFiles,
 						},
 						LogSource: "APP",
 					},
-					&oldmodels.RunAction{
+					&models.RunAction{
 						User: "vcap",
 						Path: "/tmp/lifecycle/diego-sshd",
 						Args: []string{
@@ -327,17 +324,17 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							"-inheritDaemonEnv",
 							"-logLevel=fatal",
 						},
-						Env: []oldmodels.EnvironmentVariable{
+						Env: []*models.EnvironmentVariable{
 							{Name: "foo", Value: "bar"},
 							{Name: "PORT", Value: "8080"},
 						},
-						ResourceLimits: oldmodels.ResourceLimits{
+						ResourceLimits: &models.ResourceLimits{
 							Nofile: &expectedNumFiles,
 						},
 					},
-				}...)
+				)
 
-				Expect(desiredLRP.Action).To(Equal(expectedAction))
+				Expect(desiredLRP.Action.GetValue()).To(Equal(expectedAction))
 			})
 
 			It("opens up the default ssh port", func() {
@@ -429,12 +426,10 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		})
 
 		It("sets a default FD limit on the run action", func() {
-			parallelRunAction, ok := desiredLRP.Action.(*oldmodels.CodependentAction)
-			Expect(ok).To(BeTrue())
+			parallelRunAction := desiredLRP.Action.CodependentAction
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
 
-			runAction, ok := parallelRunAction.Actions[0].(*oldmodels.RunAction)
-			Expect(ok).To(BeTrue())
+			runAction := parallelRunAction.Actions[0].RunAction
 
 			Expect(runAction.ResourceLimits.Nofile).NotTo(BeNil())
 			Expect(*runAction.ResourceLimits.Nofile).To(Equal(recipebuilder.DefaultFileDescriptorLimit))

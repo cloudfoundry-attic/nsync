@@ -13,7 +13,6 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -80,9 +79,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		numFiles = desiredApp.FileDescriptors
 	}
 
-	var setup []oldmodels.Action
-	var actions []oldmodels.Action
-	var monitor oldmodels.Action
+	var setup []models.ActionInterface
+	var actions []models.ActionInterface
+	var monitor models.ActionInterface
 
 	executionMetadata, err := NewDockerExecutionMetadata(desiredApp.ExecutionMetadata)
 	if err != nil {
@@ -97,7 +96,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		return nil, err
 	}
 
-	setup = append(setup, &oldmodels.DownloadAction{
+	setup = append(setup, &models.DownloadAction{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
@@ -113,21 +112,21 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
 		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = &oldmodels.TimeoutAction{
-			Timeout: 30 * time.Second,
-			Action: &oldmodels.RunAction{
+		monitor = models.Timeout(
+			&models.RunAction{
 				User:      user,
 				Path:      "/tmp/lifecycle/healthcheck",
 				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
 				LogSource: HealthLogSource,
-				ResourceLimits: oldmodels.ResourceLimits{
+				ResourceLimits: &models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
 			},
-		}
+			30*time.Second,
+		)
 	}
 
-	actions = append(actions, &oldmodels.RunAction{
+	actions = append(actions, &models.RunAction{
 		User: user,
 		Path: "/tmp/lifecycle/launcher",
 		Args: append(
@@ -137,7 +136,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		),
 		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
 		LogSource: AppLogSource,
-		ResourceLimits: oldmodels.ResourceLimits{
+		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
@@ -161,7 +160,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			return nil, err
 		}
 
-		actions = append(actions, &oldmodels.RunAction{
+		actions = append(actions, &models.RunAction{
 			User: user,
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
@@ -172,7 +171,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 				"-logLevel=fatal",
 			},
 			Env: createLrpEnv(desiredApp.Environment, exposedPort),
-			ResourceLimits: oldmodels.ResourceLimits{
+			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
 		})
@@ -193,8 +192,8 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
-	setupAction := oldmodels.Serial(setup...)
-	actionAction := oldmodels.Codependent(actions...)
+	setupAction := models.Serial(setup...)
+	actionAction := models.Codependent(actions...)
 
 	return &receptor.DesiredLRPCreateRequest{
 		Privileged: privilegedContainer,
@@ -221,13 +220,13 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		MetricsGuid: desiredApp.LogGuid,
 
 		EnvironmentVariables: containerEnvVars,
-		Setup:                setupAction,
-		Action:               actionAction,
-		Monitor:              monitor,
+		Setup:                models.WrapAction(setupAction),
+		Action:               models.WrapAction(actionAction),
+		Monitor:              models.WrapAction(monitor),
 
 		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
 
-		EgressRules: models.SecurityGroupRulesFromProto(desiredApp.EgressRules),
+		EgressRules: desiredApp.EgressRules,
 	}, nil
 }
 
