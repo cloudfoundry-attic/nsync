@@ -44,11 +44,10 @@ var _ = Describe("Nsync Listener", func() {
 
 	startReceptor := func(address, taskAddress string) ifrit.Process {
 		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:            address,
-			TaskHandlerAddress: taskAddress,
-			EtcdCluster:        strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster:      consulRunner.ConsulCluster(),
-			BBSAddress:         bbsURL.String(),
+			Address:       address,
+			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
+			ConsulCluster: consulRunner.ConsulCluster(),
+			BBSAddress:    bbsURL.String(),
 		}))
 	}
 
