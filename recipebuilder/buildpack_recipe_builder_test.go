@@ -236,7 +236,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 
 			It("does not populate the monitor action", func() {
-				Expect(desiredLRP.Monitor.GetValue()).To(BeNil())
+				Expect(desiredLRP.Monitor).To(BeNil())
 			})
 
 			It("still downloads the lifecycle, since we need it for the launcher", func() {
