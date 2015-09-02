@@ -272,7 +272,7 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(*updateRequest.Instances).To(Equal(2))
 			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
 
-			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
+			expectedRoutePayload, err := json.Marshal(cfroutes.LegacyCFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: port},
 			})
 			Expect(err).NotTo(HaveOccurred())

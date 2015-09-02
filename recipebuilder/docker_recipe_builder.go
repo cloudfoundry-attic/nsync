@@ -141,9 +141,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		},
 	})
 
-	desiredAppRoutingInfo := cfroutes.CFRoutes{
+	desiredAppRoutingInfo := cfroutes.LegacyCFRoutes{
 		{Hostnames: desiredApp.Routes, Port: exposedPort},
-	}.RoutingInfo()
+	}.LegacyRoutingInfo()
 
 	desiredAppPorts := []uint16{exposedPort}
 

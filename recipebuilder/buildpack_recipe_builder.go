@@ -116,9 +116,9 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		},
 	})
 
-	desiredAppRoutingInfo := cfroutes.CFRoutes{
+	desiredAppRoutingInfo := cfroutes.LegacyCFRoutes{
 		{Hostnames: desiredApp.Routes, Port: exposedPort},
-	}.RoutingInfo()
+	}.LegacyRoutingInfo()
 
 	desiredAppPorts := []uint16{exposedPort}
 

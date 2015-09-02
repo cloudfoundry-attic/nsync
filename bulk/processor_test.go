@@ -456,7 +456,7 @@ var _ = Describe("Processor", func() {
 				Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(expectedClientCallCount))
 
 				opaqueRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
-				cfRoute := cfroutes.CFRoutes{
+				cfRoute := cfroutes.LegacyCFRoutes{
 					{Hostnames: []string{expectedRouteHost}, Port: expectedPort},
 				}
 				cfRoutePayload, err := json.Marshal(cfRoute)
