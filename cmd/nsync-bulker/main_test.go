@@ -579,7 +579,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Eventually(receptorClient.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
-			consulRunner.Reset()
+			consulRunner.DestroySession("nsync-bulker")
 		})
 
 		AfterEach(func() {
