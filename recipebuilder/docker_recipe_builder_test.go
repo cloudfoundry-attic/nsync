@@ -122,9 +122,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
 			Expect(desiredLRP.Instances).To(Equal(23))
-			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+			Expect(desiredLRP.Routes).To(Equal(cfroutes.LegacyCFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
-			}.RoutingInfo()))
+			}.LegacyRoutingInfo()))
 
 			Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
 			Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
@@ -335,7 +335,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("declares ssh routing information in the LRP", func() {
-				cfRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
+				cfRoutePayload, err := json.Marshal(cfroutes.LegacyCFRoutes{
 					{Hostnames: []string{"route1", "route2"}, Port: 8080},
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -417,9 +417,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			runAction := parallelRunAction.Actions[0].RunAction
 
-			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+			Expect(desiredLRP.Routes).To(Equal(cfroutes.LegacyCFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
-			}.RoutingInfo()))
+			}.LegacyRoutingInfo()))
 
 			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
 
@@ -456,9 +456,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				runAction := parallelRunAction.Actions[0].RunAction
 
-				Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+				Expect(desiredLRP.Routes).To(Equal(cfroutes.LegacyCFRoutes{
 					{Hostnames: []string{"route1", "route2"}, Port: 8081},
-				}.RoutingInfo()))
+				}.LegacyRoutingInfo()))
 
 				Expect(desiredLRP.Ports).To(Equal([]uint16{8081}))
 

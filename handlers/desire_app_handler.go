@@ -146,7 +146,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		return err
 	}
 
-	cfRoutesJson, err := json.Marshal(cfroutes.CFRoutes{
+	cfRoutesJson, err := json.Marshal(cfroutes.LegacyCFRoutes{
 		{Hostnames: desireAppMessage.Routes, Port: port},
 	})
 	if err != nil {

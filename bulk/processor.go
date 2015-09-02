@@ -328,9 +328,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 
-					updateReq.Routes = cfroutes.CFRoutes{
+					updateReq.Routes = cfroutes.LegacyCFRoutes{
 						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
-					}.RoutingInfo()
+					}.LegacyRoutingInfo()
 
 					for k, v := range existingLRP.Routes {
 						if k != cfroutes.CF_ROUTER {
