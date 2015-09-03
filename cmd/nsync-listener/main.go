@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
@@ -24,10 +24,10 @@ import (
 	"github.com/cloudfoundry/dropsonde"
 )
 
-var diegoAPIURL = flag.String(
-	"diegoAPIURL",
+var bbsAddress = flag.String(
+	"bbsAddress",
 	"",
-	"URL of diego API",
+	"Address to the BBS Server",
 )
 
 var nsyncURL = flag.String(
@@ -66,7 +66,7 @@ func main() {
 
 	initializeDropsonde(logger)
 
-	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
+	diegoAPIClient := bbs.NewClient(*bbsAddress)
 
 	recipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:    lifecycles,

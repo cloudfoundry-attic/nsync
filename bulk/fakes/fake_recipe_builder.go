@@ -4,33 +4,33 @@ package fakes
 import (
 	"sync"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type FakeRecipeBuilder struct {
-	BuildStub        func(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
+	BuildStub        func(*cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error)
 	buildMutex       sync.RWMutex
 	buildArgsForCall []struct {
 		arg1 *cc_messages.DesireAppRequestFromCC
 	}
 	buildReturns struct {
-		result1 *receptor.DesiredLRPCreateRequest
+		result1 *models.DesiredLRP
 		result2 error
 	}
-	ExtractExposedPortStub        func(executionMetadata string) (uint16, error)
+	ExtractExposedPortStub        func(executionMetadata string) (uint32, error)
 	extractExposedPortMutex       sync.RWMutex
 	extractExposedPortArgsForCall []struct {
 		executionMetadata string
 	}
 	extractExposedPortReturns struct {
-		result1 uint16
+		result1 uint32
 		result2 error
 	}
 }
 
-func (fake *FakeRecipeBuilder) Build(arg1 *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
+func (fake *FakeRecipeBuilder) Build(arg1 *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
 	fake.buildMutex.Lock()
 	fake.buildArgsForCall = append(fake.buildArgsForCall, struct {
 		arg1 *cc_messages.DesireAppRequestFromCC
@@ -55,15 +55,15 @@ func (fake *FakeRecipeBuilder) BuildArgsForCall(i int) *cc_messages.DesireAppReq
 	return fake.buildArgsForCall[i].arg1
 }
 
-func (fake *FakeRecipeBuilder) BuildReturns(result1 *receptor.DesiredLRPCreateRequest, result2 error) {
+func (fake *FakeRecipeBuilder) BuildReturns(result1 *models.DesiredLRP, result2 error) {
 	fake.BuildStub = nil
 	fake.buildReturns = struct {
-		result1 *receptor.DesiredLRPCreateRequest
+		result1 *models.DesiredLRP
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint16, error) {
+func (fake *FakeRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint32, error) {
 	fake.extractExposedPortMutex.Lock()
 	fake.extractExposedPortArgsForCall = append(fake.extractExposedPortArgsForCall, struct {
 		executionMetadata string
@@ -88,10 +88,10 @@ func (fake *FakeRecipeBuilder) ExtractExposedPortArgsForCall(i int) string {
 	return fake.extractExposedPortArgsForCall[i].executionMetadata
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPortReturns(result1 uint16, result2 error) {
+func (fake *FakeRecipeBuilder) ExtractExposedPortReturns(result1 uint32, result2 error) {
 	fake.ExtractExposedPortStub = nil
 	fake.extractExposedPortReturns = struct {
-		result1 uint16
+		result1 uint32
 		result2 error
 	}{result1, result2}
 }

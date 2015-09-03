@@ -3,18 +3,18 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/nsync"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )
 
-func New(logger lager.Logger, diegoClient receptor.Client, recipebuilders map[string]recipebuilder.RecipeBuilder) http.Handler {
+func New(logger lager.Logger, bbsClient bbs.Client, recipebuilders map[string]recipebuilder.RecipeBuilder) http.Handler {
 
-	desireAppHandler := NewDesireAppHandler(logger, diegoClient, recipebuilders)
-	stopAppHandler := NewStopAppHandler(logger, diegoClient)
-	killIndexHandler := NewKillIndexHandler(logger, diegoClient)
+	desireAppHandler := NewDesireAppHandler(logger, bbsClient, recipebuilders)
+	stopAppHandler := NewStopAppHandler(logger, bbsClient)
+	killIndexHandler := NewKillIndexHandler(logger, bbsClient)
 
 	actions := rata.Handlers{
 		nsync.DesireAppRoute: http.HandlerFunc(desireAppHandler.DesireApp),

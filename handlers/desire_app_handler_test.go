@@ -10,12 +10,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -31,7 +30,7 @@ import (
 var _ = Describe("DesireAppHandler", func() {
 	var (
 		logger           *lagertest.TestLogger
-		fakeReceptor     *fake_receptor.FakeClient
+		fakeBBS          *fake_bbs.FakeClient
 		buildpackBuilder *fakes.FakeRecipeBuilder
 		dockerBuilder    *fakes.FakeRecipeBuilder
 		desireAppRequest cc_messages.DesireAppRequestFromCC
@@ -43,7 +42,7 @@ var _ = Describe("DesireAppHandler", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		fakeReceptor = new(fake_receptor.FakeClient)
+		fakeBBS = new(fake_bbs.FakeClient)
 		buildpackBuilder = new(fakes.FakeRecipeBuilder)
 		dockerBuilder = new(fakes.FakeRecipeBuilder)
 
@@ -87,7 +86,7 @@ var _ = Describe("DesireAppHandler", func() {
 			request.Body = ioutil.NopCloser(reader)
 		}
 
-		handler := handlers.NewDesireAppHandler(logger, fakeReceptor, map[string]recipebuilder.RecipeBuilder{
+		handler := handlers.NewDesireAppHandler(logger, fakeBBS, map[string]recipebuilder.RecipeBuilder{
 			"buildpack": buildpackBuilder,
 			"docker":    dockerBuilder,
 		})
@@ -95,13 +94,13 @@ var _ = Describe("DesireAppHandler", func() {
 	})
 
 	Context("when the desired LRP does not exist", func() {
-		var newlyDesiredLRP receptor.DesiredLRPCreateRequest
+		var newlyDesiredLRP *models.DesiredLRP
 
 		BeforeEach(func() {
-			newlyDesiredLRP = receptor.DesiredLRPCreateRequest{
+			newlyDesiredLRP = &models.DesiredLRP{
 				ProcessGuid: "new-process-guid",
 				Instances:   1,
-				RootFS:      oldmodels.PreloadedRootFS("stack-2"),
+				RootFs:      oldmodels.PreloadedRootFS("stack-2"),
 				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
@@ -109,18 +108,15 @@ var _ = Describe("DesireAppHandler", func() {
 				Annotation: "last-modified-etag",
 			}
 
-			fakeReceptor.GetDesiredLRPReturns(receptor.DesiredLRPResponse{}, receptor.Error{
-				Type:    receptor.DesiredLRPNotFound,
-				Message: "Desired LRP with guid 'new-process-guid' not found",
-			})
-			buildpackBuilder.BuildReturns(&newlyDesiredLRP, nil)
+			fakeBBS.DesiredLRPByProcessGuidReturns(&models.DesiredLRP{}, models.ErrResourceNotFound)
+			buildpackBuilder.BuildReturns(newlyDesiredLRP, nil)
 		})
 
 		It("creates the desired LRP", func() {
-			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
+			Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
 
-			Expect(fakeReceptor.GetDesiredLRPCallCount()).To(Equal(1))
-			Expect(fakeReceptor.CreateDesiredLRPArgsForCall(0)).To(Equal(newlyDesiredLRP))
+			Expect(fakeBBS.DesiredLRPByProcessGuidCallCount()).To(Equal(1))
+			Expect(fakeBBS.DesireLRPArgsForCall(0)).To(Equal(newlyDesiredLRP))
 
 			Expect(buildpackBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 		})
@@ -133,9 +129,9 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(metricSender.GetCounter("LRPsDesired")).To(Equal(uint64(1)))
 		})
 
-		Context("when the receptor fails", func() {
+		Context("when the bbs fails", func() {
 			BeforeEach(func() {
-				fakeReceptor.CreateDesiredLRPReturns(errors.New("oh no"))
+				fakeBBS.DesireLRPReturns(errors.New("oh no"))
 			})
 
 			It("responds with a ServiceUnavailabe error", func() {
@@ -143,20 +139,19 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 		})
 
-		Context("when the receptor fails with a Conflict error", func() {
+		Context("when the bbs fails with a Conflict error", func() {
 			BeforeEach(func() {
-				fakeReceptor.CreateDesiredLRPStub = func(_ receptor.DesiredLRPCreateRequest) error {
-					fakeReceptor.GetDesiredLRPReturns(receptor.DesiredLRPResponse{
+				fakeBBS.DesireLRPStub = func(_ *models.DesiredLRP) error {
+					fakeBBS.DesiredLRPByProcessGuidReturns(&models.DesiredLRP{
 						ProcessGuid: "some-guid",
-						Routes:      receptor.RoutingInfo{},
 					}, nil)
-					return receptor.Error{Type: receptor.DesiredLRPAlreadyExists}
+					return models.ErrResourceExists
 				}
 			})
 
 			It("retries", func() {
-				Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
-				Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(1))
+				Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
+				Expect(fakeBBS.UpdateDesiredLRPCallCount()).To(Equal(1))
 			})
 
 			It("suceeds if the second try is sucessful", func() {
@@ -165,7 +160,7 @@ var _ = Describe("DesireAppHandler", func() {
 
 			Context("when updating the desired LRP fails with a conflict error", func() {
 				BeforeEach(func() {
-					fakeReceptor.UpdateDesiredLRPReturns(receptor.Error{Type: receptor.ResourceConflict})
+					fakeBBS.UpdateDesiredLRPReturns(models.ErrResourceConflict)
 				})
 
 				It("fails with a 409 Conflict if the second try is unsuccessful", func() {
@@ -185,7 +180,7 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("does not desire the LRP", func() {
-				Consistently(fakeReceptor.DeleteDesiredLRPCallCount).Should(Equal(0))
+				Consistently(fakeBBS.RemoveDesiredLRPCallCount).Should(Equal(0))
 			})
 
 			It("responds with 400 Bad Request", func() {
@@ -194,16 +189,16 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		Context("when the LRP has docker image", func() {
-			var newlyDesiredDockerLRP receptor.DesiredLRPCreateRequest
+			var newlyDesiredDockerLRP *models.DesiredLRP
 
 			BeforeEach(func() {
 				desireAppRequest.DropletUri = ""
 				desireAppRequest.DockerImageUrl = "docker:///user/repo#tag"
 
-				newlyDesiredDockerLRP = receptor.DesiredLRPCreateRequest{
+				newlyDesiredDockerLRP = &models.DesiredLRP{
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
-					RootFS:      "docker:///user/repo#tag",
+					RootFs:      "docker:///user/repo#tag",
 					Action: models.WrapAction(&models.RunAction{
 						User: "me",
 						Path: "ls",
@@ -211,14 +206,14 @@ var _ = Describe("DesireAppHandler", func() {
 					Annotation: "last-modified-etag",
 				}
 
-				dockerBuilder.BuildReturns(&newlyDesiredDockerLRP, nil)
+				dockerBuilder.BuildReturns(newlyDesiredDockerLRP, nil)
 			})
 
 			It("creates the desired LRP", func() {
-				Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(1))
+				Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
 
-				Expect(fakeReceptor.GetDesiredLRPCallCount()).To(Equal(1))
-				Expect(fakeReceptor.CreateDesiredLRPArgsForCall(0)).To(Equal(newlyDesiredDockerLRP))
+				Expect(fakeBBS.DesiredLRPByProcessGuidCallCount()).To(Equal(1))
+				Expect(fakeBBS.DesireLRPArgsForCall(0)).To(Equal(newlyDesiredDockerLRP))
 
 				Expect(dockerBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 			})
@@ -237,7 +232,7 @@ var _ = Describe("DesireAppHandler", func() {
 		var opaqueRoutingMessage json.RawMessage
 
 		BeforeEach(func() {
-			buildpackBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint16, error) {
+			buildpackBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint32, error) {
 				return 8080, nil
 			}
 
@@ -251,9 +246,9 @@ var _ = Describe("DesireAppHandler", func() {
 			cfRouteMessage := json.RawMessage(cfRoutePayload)
 			opaqueRoutingMessage = json.RawMessage([]byte(`{"some": "value"}`))
 
-			fakeReceptor.GetDesiredLRPReturns(receptor.DesiredLRPResponse{
+			fakeBBS.DesiredLRPByProcessGuidReturns(&models.DesiredLRP{
 				ProcessGuid: "some-guid",
-				Routes: receptor.RoutingInfo{
+				Routes: &models.Routes{
 					cfroutes.CF_ROUTER:        &cfRouteMessage,
 					"some-other-routing-data": &opaqueRoutingMessage,
 				},
@@ -261,24 +256,24 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("checks to see if LRP already exists", func() {
-			Eventually(fakeReceptor.GetDesiredLRPCallCount).Should(Equal(1))
+			Eventually(fakeBBS.DesiredLRPByProcessGuidCallCount).Should(Equal(1))
 		})
 
-		opaqueRoutingDataCheck := func(port uint16) {
-			Eventually(fakeReceptor.UpdateDesiredLRPCallCount).Should(Equal(1))
+		opaqueRoutingDataCheck := func(port uint32) {
+			Eventually(fakeBBS.UpdateDesiredLRPCallCount).Should(Equal(1))
 
-			processGuid, updateRequest := fakeReceptor.UpdateDesiredLRPArgsForCall(0)
+			processGuid, updateRequest := fakeBBS.UpdateDesiredLRPArgsForCall(0)
 			Expect(processGuid).To(Equal("some-guid"))
-			Expect(*updateRequest.Instances).To(Equal(2))
+			Expect(*updateRequest.Instances).To(BeEquivalentTo(2))
 			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
 
-			expectedRoutePayload, err := json.Marshal(cfroutes.LegacyCFRoutes{
+			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: port},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedCfRouteMessage := json.RawMessage(expectedRoutePayload)
-			Expect(updateRequest.Routes).To(Equal(receptor.RoutingInfo{
+			Expect(updateRequest.Routes).To(Equal(&models.Routes{
 				cfroutes.CF_ROUTER:        &expectedCfRouteMessage,
 				"some-other-routing-data": &opaqueRoutingMessage,
 			}))
@@ -299,9 +294,9 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(buildpackBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(""))
 		})
 
-		Context("when the receptor fails", func() {
+		Context("when the bbs fails", func() {
 			BeforeEach(func() {
-				fakeReceptor.UpdateDesiredLRPReturns(errors.New("oh no"))
+				fakeBBS.UpdateDesiredLRPReturns(errors.New("oh no"))
 			})
 
 			It("responds with a ServiceUnavailabe error", func() {
@@ -309,9 +304,9 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 		})
 
-		Context("when the receptor fails with a conflict", func() {
+		Context("when the bbs fails with a conflict", func() {
 			BeforeEach(func() {
-				fakeReceptor.UpdateDesiredLRPReturns(receptor.Error{Type: receptor.ResourceConflict})
+				fakeBBS.UpdateDesiredLRPReturns(models.ErrResourceConflict)
 			})
 
 			It("responds with a Conflict error", func() {
@@ -321,8 +316,8 @@ var _ = Describe("DesireAppHandler", func() {
 
 		Context("when the LRP has docker image", func() {
 			var (
-				existingDesiredDockerLRP receptor.DesiredLRPCreateRequest
-				expectedPort             uint16
+				existingDesiredDockerLRP *models.DesiredLRP
+				expectedPort             uint32
 				expectedMetadata         string
 			)
 
@@ -333,14 +328,14 @@ var _ = Describe("DesireAppHandler", func() {
 				expectedMetadata = fmt.Sprintf(`{"ports": {"port": %d, "protocol":"http"}}`, expectedPort)
 				desireAppRequest.ExecutionMetadata = expectedMetadata
 
-				dockerBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint16, error) {
+				dockerBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint32, error) {
 					return expectedPort, nil
 				}
 
-				existingDesiredDockerLRP = receptor.DesiredLRPCreateRequest{
+				existingDesiredDockerLRP = &models.DesiredLRP{
 					ProcessGuid: "new-process-guid",
 					Instances:   1,
-					RootFS:      "docker:///user/repo#tag",
+					RootFs:      "docker:///user/repo#tag",
 					Action: models.WrapAction(&models.RunAction{
 						User: "me",
 						Path: "ls",
@@ -348,11 +343,11 @@ var _ = Describe("DesireAppHandler", func() {
 					Annotation: "last-modified-etag",
 				}
 
-				dockerBuilder.BuildReturns(&existingDesiredDockerLRP, nil)
+				dockerBuilder.BuildReturns(existingDesiredDockerLRP, nil)
 			})
 
 			It("checks to see if LRP already exists", func() {
-				Eventually(fakeReceptor.GetDesiredLRPCallCount).Should(Equal(1))
+				Eventually(fakeBBS.DesiredLRPByProcessGuidCallCount).Should(Equal(1))
 			})
 
 			It("updates the LRP without stepping on opaque routing data", func() {
@@ -378,8 +373,8 @@ var _ = Describe("DesireAppHandler", func() {
 			request.Body = ioutil.NopCloser(reader)
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.RetireActualLRPCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -391,9 +386,9 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not touch the LRP", func() {
-			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(0))
-			Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(0))
-			Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.DesireLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.UpdateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(0))
 		})
 
 	})
@@ -403,8 +398,8 @@ var _ = Describe("DesireAppHandler", func() {
 			request.Form.Set(":process_guid", "another-guid")
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.RetireActualLRPCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -416,9 +411,9 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("does not touch the LRP", func() {
-			Expect(fakeReceptor.CreateDesiredLRPCallCount()).To(Equal(0))
-			Expect(fakeReceptor.UpdateDesiredLRPCallCount()).To(Equal(0))
-			Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.DesireLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.UpdateDesiredLRPCallCount()).To(Equal(0))
+			Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(0))
 		})
 	})
 })

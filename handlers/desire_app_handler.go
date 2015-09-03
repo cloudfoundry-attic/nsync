@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/cloudfoundry-incubator/bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -16,21 +17,16 @@ const (
 	desiredLRPCounter = metric.Counter("LRPsDesired")
 )
 
-//go:generate counterfeiter -o fakes/fake_recipe_builder.go . RecipeBuilder
-type RecipeBuilder interface {
-	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
-}
-
 type DesireAppHandler struct {
 	recipeBuilders map[string]recipebuilder.RecipeBuilder
-	receptorClient receptor.Client
+	bbsClient      bbs.Client
 	logger         lager.Logger
 }
 
-func NewDesireAppHandler(logger lager.Logger, receptorClient receptor.Client, builders map[string]recipebuilder.RecipeBuilder) DesireAppHandler {
+func NewDesireAppHandler(logger lager.Logger, bbsClient bbs.Client, builders map[string]recipebuilder.RecipeBuilder) DesireAppHandler {
 	return DesireAppHandler{
 		recipeBuilders: builders,
-		receptorClient: receptorClient,
+		bbsClient:      bbsClient,
 		logger:         logger,
 	}
 }
@@ -72,14 +68,18 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		}
 
 		if err != nil {
-			if receptorErr, ok := err.(receptor.Error); ok &&
-				(receptorErr.Type == receptor.DesiredLRPAlreadyExists ||
-					receptorErr.Type == receptor.ResourceConflict) {
+			mErr := models.ConvertError(err)
+			switch mErr.Type {
+			case models.Error_ResourceConflict:
+				fallthrough
+			case models.Error_ResourceExists:
 				statusCode = http.StatusConflict
-			} else if _, ok := err.(recipebuilder.Error); ok {
-				statusCode = http.StatusBadRequest
-			} else {
-				statusCode = http.StatusServiceUnavailable
+			default:
+				if _, ok := err.(recipebuilder.Error); ok {
+					statusCode = http.StatusBadRequest
+				} else {
+					statusCode = http.StatusServiceUnavailable
+				}
 			}
 		} else {
 			statusCode = http.StatusAccepted
@@ -90,16 +90,15 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	resp.WriteHeader(statusCode)
 }
 
-func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*receptor.DesiredLRPResponse, error) {
-	lrp, err := h.receptorClient.GetDesiredLRP(processGuid)
+func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*models.DesiredLRP, error) {
+	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(processGuid)
 	if err == nil {
-		return &lrp, nil
+		return lrp, nil
 	}
 
-	if rerr, ok := err.(receptor.Error); ok {
-		if rerr.Type == receptor.DesiredLRPNotFound {
-			return nil, nil
-		}
+	bbsError := models.ConvertError(err)
+	if bbsError.Type == models.Error_ResourceNotFound {
+		return nil, nil
 	}
 
 	return nil, err
@@ -120,7 +119,7 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
-	err = h.receptorClient.CreateDesiredLRP(*desiredLRP)
+	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
 		return err
@@ -131,11 +130,9 @@ func (h *DesireAppHandler) createDesiredApp(
 
 func (h *DesireAppHandler) updateDesiredApp(
 	logger lager.Logger,
-	existingLRP *receptor.DesiredLRPResponse,
+	existingLRP *models.DesiredLRP,
 	desireAppMessage cc_messages.DesireAppRequestFromCC,
 ) error {
-	routes := existingLRP.Routes
-
 	var builder recipebuilder.RecipeBuilder = h.recipeBuilders["buildpack"]
 	if desireAppMessage.DockerImageUrl != "" {
 		builder = h.recipeBuilders["docker"]
@@ -146,7 +143,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		return err
 	}
 
-	cfRoutesJson, err := json.Marshal(cfroutes.LegacyCFRoutes{
+	cfRoutesJson, err := json.Marshal(cfroutes.CFRoutes{
 		{Hostnames: desireAppMessage.Routes, Port: port},
 	})
 	if err != nil {
@@ -154,37 +151,25 @@ func (h *DesireAppHandler) updateDesiredApp(
 		return err
 	}
 
-	cfRoutesMessage := json.RawMessage(cfRoutesJson)
-	routes[cfroutes.CF_ROUTER] = &cfRoutesMessage
+	routes := existingLRP.Routes
+	if routes == nil {
+		routes = &models.Routes{}
+	}
 
-	updateRequest := receptor.DesiredLRPUpdateRequest{
+	cfRoutesMessage := json.RawMessage(cfRoutesJson)
+	(*routes)[cfroutes.CF_ROUTER] = &cfRoutesMessage
+	instances := int32(desireAppMessage.NumInstances)
+	updateRequest := &models.DesiredLRPUpdate{
 		Annotation: &desireAppMessage.ETag,
-		Instances:  &desireAppMessage.NumInstances,
+		Instances:  &instances,
 		Routes:     routes,
 	}
 
-	err = h.receptorClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
+	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
 		return err
 	}
 
 	return nil
-}
-
-func (h *DesireAppHandler) deleteDesiredApp(logger lager.Logger, processGuid string) error {
-	err := h.receptorClient.DeleteDesiredLRP(processGuid)
-	if err == nil {
-		return nil
-	}
-
-	if rerr, ok := err.(receptor.Error); ok {
-		if rerr.Type == receptor.DesiredLRPNotFound {
-			logger.Info("lrp-already-deleted")
-			return nil
-		}
-	}
-
-	logger.Error("failed-to-remove", err)
-	return err
 }

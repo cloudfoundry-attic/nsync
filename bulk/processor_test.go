@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
@@ -29,9 +29,9 @@ import (
 var _ = Describe("Processor", func() {
 	var (
 		fingerprintsToFetch []cc_messages.CCDesiredAppFingerprint
-		existingDesired     []receptor.DesiredLRPResponse
+		existingDesired     []*models.DesiredLRP
 
-		receptorClient         *fake_receptor.FakeClient
+		bbsClient              *fake_bbs.FakeClient
 		fetcher                *fakes.FakeFetcher
 		buildpackRecipeBuilder *fakes.FakeRecipeBuilder
 		dockerRecipeBuilder    *fakes.FakeRecipeBuilder
@@ -64,19 +64,19 @@ var _ = Describe("Processor", func() {
 		}
 
 		staleRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
-		existingDesired = []receptor.DesiredLRPResponse{
+		existingDesired = []*models.DesiredLRP{
 			{ProcessGuid: "current-process-guid", Annotation: "current-etag"},
 			{
 				ProcessGuid: "stale-process-guid",
 				Annotation:  "stale-etag",
-				Routes: receptor.RoutingInfo{
+				Routes: &models.Routes{
 					"router-route-data": &staleRouteMessage,
 				},
 			},
 			{
 				ProcessGuid: "docker-process-guid",
 				Annotation:  "docker-etag",
-				Routes: receptor.RoutingInfo{
+				Routes: &models.Routes{
 					"router-route-data": &staleRouteMessage,
 				},
 			},
@@ -131,30 +131,30 @@ var _ = Describe("Processor", func() {
 		}
 
 		buildpackRecipeBuilder = new(fakes.FakeRecipeBuilder)
-		buildpackRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
-			createRequest := receptor.DesiredLRPCreateRequest{
+		buildpackRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
+			createRequest := models.DesiredLRP{
 				ProcessGuid: ccRequest.ProcessGuid,
 				Annotation:  ccRequest.ETag,
 			}
 			return &createRequest, nil
 		}
-		buildpackRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+		buildpackRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
 			return 8080, nil
 		}
 
 		dockerRecipeBuilder = new(fakes.FakeRecipeBuilder)
-		dockerRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
-			createRequest := receptor.DesiredLRPCreateRequest{
+		dockerRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
+			createRequest := models.DesiredLRP{
 				ProcessGuid: ccRequest.ProcessGuid,
 				Annotation:  ccRequest.ETag,
 			}
 			return &createRequest, nil
 		}
 
-		receptorClient = new(fake_receptor.FakeClient)
-		receptorClient.DesiredLRPsByDomainReturns(existingDesired, nil)
+		bbsClient = new(fake_bbs.FakeClient)
+		bbsClient.DesiredLRPsReturns(existingDesired, nil)
 
-		receptorClient.UpsertDomainStub = func(string, time.Duration) error {
+		bbsClient.UpsertDomainStub = func(string, time.Duration) error {
 			clock.Increment(syncDuration)
 			return nil
 		}
@@ -162,7 +162,7 @@ var _ = Describe("Processor", func() {
 		logger = lagertest.NewTestLogger("test")
 
 		processor = bulk.NewProcessor(
-			receptorClient,
+			bbsClient,
 			500*time.Millisecond,
 			time.Second,
 			10,
@@ -188,7 +188,7 @@ var _ = Describe("Processor", func() {
 
 	Describe("when getting all desired LRPs fails", func() {
 		BeforeEach(func() {
-			receptorClient.DesiredLRPsByDomainReturns(nil, errors.New("oh no!"))
+			bbsClient.DesiredLRPsReturns(nil, errors.New("oh no!"))
 		})
 
 		It("keeps calm and carries on", func() {
@@ -197,20 +197,20 @@ var _ = Describe("Processor", func() {
 
 		It("tries again after the polling interval", func() {
 			clock.Increment(pollingInterval / 2)
-			Consistently(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(1))
+			Consistently(bbsClient.DesiredLRPsCallCount).Should(Equal(1))
 
 			clock.Increment(pollingInterval)
-			Eventually(receptorClient.DesiredLRPsByDomainCallCount).Should(Equal(2))
+			Eventually(bbsClient.DesiredLRPsCallCount).Should(Equal(2))
 		})
 
-		It("does not call the differ, the fetcher, or the receptor client for updates", func() {
+		It("does not call the differ, the fetcher, or the bbs client for updates", func() {
 			Consistently(fetcher.FetchFingerprintsCallCount).Should(Equal(0))
 			Consistently(fetcher.FetchDesiredAppsCallCount).Should(Equal(0))
 			Consistently(buildpackRecipeBuilder.BuildCallCount).Should(Equal(0))
-			Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
-			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
-			Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(0))
-			Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+			Consistently(bbsClient.DesireLRPCallCount).Should(Equal(0))
+			Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(0))
+			Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(0))
+			Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 		})
 	})
 
@@ -239,19 +239,19 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("does not update the domain", func() {
-			Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+			Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 		})
 
 		It("sends the creates and updates for the apps it got but not the deletes", func() {
-			Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-			Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
-			Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(0))
+			Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+			Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+			Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(0))
 		})
 	})
 
 	Context("when fetching fingerprints succeeds", func() {
 		It("emits the total time taken to talk to CC and then update desired state", func() {
-			Eventually(receptorClient.UpsertDomainCallCount, 5).Should(Equal(1))
+			Eventually(bbsClient.UpsertDomainCallCount, 5).Should(Equal(1))
 
 			Eventually(func() fake.Metric { return metricSender.GetValue("DesiredLRPSyncDuration") }).Should(Equal(fake.Metric{
 				Value: float64(syncDuration),
@@ -261,10 +261,10 @@ var _ = Describe("Processor", func() {
 
 		Context("and the differ discovers desired LRPs to delete", func() {
 			It("the processor deletes them", func() {
-				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-				Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+				Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 
-				Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+				Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 			})
 		})
 
@@ -282,9 +282,9 @@ var _ = Describe("Processor", func() {
 			})
 
 			It("creates a desired LRP for the missing app", func() {
-				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Expect(receptorClient.CreateDesiredLRPArgsForCall(0).ProcessGuid).To(Equal("new-process-guid"))
+				Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+				Consistently(bbsClient.DesireLRPCallCount).Should(Equal(1))
+				Expect(bbsClient.DesireLRPArgsForCall(0).ProcessGuid).To(Equal("new-process-guid"))
 			})
 
 			Context("when fetching desire app requests from the CC fails", func() {
@@ -313,17 +313,17 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("does not update the domain", func() {
-					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 				})
 
 				Context("and the differ provides creates, updates, and deletes", func() {
 					It("sends the deletes but not the creates or updates", func() {
-						Consistently(receptorClient.CreateDesiredLRPCallCount).Should(Equal(0))
-						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(0))
+						Consistently(bbsClient.DesireLRPCallCount).Should(Equal(0))
+						Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(0))
 
-						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 					})
 				})
 			})
@@ -338,19 +338,19 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("does not update the domain", func() {
-					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 				})
 
 				Context("and the differ provides creates, updates, and deletes", func() {
 					It("continues to send the deletes and updates", func() {
-						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
-						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
-						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
+						updatedGuid, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
 						Expect(updatedGuid).To(Equal("stale-process-guid"))
 					})
 				})
@@ -358,7 +358,7 @@ var _ = Describe("Processor", func() {
 
 			Context("when creating the missing desired LRP fails", func() {
 				BeforeEach(func() {
-					receptorClient.CreateDesiredLRPReturns(errors.New("nope"))
+					bbsClient.DesireLRPReturns(errors.New("nope"))
 				})
 
 				It("keeps calm and carries on", func() {
@@ -366,19 +366,19 @@ var _ = Describe("Processor", func() {
 				})
 
 				It("does not update the domain", func() {
-					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 				})
 
 				Context("and the differ provides creates, updates, and deletes", func() {
 					It("continues to send the deletes and updates", func() {
-						Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Consistently(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-						Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+						Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
-						Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
-						Consistently(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
+						Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-						updatedGuid, _ := receptorClient.UpdateDesiredLRPArgsForCall(0)
+						updatedGuid, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
 						Expect(updatedGuid).To(Equal("stale-process-guid"))
 					})
 				})
@@ -386,47 +386,47 @@ var _ = Describe("Processor", func() {
 		})
 
 		Context("and the differ provides creates and deletes", func() {
-			It("sends them to the receptor and updates the domain", func() {
-				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
+			It("sends them to the bbs and updates the domain", func() {
+				Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
 
-				Expect(receptorClient.CreateDesiredLRPArgsForCall(0)).To(Equal(receptor.DesiredLRPCreateRequest{
+				Expect(bbsClient.DesireLRPArgsForCall(0)).To(BeEquivalentTo(&models.DesiredLRP{
 					ProcessGuid: "new-process-guid",
 					Annotation:  "new-etag",
 				}))
 
-				Expect(receptorClient.DeleteDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+				Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
 
-				d, ttl := receptorClient.UpsertDomainArgsForCall(0)
+				d, ttl := bbsClient.UpsertDomainArgsForCall(0)
 				Expect(d).To(Equal("cf-apps"))
 				Expect(ttl).To(Equal(1 * time.Second))
 			})
 
 			Context("and the create request fails", func() {
 				BeforeEach(func() {
-					receptorClient.CreateDesiredLRPReturns(errors.New("create failed!"))
+					bbsClient.DesireLRPReturns(errors.New("create failed!"))
 				})
 
 				It("does not update the domain", func() {
-					Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 				})
 
 				It("sends all the other updates", func() {
-					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+					Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 				})
 			})
 
 			Context("and the delete request fails", func() {
 				BeforeEach(func() {
-					receptorClient.DeleteDesiredLRPReturns(errors.New("delete failed!"))
+					bbsClient.RemoveDesiredLRPReturns(errors.New("delete failed!"))
 				})
 
 				It("sends all the other updates", func() {
-					Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
-					Eventually(receptorClient.UpsertDomainCallCount).Should(Equal(1))
+					Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
 				})
 			})
 		})
@@ -434,16 +434,16 @@ var _ = Describe("Processor", func() {
 		Context("and the differ detects stale lrps", func() {
 			var (
 				expectedEtag      = "new-etag"
-				expectedInstances = 0
+				expectedInstances = int32(0)
 
 				expectedRouteHost   string
-				expectedPort        uint16
-				expectedRoutingInfo receptor.RoutingInfo
+				expectedPort        uint32
+				expectedRoutingInfo *models.Routes
 
 				expectedClientCallCount int
 
 				processGuids []string
-				updateReqs   []receptor.DesiredLRPUpdateRequest
+				updateReqs   []*models.DesiredLRPUpdate
 			)
 
 			BeforeEach(func() {
@@ -453,23 +453,23 @@ var _ = Describe("Processor", func() {
 			})
 
 			JustBeforeEach(func() {
-				Eventually(receptorClient.UpdateDesiredLRPCallCount).Should(Equal(expectedClientCallCount))
+				Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(expectedClientCallCount))
 
 				opaqueRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
-				cfRoute := cfroutes.LegacyCFRoutes{
+				cfRoute := cfroutes.CFRoutes{
 					{Hostnames: []string{expectedRouteHost}, Port: expectedPort},
 				}
 				cfRoutePayload, err := json.Marshal(cfRoute)
 				Expect(err).NotTo(HaveOccurred())
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 
-				expectedRoutingInfo = receptor.RoutingInfo{
+				expectedRoutingInfo = &models.Routes{
 					"router-route-data": &opaqueRouteMessage,
 					cfroutes.CF_ROUTER:  &cfRouteMessage,
 				}
 
 				for i := 0; i < expectedClientCallCount; i++ {
-					processGuid, updateReq := receptorClient.UpdateDesiredLRPArgsForCall(i)
+					processGuid, updateReq := bbsClient.UpdateDesiredLRPArgsForCall(i)
 					processGuids = append(processGuids, processGuid)
 					updateReqs = append(updateReqs, updateReq)
 				}
@@ -477,7 +477,7 @@ var _ = Describe("Processor", func() {
 
 			It("sends the correct update desired lrp request", func() {
 				Expect(processGuids).To(ContainElement("stale-process-guid"))
-				Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
+				Expect(updateReqs).To(ContainElement(&models.DesiredLRPUpdate{
 					Annotation: &expectedEtag,
 					Instances:  &expectedInstances,
 					Routes:     expectedRoutingInfo,
@@ -489,14 +489,14 @@ var _ = Describe("Processor", func() {
 					expectedRouteHost = "host-docker-process-guid"
 					expectedPort = 7070
 
-					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
 						return expectedPort, nil
 					}
 				})
 
 				It("sends the correct port in the desired lrp request", func() {
 					Expect(processGuids).To(ContainElement("docker-process-guid"))
-					Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
+					Expect(updateReqs).To(ContainElement(&models.DesiredLRPUpdate{
 						Annotation: &expectedEtag,
 						Instances:  &expectedInstances,
 						Routes:     expectedRoutingInfo,
@@ -507,14 +507,14 @@ var _ = Describe("Processor", func() {
 			Context("with incorrect docker port", func() {
 				BeforeEach(func() {
 					expectedClientCallCount = 1
-					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint16, error) {
+					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
 						return 0, errors.New("our-specific-test-error")
 					}
 				})
 
 				It("sends the correct update desired lrp request", func() {
 					Expect(processGuids).To(ContainElement("stale-process-guid"))
-					Expect(updateReqs).To(ContainElement(receptor.DesiredLRPUpdateRequest{
+					Expect(updateReqs).To(ContainElement(&models.DesiredLRPUpdate{
 						Annotation: &expectedEtag,
 						Instances:  &expectedInstances,
 						Routes:     expectedRoutingInfo,
@@ -533,16 +533,16 @@ var _ = Describe("Processor", func() {
 
 		Context("when updating the desired lrp fails", func() {
 			BeforeEach(func() {
-				receptorClient.UpdateDesiredLRPReturns(errors.New("boom"))
+				bbsClient.UpdateDesiredLRPReturns(errors.New("boom"))
 			})
 
 			It("does not update the domain", func() {
-				Consistently(receptorClient.UpsertDomainCallCount).Should(Equal(0))
+				Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 			})
 
 			It("sends all the other updates", func() {
-				Eventually(receptorClient.CreateDesiredLRPCallCount).Should(Equal(1))
-				Eventually(receptorClient.DeleteDesiredLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 			})
 		})
 

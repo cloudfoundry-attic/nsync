@@ -8,9 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -24,7 +25,7 @@ const (
 )
 
 type Processor struct {
-	receptorClient  receptor.Client
+	bbsClient       bbs.Client
 	pollingInterval time.Duration
 	domainTTL       time.Duration
 	bulkBatchSize   uint
@@ -36,7 +37,7 @@ type Processor struct {
 }
 
 func NewProcessor(
-	receptorClient receptor.Client,
+	bbsClient bbs.Client,
 	pollingInterval time.Duration,
 	domainTTL time.Duration,
 	bulkBatchSize uint,
@@ -47,7 +48,7 @@ func NewProcessor(
 	clock clock.Clock,
 ) *Processor {
 	return &Processor{
-		receptorClient:  receptorClient,
+		bbsClient:       bbsClient,
 		pollingInterval: pollingInterval,
 		domainTTL:       domainTTL,
 		bulkBatchSize:   bulkBatchSize,
@@ -192,7 +193,7 @@ process_loop:
 	if bumpFreshness && success {
 		logger.Info("bumping-freshness")
 
-		err = p.receptorClient.UpsertDomain(cc_messages.AppLRPDomain, p.domainTTL)
+		err = p.bbsClient.UpsertDomain(cc_messages.AppLRPDomain, p.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
 		}
@@ -239,7 +240,7 @@ func (p *Processor) createMissingDesiredLRPs(
 
 				works[i] = func() {
 					logger.Debug("building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
-					createReq, err := builder.Build(&desireAppRequest)
+					desired, err := builder.Build(&desireAppRequest)
 					if err != nil {
 						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{"process-guid": desireAppRequest.ProcessGuid})
 						errc <- err
@@ -247,14 +248,14 @@ func (p *Processor) createMissingDesiredLRPs(
 					}
 					logger.Debug("succeeded-building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 
-					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(createReq))
-					err = p.receptorClient.CreateDesiredLRP(*createReq)
+					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(desired))
+					err = p.bbsClient.DesireLRP(desired)
 					if err != nil {
-						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": createReq.ProcessGuid})
+						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
 						errc <- err
 						return
 					}
-					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(createReq))
+					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(desired))
 				}
 			}
 
@@ -277,7 +278,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	stale <-chan []cc_messages.DesireAppRequestFromCC,
-	existingLRPMap map[string]*receptor.DesiredLRPResponse,
+	existingLRPMap map[string]*models.DesiredLRP,
 ) <-chan error {
 	logger = logger.Session("update-stale-desired-lrps")
 
@@ -314,8 +315,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 					processGuid := desireAppRequest.ProcessGuid
 					existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
 
-					updateReq := receptor.DesiredLRPUpdateRequest{}
-					updateReq.Instances = &desireAppRequest.NumInstances
+					updateReq := &models.DesiredLRPUpdate{}
+					instances := int32(desireAppRequest.NumInstances)
+					updateReq.Instances = &instances
 					updateReq.Annotation = &desireAppRequest.ETag
 
 					exposedPort, err := builder.ExtractExposedPort(desireAppRequest.ExecutionMetadata)
@@ -328,18 +330,18 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 
-					updateReq.Routes = cfroutes.LegacyCFRoutes{
+					updateReq.Routes = cfroutes.CFRoutes{
 						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
-					}.LegacyRoutingInfo()
+					}.RoutingInfo()
 
-					for k, v := range existingLRP.Routes {
+					for k, v := range *existingLRP.Routes {
 						if k != cfroutes.CF_ROUTER {
-							updateReq.Routes[k] = v
+							(*updateReq.Routes)[k] = v
 						}
 					}
 
-					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
-					err = p.receptorClient.UpdateDesiredLRP(processGuid, updateReq)
+					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, updateReq))
+					err = p.bbsClient.UpdateDesiredLRP(processGuid, updateReq)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid": processGuid,
@@ -347,7 +349,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 						errc <- err
 						return
 					}
-					logger.Debug("succeeded-updating-stale-lrp", updateDesiredRequestDebugData(processGuid, &updateReq))
+					logger.Debug("succeeded-updating-stale-lrp", updateDesiredRequestDebugData(processGuid, updateReq))
 				}
 			}
 
@@ -366,9 +368,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 	return errc
 }
 
-func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]receptor.DesiredLRPResponse, error) {
+func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]*models.DesiredLRP, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := p.receptorClient.DesiredLRPsByDomain(cc_messages.AppLRPDomain)
+	existing, err := p.bbsClient.DesiredLRPs(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
 	if err != nil {
 		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
@@ -383,7 +385,7 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 
 	logger.Info("processing-batch", lager.Data{"size": len(excess)})
 	for _, deleteGuid := range excess {
-		err := p.receptorClient.DeleteDesiredLRP(deleteGuid)
+		err := p.bbsClient.RemoveDesiredLRP(deleteGuid)
 		if err != nil {
 			logger.Error("failed-processing-batch", err, lager.Data{"delete-request": deleteGuid})
 		}
@@ -442,34 +444,34 @@ func mergeErrors(channels ...<-chan error) <-chan error {
 	return out
 }
 
-func organizeLRPsByProcessGuid(list []receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
-	result := make(map[string]*receptor.DesiredLRPResponse)
+func organizeLRPsByProcessGuid(list []*models.DesiredLRP) map[string]*models.DesiredLRP {
+	result := make(map[string]*models.DesiredLRP)
 	for _, l := range list {
 		lrp := l
-		result[lrp.ProcessGuid] = &lrp
+		result[lrp.ProcessGuid] = lrp
 	}
 
 	return result
 }
 
-func updateDesiredRequestDebugData(processGuid string, updateDesiredRequest *receptor.DesiredLRPUpdateRequest) lager.Data {
+func updateDesiredRequestDebugData(processGuid string, updateDesiredRequest *models.DesiredLRPUpdate) lager.Data {
 	return lager.Data{
 		"process-guid": processGuid,
 		"instances":    updateDesiredRequest.Instances,
 	}
 }
 
-func createDesiredReqDebugData(createDesiredRequest *receptor.DesiredLRPCreateRequest) lager.Data {
+func createDesiredReqDebugData(createDesiredRequest *models.DesiredLRP) lager.Data {
 	return lager.Data{
 		"process-guid": createDesiredRequest.ProcessGuid,
 		"log-guid":     createDesiredRequest.LogGuid,
 		"metric-guid":  createDesiredRequest.MetricsGuid,
-		"root-fs":      createDesiredRequest.RootFS,
+		"root-fs":      createDesiredRequest.RootFs,
 		"instances":    createDesiredRequest.Instances,
 		"timeout":      createDesiredRequest.StartTimeout,
-		"disk":         createDesiredRequest.DiskMB,
-		"memory":       createDesiredRequest.MemoryMB,
-		"cpu":          createDesiredRequest.CPUWeight,
+		"disk":         createDesiredRequest.DiskMb,
+		"memory":       createDesiredRequest.MemoryMb,
+		"cpu":          createDesiredRequest.CpuWeight,
 		"privileged":   createDesiredRequest.Privileged,
 	}
 }

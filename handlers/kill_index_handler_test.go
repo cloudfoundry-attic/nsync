@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
+	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
@@ -17,8 +18,8 @@ import (
 
 var _ = Describe("KillIndexHandler", func() {
 	var (
-		logger       *lagertest.TestLogger
-		fakeReceptor *fake_receptor.FakeClient
+		logger  *lagertest.TestLogger
+		fakeBBS *fake_bbs.FakeClient
 
 		request          *http.Request
 		responseRecorder *httptest.ResponseRecorder
@@ -26,7 +27,7 @@ var _ = Describe("KillIndexHandler", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		fakeReceptor = new(fake_receptor.FakeClient)
+		fakeBBS = new(fake_bbs.FakeClient)
 
 		responseRecorder = httptest.NewRecorder()
 
@@ -37,28 +38,34 @@ var _ = Describe("KillIndexHandler", func() {
 			":process_guid": []string{"process-guid-0"},
 			":index":        []string{"1"},
 		}
+
+		fakeBBS.ActualLRPGroupByProcessGuidAndIndexStub = func(processGuid string, index int) (*models.ActualLRPGroup, error) {
+			return &models.ActualLRPGroup{
+				Instance: model_helpers.NewValidActualLRP(processGuid, int32(index)),
+			}, nil
+		}
 	})
 
 	JustBeforeEach(func() {
-		killHandler := handlers.NewKillIndexHandler(logger, fakeReceptor)
+		killHandler := handlers.NewKillIndexHandler(logger, fakeBBS)
 		killHandler.KillIndex(responseRecorder, request)
 	})
 
-	It("invokes the receptor to kill", func() {
-		Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(Equal(1))
+	It("invokes the bbs to retire", func() {
+		Expect(fakeBBS.RetireActualLRPCallCount()).To(Equal(1))
 
-		processGuid, stopIndex := fakeReceptor.KillActualLRPByProcessGuidAndIndexArgsForCall(0)
-		Expect(processGuid).To(Equal("process-guid-0"))
-		Expect(stopIndex).To(Equal(1))
+		actualLRPKey := fakeBBS.RetireActualLRPArgsForCall(0)
+		Expect(actualLRPKey.ProcessGuid).To(Equal("process-guid-0"))
+		Expect(actualLRPKey.Index).To(BeEquivalentTo(1))
 	})
 
 	It("responds with 202 Accepted", func() {
 		Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 	})
 
-	Context("when the receptor fails", func() {
+	Context("when the bbs fails", func() {
 		BeforeEach(func() {
-			fakeReceptor.KillActualLRPByProcessGuidAndIndexReturns(errors.New("oh no"))
+			fakeBBS.ActualLRPGroupByProcessGuidAndIndexReturns(nil, errors.New("oh no"))
 		})
 
 		It("responds with a ServiceUnavailabe error", func() {
@@ -66,9 +73,9 @@ var _ = Describe("KillIndexHandler", func() {
 		})
 	})
 
-	Context("when the receptor cannot find the guid", func() {
+	Context("when the bbs cannot find the guid", func() {
 		BeforeEach(func() {
-			fakeReceptor.KillActualLRPByProcessGuidAndIndexReturns(receptor.Error{Type: receptor.ActualLRPIndexNotFound})
+			fakeBBS.ActualLRPGroupByProcessGuidAndIndexReturns(nil, models.ErrResourceNotFound)
 		})
 
 		It("responds with a NotFound error", func() {
@@ -81,8 +88,8 @@ var _ = Describe("KillIndexHandler", func() {
 			request.Form.Del(":process_guid")
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.ActualLRPGroupByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -95,8 +102,8 @@ var _ = Describe("KillIndexHandler", func() {
 			request.Form.Del(":index")
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.ActualLRPGroupByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -109,8 +116,8 @@ var _ = Describe("KillIndexHandler", func() {
 			request.Form.Set(":index", "not-a-number")
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(BeZero())
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.ActualLRPGroupByProcessGuidAndIndexCallCount()).To(BeZero())
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -121,13 +128,11 @@ var _ = Describe("KillIndexHandler", func() {
 	Context("when the index is out of range", func() {
 		BeforeEach(func() {
 			request.Form.Set(":index", "5")
-			fakeReceptor.KillActualLRPByProcessGuidAndIndexReturns(receptor.Error{
-				Type: receptor.ActualLRPIndexNotFound,
-			})
+			fakeBBS.ActualLRPGroupByProcessGuidAndIndexReturns(nil, models.ErrResourceNotFound)
 		})
 
-		It("does call the receptor", func() {
-			Expect(fakeReceptor.KillActualLRPByProcessGuidAndIndexCallCount()).To(Equal(1))
+		It("does call the bbs", func() {
+			Expect(fakeBBS.ActualLRPGroupByProcessGuidAndIndexCallCount()).To(Equal(1))
 		})
 
 		It("responds with 404 Not Found", func() {

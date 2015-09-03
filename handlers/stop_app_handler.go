@@ -3,19 +3,20 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/pivotal-golang/lager"
 )
 
 type StopAppHandler struct {
-	receptorClient receptor.Client
-	logger         lager.Logger
+	bbsClient bbs.Client
+	logger    lager.Logger
 }
 
-func NewStopAppHandler(logger lager.Logger, receptorClient receptor.Client) *StopAppHandler {
+func NewStopAppHandler(logger lager.Logger, bbsClient bbs.Client) *StopAppHandler {
 	return &StopAppHandler{
-		logger:         logger,
-		receptorClient: receptorClient,
+		logger:    logger,
+		bbsClient: bbsClient,
 	}
 }
 
@@ -29,15 +30,16 @@ func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := h.receptorClient.DeleteDesiredLRP(processGuid)
+	err := h.bbsClient.RemoveDesiredLRP(processGuid)
 	if err != nil {
 		logger.Error("failed-to-delete-desired-lrp", err)
-		if rerr, ok := err.(receptor.Error); ok {
-			if rerr.Type == receptor.DesiredLRPNotFound {
-				resp.WriteHeader(http.StatusNotFound)
-				return
-			}
+
+		bbsError := models.ConvertError(err)
+		if bbsError.Type == models.Error_ResourceNotFound {
+			resp.WriteHeader(http.StatusNotFound)
+			return
 		}
+
 		resp.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

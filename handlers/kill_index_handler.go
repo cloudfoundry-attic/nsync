@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -15,14 +17,14 @@ var (
 )
 
 type KillIndexHandler struct {
-	receptorClient receptor.Client
-	logger         lager.Logger
+	bbsClient bbs.Client
+	logger    lager.Logger
 }
 
-func NewKillIndexHandler(logger lager.Logger, receptorClient receptor.Client) KillIndexHandler {
+func NewKillIndexHandler(logger lager.Logger, bbsClient bbs.Client) KillIndexHandler {
 	return KillIndexHandler{
-		receptorClient: receptorClient,
-		logger:         logger,
+		bbsClient: bbsClient,
+		logger:    logger,
 	}
 }
 
@@ -53,17 +55,14 @@ func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	err = h.receptorClient.KillActualLRPByProcessGuidAndIndex(processGuid, index)
+	err = h.killActualLRPByProcessGuidAndIndex(processGuid, index)
 	if err != nil {
 		status := http.StatusServiceUnavailable
-		switch e := err.(type) {
-		case receptor.Error:
-			if e.Type == receptor.ActualLRPIndexNotFound {
-				status = http.StatusNotFound
-			}
-		default:
+		bbsError := models.ConvertError(err)
+		if bbsError.Type == models.Error_ResourceNotFound {
+			err = fmt.Errorf("process-guid '%s' does not exist or has no instance at index %d", processGuid, index)
+			status = http.StatusNotFound
 		}
-
 		resp.WriteHeader(status)
 		logger.Error("request-kill-actual-lrp-index-failed", err)
 		return
@@ -74,4 +73,14 @@ func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request
 		"index":        index,
 	})
 	resp.WriteHeader(http.StatusAccepted)
+}
+
+func (h *KillIndexHandler) killActualLRPByProcessGuidAndIndex(processGuid string, index int) error {
+	actualLRPGroup, err := h.bbsClient.ActualLRPGroupByProcessGuidAndIndex(processGuid, index)
+	if err != nil {
+		return err
+	}
+
+	actualLRP, _ := actualLRPGroup.Resolve()
+	return h.bbsClient.RetireActualLRP(&actualLRP.ActualLRPKey)
 }

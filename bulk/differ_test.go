@@ -3,7 +3,6 @@ package bulk_test
 import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager/lagertest"
 
@@ -13,8 +12,8 @@ import (
 
 var _ = Describe("Differ", func() {
 	var (
-		existingLRP            receptor.DesiredLRPResponse
-		existingLRPMap         map[string]*receptor.DesiredLRPResponse
+		existingLRP            *models.DesiredLRP
+		existingLRPMap         map[string]*models.DesiredLRP
 		existingAppFingerprint cc_messages.CCDesiredAppFingerprint
 
 		cancelChan  chan struct{}
@@ -33,10 +32,10 @@ var _ = Describe("Differ", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 
-		existingLRP = receptor.DesiredLRPResponse{
+		existingLRP = &models.DesiredLRP{
 			ProcessGuid: "process-guid-1",
 			Instances:   1,
-			RootFS:      models.PreloadedRootFS("stack-1"),
+			RootFs:      models.PreloadedRootFS("stack-1"),
 			Action: models.WrapAction(&models.DownloadAction{
 				From: "http://example.com",
 				To:   "/tmp/internet",
@@ -55,8 +54,8 @@ var _ = Describe("Differ", func() {
 	})
 
 	JustBeforeEach(func() {
-		existingLRPMap = map[string]*receptor.DesiredLRPResponse{
-			existingLRP.ProcessGuid: &existingLRP,
+		existingLRPMap = map[string]*models.DesiredLRP{
+			existingLRP.ProcessGuid: existingLRP,
 		}
 		differ = bulk.NewDiffer(existingLRPMap)
 

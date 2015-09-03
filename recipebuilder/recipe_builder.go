@@ -6,7 +6,6 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/file-server"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
@@ -22,9 +21,9 @@ const (
 	HealthLogSource = "HEALTH"
 
 	Router      = "router"
-	DefaultPort = uint16(8080)
+	DefaultPort = uint32(8080)
 
-	DefaultSSHPort = uint16(2222)
+	DefaultSSHPort = uint32(2222)
 
 	DefaultLANG = "en_US.UTF-8"
 )
@@ -45,8 +44,8 @@ type Config struct {
 
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder
 type RecipeBuilder interface {
-	Build(*cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error)
-	ExtractExposedPort(executionMetadata string) (uint16, error)
+	Build(*cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error)
+	ExtractExposedPort(executionMetadata string) (uint32, error)
 }
 
 type Error struct {
@@ -67,7 +66,7 @@ func lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
 	return urljoiner.Join(fileServerURL, staticPath, lifecyclePath)
 }
 
-func cpuWeight(memoryMB int) uint {
+func cpuWeight(memoryMB int) uint32 {
 	cpuProxy := memoryMB
 
 	if cpuProxy > MaxCpuProxy {
@@ -78,10 +77,10 @@ func cpuWeight(memoryMB int) uint {
 		return 1
 	}
 
-	return uint(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
+	return uint32(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
 }
 
-func createLrpEnv(env []*models.EnvironmentVariable, exposedPort uint16) []*models.EnvironmentVariable {
+func createLrpEnv(env []*models.EnvironmentVariable, exposedPort uint32) []*models.EnvironmentVariable {
 	env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPort)})
 	return env
 }

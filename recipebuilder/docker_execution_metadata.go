@@ -11,7 +11,7 @@ type DockerExecutionMetadata struct {
 }
 
 type Port struct {
-	Port     uint16
+	Port     uint32
 	Protocol string
 }
 

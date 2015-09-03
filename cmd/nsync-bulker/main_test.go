@@ -2,10 +2,8 @@ package main_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os/exec"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -19,8 +17,6 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/receptor"
-	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -30,11 +26,9 @@ import (
 
 var _ = Describe("Syncing desired state with CC", func() {
 	var (
-		fakeCC         *ghttp.Server
-		receptorClient receptor.Client
+		fakeCC *ghttp.Server
 
-		receptorProcess ifrit.Process
-		process         ifrit.Process
+		process ifrit.Process
 
 		domainTTL time.Duration
 
@@ -44,15 +38,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		logger lager.Logger
 	)
-
-	startReceptor := func() ifrit.Process {
-		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:       fmt.Sprintf("127.0.0.1:%d", receptorPort),
-			BBSAddress:    bbsURL.String(),
-			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster: consulRunner.ConsulCluster(),
-		}))
-	}
 
 	startBulker := func(check bool) ifrit.Process {
 		runner := ginkgomon.New(ginkgomon.Config{
@@ -70,7 +55,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-fileServerURL", "http://file-server.com",
 				"-lockRetryInterval", "1s",
 				"-consulCluster", consulRunner.ConsulCluster(),
-				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
+				"-bbsAddress", bbsURL.String(),
 			),
 		})
 
@@ -83,18 +68,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	itIsMissingDomain := func() {
 		It("is missing domain", func() {
-			Eventually(receptorClient.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
+			Eventually(bbsClient.Domains, 5*domainTTL).ShouldNot(ContainElement("cf-apps"))
 		})
 	}
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
 
 		fakeCC = ghttp.NewServer()
-		receptorProcess = startReceptor()
-
-		receptorClient = receptor.NewClient(receptorURL)
 
 		pollingInterval = 500 * time.Millisecond
 		domainTTL = 1 * time.Second
@@ -199,12 +180,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	AfterEach(func() {
 		defer fakeCC.Close()
-		ginkgomon.Kill(receptorProcess)
 	})
 
 	Describe("when the CC polling interval elapses", func() {
-		var desired1, desired2 *receptor.DesiredLRPCreateRequest
-
+		var desired1, desired2 *models.DesiredLRP
 		BeforeEach(func() {
 			var existing1 cc_messages.DesireAppRequestFromCC
 			var existing2 cc_messages.DesireAppRequestFromCC
@@ -270,10 +249,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 			desired2, err = builder.Build(&existing2)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = receptorClient.CreateDesiredLRP(*desired1)
+			err = bbsClient.DesireLRP(desired1)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = receptorClient.CreateDesiredLRP(*desired2)
+			err = bbsClient.DesireLRP(desired2)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -287,7 +266,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("once the state has been synced with CC", func() {
 			JustBeforeEach(func() {
-				Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 5).Should(HaveLen(3))
+				Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }, 5).Should(HaveLen(3))
 			})
 
 			It("it (adds), (updates), and (removes extra) LRPs", func() {
@@ -340,30 +319,30 @@ var _ = Describe("Syncing desired state with CC", func() {
 				)
 
 				routeMessage := json.RawMessage([]byte(`[{"hostnames":["route-1","route-2","new-route"],"port":8080}]`))
-				routes := map[string]*json.RawMessage{
+				routes := &models.Routes{
 					cfroutes.CF_ROUTER: &routeMessage,
 				}
 
-				desiredLRPsWithoutModificationTag := func() []receptor.DesiredLRPResponse {
-					lrps, err := receptorClient.DesiredLRPs()
+				desiredLRPsWithoutModificationTag := func() []*models.DesiredLRP {
+					lrps, err := bbsClient.DesiredLRPs(models.DesiredLRPFilter{})
 					Expect(err).NotTo(HaveOccurred())
 
-					result := []receptor.DesiredLRPResponse{}
+					result := []*models.DesiredLRP{}
 					for _, lrp := range lrps {
-						lrp.ModificationTag = receptor.ModificationTag{}
+						lrp.ModificationTag = nil
 						result = append(result, lrp)
 					}
 					return result
 				}
 
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
 					ProcessGuid:  "process-guid-1",
 					Domain:       "cf-apps",
 					Instances:    42,
-					RootFS:       models.PreloadedRootFS("some-stack"),
+					RootFs:       models.PreloadedRootFS("some-stack"),
 					Setup:        models.WrapAction(expectedSetupActions1),
 					StartTimeout: 123456,
-					EnvironmentVariables: []receptor.EnvironmentVariable{
+					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.WrapAction(models.Codependent(&models.RunAction{
@@ -388,10 +367,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    1024,
-					MemoryMB:  256,
-					CPUWeight: 1,
-					Ports: []uint16{
+					DiskMb:    1024,
+					MemoryMb:  256,
+					CpuWeight: 1,
+					Ports: []uint32{
 						8080,
 					},
 					Routes:      routes,
@@ -404,17 +383,17 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 16
 				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3","route-4"],"port":8080}]`))
-				newRoutes := map[string]*json.RawMessage{
+				newRoutes := &models.Routes{
 					cfroutes.CF_ROUTER: &newRouteMessage,
 				}
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
 					Domain:       "cf-apps",
 					Instances:    4,
-					RootFS:       models.PreloadedRootFS("some-stack"),
+					RootFs:       models.PreloadedRootFS("some-stack"),
 					Setup:        models.WrapAction(expectedSetupActions2),
 					StartTimeout: 123456,
-					EnvironmentVariables: []receptor.EnvironmentVariable{
+					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.WrapAction(models.Codependent(&models.RunAction{
@@ -439,10 +418,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    1024,
-					MemoryMB:  256,
-					CPUWeight: 1,
-					Ports: []uint16{
+					DiskMb:    1024,
+					MemoryMb:  256,
+					CpuWeight: 1,
+					Ports: []uint32{
 						8080,
 					},
 					Routes:      newRoutes,
@@ -455,17 +434,17 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 8
 				emptyRouteMessage := json.RawMessage([]byte(`[{"hostnames":[],"port":8080}]`))
-				emptyRoutes := map[string]*json.RawMessage{
+				emptyRoutes := &models.Routes{
 					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
-				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(receptor.DesiredLRPResponse{
+				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
 					ProcessGuid:  "process-guid-3",
 					Domain:       "cf-apps",
 					Instances:    4,
-					RootFS:       models.PreloadedRootFS("some-stack"),
+					RootFs:       models.PreloadedRootFS("some-stack"),
 					Setup:        models.WrapAction(expectedSetupActions3),
 					StartTimeout: 123456,
-					EnvironmentVariables: []receptor.EnvironmentVariable{
+					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
 					Action: models.WrapAction(models.Codependent(&models.RunAction{
@@ -488,10 +467,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 						},
 						30*time.Second,
 					)),
-					DiskMB:    512,
-					MemoryMB:  128,
-					CPUWeight: 1,
-					Ports: []uint16{
+					DiskMb:    512,
+					MemoryMb:  128,
+					CpuWeight: 1,
+					Ports: []uint32{
 						8080,
 					},
 					Routes:      emptyRoutes,
@@ -507,7 +486,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
 						Eventually(func() []string {
-							resp, err := receptorClient.Domains()
+							resp, err := bbsClient.Domains()
 							Expect(err).NotTo(HaveOccurred())
 							return resp
 						}).Should(ContainElement("cf-apps"))
@@ -516,7 +495,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(receptorClient.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
+						Eventually(bbsClient.Domains, 5*pollingInterval).Should(ContainElement("cf-apps"))
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
@@ -525,7 +504,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						Eventually(func() ([]string, error) {
 							logger := logger.Session("domain-polling")
 							logger.Debug("getting-domains")
-							domains, err := receptorClient.Domains()
+							domains, err := bbsClient.Domains()
 							logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 							return domains, err
 						}, 2*domainTTL).ShouldNot(ContainElement("cf-apps"))
@@ -535,14 +514,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		Context("when LRPs in a different domain exist", func() {
-			var otherDomainDesired receptor.DesiredLRPCreateRequest
-			var otherDomainDesiredResponse receptor.DesiredLRPResponse
+			var otherDomainDesired *models.DesiredLRP
+			var otherDomainDesiredResponse *models.DesiredLRP
 
 			BeforeEach(func() {
-				otherDomainDesired = receptor.DesiredLRPCreateRequest{
+				otherDomainDesired = &models.DesiredLRP{
 					ProcessGuid: "some-other-lrp",
 					Domain:      "some-domain",
-					RootFS:      models.PreloadedRootFS("some-stack"),
+					RootFs:      models.PreloadedRootFS("some-stack"),
 					Instances:   1,
 					Action: models.WrapAction(&models.RunAction{
 						User: "me",
@@ -550,20 +529,20 @@ var _ = Describe("Syncing desired state with CC", func() {
 					}),
 				}
 
-				err := receptorClient.CreateDesiredLRP(otherDomainDesired)
+				err := bbsClient.DesireLRP(otherDomainDesired)
 				Expect(err).NotTo(HaveOccurred())
 
-				otherDomainDesiredResponse, err = receptorClient.GetDesiredLRP("some-other-lrp")
+				otherDomainDesiredResponse, err = bbsClient.DesiredLRPByProcessGuid("some-other-lrp")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("leaves them alone", func() {
-				Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 5).Should(HaveLen(4))
+				Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }, 5).Should(HaveLen(4))
 
-				nowDesired, err := receptorClient.DesiredLRPs()
+				nowDesired, err := bbsClient.DesiredLRPs(models.DesiredLRPFilter{})
 				Expect(err).NotTo(HaveOccurred())
 
-				otherDomainDesiredResponse.Ports = []uint16{}
+				otherDomainDesiredResponse.Ports = nil
 				Expect(nowDesired).To(ContainElement(otherDomainDesiredResponse))
 			})
 		})
@@ -577,7 +556,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		JustBeforeEach(func() {
 			process = startBulker(true)
 
-			Eventually(receptorClient.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
+			Eventually(bbsClient.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
 			consulRunner.DestroySession("nsync-bulker")
 		})
@@ -625,7 +604,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				Eventually(func() ([]string, error) {
 					logger := logger.Session("domain-polling")
 					logger.Debug("getting-domains")
-					domains, err := receptorClient.Domains()
+					domains, err := bbsClient.Domains()
 					logger.Debug("finished-getting-domains", lager.Data{"domains": domains, "error": err})
 					return domains, err
 				}, 4*domainTTL).Should(ContainElement("cf-apps"))
