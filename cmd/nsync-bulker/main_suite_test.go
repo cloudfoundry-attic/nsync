@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudfoundry-incubator/bbs"
 	bbstestrunner "github.com/cloudfoundry-incubator/bbs/cmd/bbs/testrunner"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
@@ -23,22 +24,20 @@ import (
 var (
 	bulkerPath string
 
-	receptorPath string
-	receptorPort int
+	bbsPath   string
+	bbsURL    *url.URL
+	bbsClient bbs.Client
 
-	bbsPath string
-	bbsURL  *url.URL
+	bbsArgs    bbstestrunner.Args
+	bbsRunner  *ginkgomon.Runner
+	bbsProcess ifrit.Process
+
+	etcdRunner *etcdstorerunner.ETCDClusterRunner
+	etcdClient storeadapter.StoreAdapter
+
+	consulRunner  *consulrunner.ClusterRunner
+	consulSession *consuladapter.Session
 )
-
-var bbsArgs bbstestrunner.Args
-var bbsRunner *ginkgomon.Runner
-var bbsProcess ifrit.Process
-
-var etcdRunner *etcdstorerunner.ETCDClusterRunner
-var etcdClient storeadapter.StoreAdapter
-
-var consulRunner *consulrunner.ClusterRunner
-var consulSession *consuladapter.Session
 
 func TestBulker(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -49,16 +48,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-bulker", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
-	receptor, err := gexec.Build("github.com/cloudfoundry-incubator/receptor/cmd/receptor", "-race")
-	Expect(err).NotTo(HaveOccurred())
-
 	bbs, err := gexec.Build("github.com/cloudfoundry-incubator/bbs/cmd/bbs", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	payload, err := json.Marshal(map[string]string{
-		"bulker":   bulker,
-		"receptor": receptor,
-		"bbs":      bbs,
+		"bulker": bulker,
+		"bbs":    bbs,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -70,7 +65,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	etcdPort := 5001 + GinkgoParallelNode()
-	receptorPort = 6001 + GinkgoParallelNode()
 
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1, nil)
 
@@ -81,7 +75,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	)
 
 	bulkerPath = string(binaries["bulker"])
-	receptorPath = string(binaries["receptor"])
 	etcdClient = etcdRunner.Adapter(nil)
 
 	bbsPath = string(binaries["bbs"])
@@ -110,6 +103,7 @@ var _ = BeforeEach(func() {
 
 	bbsRunner = bbstestrunner.New(bbsPath, bbsArgs)
 	bbsProcess = ginkgomon.Invoke(bbsRunner)
+	bbsClient = bbs.NewClient(bbsURL.String())
 })
 
 var _ = AfterEach(func() {

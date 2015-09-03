@@ -1,7 +1,7 @@
 package bulk
 
 import (
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
@@ -18,14 +18,14 @@ type Differ interface {
 }
 
 type differ struct {
-	existingLRPs map[string]*receptor.DesiredLRPResponse
+	existingLRPs map[string]*models.DesiredLRP
 
 	stale   chan []cc_messages.CCDesiredAppFingerprint
 	missing chan []cc_messages.CCDesiredAppFingerprint
 	deleted chan []string
 }
 
-func NewDiffer(existing map[string]*receptor.DesiredLRPResponse) Differ {
+func NewDiffer(existing map[string]*models.DesiredLRP) Differ {
 	return &differ{
 		existingLRPs: copyLRPMap(existing),
 
@@ -115,15 +115,15 @@ func (d *differ) Diff(
 	return errc
 }
 
-func copyLRPMap(lrpMap map[string]*receptor.DesiredLRPResponse) map[string]*receptor.DesiredLRPResponse {
-	clone := map[string]*receptor.DesiredLRPResponse{}
+func copyLRPMap(lrpMap map[string]*models.DesiredLRP) map[string]*models.DesiredLRP {
+	clone := map[string]*models.DesiredLRP{}
 	for k, v := range lrpMap {
 		clone[k] = v
 	}
 	return clone
 }
 
-func remainingProcessGuids(remaining map[string]*receptor.DesiredLRPResponse) []string {
+func remainingProcessGuids(remaining map[string]*models.DesiredLRP) []string {
 	keys := make([]string, 0, len(remaining))
 	for _, lrp := range remaining {
 		keys = append(keys, lrp.ProcessGuid)

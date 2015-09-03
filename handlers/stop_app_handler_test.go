@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
@@ -17,8 +17,8 @@ import (
 
 var _ = Describe("StopAppHandler", func() {
 	var (
-		logger       *lagertest.TestLogger
-		fakeReceptor *fake_receptor.FakeClient
+		logger  *lagertest.TestLogger
+		fakeBBS *fake_bbs.FakeClient
 
 		request          *http.Request
 		responseRecorder *httptest.ResponseRecorder
@@ -26,7 +26,7 @@ var _ = Describe("StopAppHandler", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		fakeReceptor = new(fake_receptor.FakeClient)
+		fakeBBS = new(fake_bbs.FakeClient)
 
 		responseRecorder = httptest.NewRecorder()
 
@@ -39,22 +39,22 @@ var _ = Describe("StopAppHandler", func() {
 	})
 
 	JustBeforeEach(func() {
-		stopAppHandler := handlers.NewStopAppHandler(logger, fakeReceptor)
+		stopAppHandler := handlers.NewStopAppHandler(logger, fakeBBS)
 		stopAppHandler.StopApp(responseRecorder, request)
 	})
 
-	It("invokes the receptor to delete the app", func() {
-		Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(1))
-		Expect(fakeReceptor.DeleteDesiredLRPArgsForCall(0)).To(Equal("process-guid"))
+	It("invokes the bbs to delete the app", func() {
+		Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(1))
+		Expect(fakeBBS.RemoveDesiredLRPArgsForCall(0)).To(Equal("process-guid"))
 	})
 
 	It("responds with 202 Accepted", func() {
 		Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 	})
 
-	Context("when the receptor fails", func() {
+	Context("when the bbs fails", func() {
 		BeforeEach(func() {
-			fakeReceptor.DeleteDesiredLRPReturns(errors.New("oh no"))
+			fakeBBS.RemoveDesiredLRPReturns(errors.New("oh no"))
 		})
 
 		It("responds with a ServiceUnavailabe error", func() {
@@ -67,8 +67,8 @@ var _ = Describe("StopAppHandler", func() {
 			request.Form.Del(":process_guid")
 		})
 
-		It("does not call the receptor", func() {
-			Expect(fakeReceptor.DeleteDesiredLRPCallCount()).To(Equal(0))
+		It("does not call the bbs", func() {
+			Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(0))
 		})
 
 		It("responds with 400 Bad Request", func() {
@@ -78,10 +78,7 @@ var _ = Describe("StopAppHandler", func() {
 
 	Context("when the lrp doesn't exist", func() {
 		BeforeEach(func() {
-			fakeReceptor.DeleteDesiredLRPReturns(receptor.Error{
-				Type:    receptor.DesiredLRPNotFound,
-				Message: "Desired LRP with guid 'process-guid' not found",
-			})
+			fakeBBS.RemoveDesiredLRPReturns(models.ErrResourceNotFound)
 		})
 
 		It("responds with a 404", func() {

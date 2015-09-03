@@ -10,7 +10,6 @@ import (
 	"github.com/cloudfoundry-incubator/diego-ssh/keys/fake_keys"
 	"github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
@@ -24,7 +23,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		builder        *recipebuilder.DockerRecipeBuilder
 		err            error
 		desiredAppReq  cc_messages.DesireAppRequestFromCC
-		desiredLRP     *receptor.DesiredLRPCreateRequest
+		desiredLRP     *models.DesiredLRP
 		lifecycles     map[string]string
 		egressRules    []*models.SecurityGroupRule
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
@@ -89,7 +88,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("returns 1", func() {
-				Expect(desiredLRP.CPUWeight).To(Equal(uint(1)))
+				Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(1))
 			})
 		})
 
@@ -99,7 +98,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("returns 100", func() {
-				Expect(desiredLRP.CPUWeight).To(Equal(uint(100)))
+				Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(100))
 			})
 		})
 
@@ -109,7 +108,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("returns 50", func() {
-				Expect(desiredLRP.CPUWeight).To(Equal(uint(50)))
+				Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(50))
 			})
 		})
 	})
@@ -121,23 +120,23 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		It("builds a valid DesiredLRP", func() {
 			Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
-			Expect(desiredLRP.Instances).To(Equal(23))
+			Expect(desiredLRP.Instances).To(BeEquivalentTo(23))
 			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
 
 			Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
-			Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
-			Expect(desiredLRP.MemoryMB).To(Equal(128))
-			Expect(desiredLRP.DiskMB).To(Equal(512))
-			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
+			Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
+			Expect(desiredLRP.MemoryMb).To(BeEquivalentTo(128))
+			Expect(desiredLRP.DiskMb).To(BeEquivalentTo(512))
+			Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 			Expect(desiredLRP.Privileged).To(BeFalse())
-			Expect(desiredLRP.StartTimeout).To(Equal(uint(123456)))
+			Expect(desiredLRP.StartTimeout).To(BeEquivalentTo(123456))
 
 			Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 			Expect(desiredLRP.LogSource).To(Equal("CELL"))
 
-			Expect(desiredLRP.EnvironmentVariables).NotTo(ConsistOf(receptor.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+			Expect(desiredLRP.EnvironmentVariables).NotTo(ConsistOf(&models.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
 
 			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
@@ -280,7 +279,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				)
 
 				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
-				Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
+				Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
 			})
 
 			It("runs the ssh daemon in the container", func() {
@@ -328,7 +327,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("opens up the default ssh port", func() {
-				Expect(desiredLRP.Ports).To(Equal([]uint16{
+				Expect(desiredLRP.Ports).To(Equal([]uint32{
 					8080,
 					2222,
 				}))
@@ -350,7 +349,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 				sshRouteMessage := json.RawMessage(sshRoutePayload)
 
-				Expect(desiredLRP.Routes).To(Equal(receptor.RoutingInfo{
+				Expect(desiredLRP.Routes).To(Equal(&models.Routes{
 					cfroutes.CF_ROUTER: &cfRouteMessage,
 					routes.DIEGO_SSH:   &sshRouteMessage,
 				}))
@@ -399,7 +398,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		It("converts the docker image url into a root fs path", func() {
-			Expect(desiredLRP.RootFS).To(Equal("docker:///user/repo#tag"))
+			Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
 		})
 
 		It("uses the docker lifecycle", func() {
@@ -421,7 +420,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
 
-			Expect(desiredLRP.Ports).To(Equal([]uint16{8080}))
+			Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 
 			Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
 				&models.RunAction{
@@ -460,7 +459,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 					{Hostnames: []string{"route1", "route2"}, Port: 8081},
 				}.RoutingInfo()))
 
-				Expect(desiredLRP.Ports).To(Equal([]uint16{8081}))
+				Expect(desiredLRP.Ports).To(Equal([]uint32{8081}))
 
 				Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
 					&models.RunAction{
@@ -560,7 +559,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				})
 
 				It("builds correct rootFS path", func() {
-					Expect(desiredLRP.RootFS).To(Equal(expectedRootFSPath))
+					Expect(desiredLRP.RootFs).To(Equal(expectedRootFSPath))
 				})
 			}
 		}

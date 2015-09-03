@@ -10,7 +10,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	ssh_routes "github.com/cloudfoundry-incubator/diego-ssh/routes"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
@@ -33,7 +32,7 @@ func NewDockerRecipeBuilder(logger lager.Logger, config Config) *DockerRecipeBui
 	}
 }
 
-func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*receptor.DesiredLRPCreateRequest, error) {
+func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
 	lrpGuid := desiredApp.ProcessGuid
 
 	buildLogger := b.logger.Session("message-builder")
@@ -72,7 +71,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	}
 
 	var privilegedContainer bool
-	var containerEnvVars []receptor.EnvironmentVariable
+	var containerEnvVars []*models.EnvironmentVariable
 
 	numFiles := DefaultFileDescriptorLimit
 	if desiredApp.FileDescriptors != 0 {
@@ -145,7 +144,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		{Hostnames: desiredApp.Routes, Port: exposedPort},
 	}.RoutingInfo()
 
-	desiredAppPorts := []uint16{exposedPort}
+	desiredAppPorts := []uint32{exposedPort}
 
 	if desiredApp.AllowSSH {
 		hostKeyPair, err := b.config.KeyFactory.NewKeyPair(1024)
@@ -188,31 +187,31 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		}
 
 		sshRouteMessage := json.RawMessage(sshRoutePayload)
-		desiredAppRoutingInfo[ssh_routes.DIEGO_SSH] = &sshRouteMessage
+		(*desiredAppRoutingInfo)[ssh_routes.DIEGO_SSH] = &sshRouteMessage
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
 	setupAction := models.Serial(setup...)
 	actionAction := models.Codependent(actions...)
 
-	return &receptor.DesiredLRPCreateRequest{
+	return &models.DesiredLRP{
 		Privileged: privilegedContainer,
 
 		Domain: cc_messages.AppLRPDomain,
 
 		ProcessGuid: lrpGuid,
-		Instances:   desiredApp.NumInstances,
+		Instances:   int32(desiredApp.NumInstances),
 		Routes:      desiredAppRoutingInfo,
 		Annotation:  desiredApp.ETag,
 
-		CPUWeight: cpuWeight(desiredApp.MemoryMB),
+		CpuWeight: cpuWeight(desiredApp.MemoryMB),
 
-		MemoryMB: desiredApp.MemoryMB,
-		DiskMB:   desiredApp.DiskMB,
+		MemoryMb: int32(desiredApp.MemoryMB),
+		DiskMb:   int32(desiredApp.DiskMB),
 
 		Ports: desiredAppPorts,
 
-		RootFS: rootFSPath,
+		RootFs: rootFSPath,
 
 		LogGuid:   desiredApp.LogGuid,
 		LogSource: LRPLogSource,
@@ -224,13 +223,13 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),
 
-		StartTimeout: desiredApp.HealthCheckTimeoutInSeconds,
+		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
 
 		EgressRules: desiredApp.EgressRules,
 	}, nil
 }
 
-func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint16, error) {
+func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint32, error) {
 	metadata, err := NewDockerExecutionMetadata(executionMetadata)
 	if err != nil {
 		return 0, err
@@ -238,8 +237,8 @@ func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint1
 	return extractExposedPort(metadata, b.logger)
 }
 
-func extractExposedPort(executionMetadata DockerExecutionMetadata, logger lager.Logger) (uint16, error) {
-	var exposedPort uint16 = DefaultPort
+func extractExposedPort(executionMetadata DockerExecutionMetadata, logger lager.Logger) (uint32, error) {
+	var exposedPort uint32 = DefaultPort
 	var portFound bool = true
 	exposedPorts := executionMetadata.ExposedPorts
 	for _, port := range exposedPorts {

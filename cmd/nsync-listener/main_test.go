@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync"
-	"github.com/cloudfoundry-incubator/receptor"
-	receptorrunner "github.com/cloudfoundry-incubator/receptor/cmd/receptor/testrunner"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,9 +30,6 @@ var _ = Describe("Nsync Listener", func() {
 		response         *http.Response
 		err              error
 
-		receptorProcess ifrit.Process
-		receptorClient  receptor.Client
-
 		runner  ifrit.Runner
 		process ifrit.Process
 
@@ -42,15 +38,6 @@ var _ = Describe("Nsync Listener", func() {
 		logger lager.Logger
 	)
 
-	startReceptor := func(address, taskAddress string) ifrit.Process {
-		return ginkgomon.Invoke(receptorrunner.New(receptorPath, receptorrunner.Args{
-			Address:       address,
-			EtcdCluster:   strings.Join(etcdRunner.NodeURLS(), ","),
-			ConsulCluster: consulRunner.ConsulCluster(),
-			BBSAddress:    bbsURL.String(),
-		}))
-	}
-
 	newNSyncRunner := func(nsyncPort int, args ...string) *ginkgomon.Runner {
 		return ginkgomon.New(ginkgomon.Config{
 			Name:          "nsync",
@@ -58,7 +45,7 @@ var _ = Describe("Nsync Listener", func() {
 			StartCheck:    "nsync.listener.started",
 			Command: exec.Command(
 				listenerPath,
-				"-diegoAPIURL", fmt.Sprintf("http://127.0.0.1:%d", receptorPort),
+				"-bbsAddress", bbsURL.String(),
 				"-nsyncURL", fmt.Sprintf("http://127.0.0.1:%d", nsyncPort),
 				"-lifecycle", "buildpack/some-stack:some-health-check.tar.gz",
 				"-lifecycle", "docker:the/docker/lifecycle/path.tgz",
@@ -94,12 +81,7 @@ var _ = Describe("Nsync Listener", func() {
 		httpClient = http.DefaultClient
 
 		etcdAdapter = etcdRunner.Adapter(nil)
-		receptorAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort)
-		receptorTaskAddress := fmt.Sprintf("127.0.0.1:%d", receptorPort+1)
 		logger = lagertest.NewTestLogger("test")
-		receptorURL := fmt.Sprintf("http://127.0.0.1:%d", receptorPort)
-		receptorProcess = startReceptor(receptorAddress, receptorTaskAddress)
-		receptorClient = receptor.NewClient(receptorURL)
 
 		runner = newNSyncRunner(nsyncPort)
 		process = ginkgomon.Invoke(runner)
@@ -107,7 +89,6 @@ var _ = Describe("Nsync Listener", func() {
 
 	AfterEach(func() {
 		etcdAdapter.Disconnect()
-		ginkgomon.Interrupt(receptorProcess, exitDuration)
 		ginkgomon.Interrupt(process, exitDuration)
 	})
 
@@ -116,10 +97,10 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 		})
 
-		It("desires the app in etcd", func() {
+		It("desires the app from the bbs", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }, 10).Should(HaveLen(1))
+			Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }, 10).Should(HaveLen(1))
 		})
 	})
 
@@ -137,7 +118,7 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(func() ([]receptor.ActualLRPResponse, error) { return receptorClient.ActualLRPs() }, 10).Should(HaveLen(3))
+			Eventually(func() ([]*models.ActualLRPGroup, error) { return bbsClient.ActualLRPGroups(models.ActualLRPFilter{}) }, 10).Should(HaveLen(3))
 		})
 
 		JustBeforeEach(func() {
@@ -151,7 +132,7 @@ var _ = Describe("Nsync Listener", func() {
 		})
 
 		It("deletes the desired LRP", func() {
-			Eventually(func() ([]receptor.DesiredLRPResponse, error) { return receptorClient.DesiredLRPs() }).Should(HaveLen(0))
+			Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }).Should(HaveLen(0))
 		})
 	})
 
@@ -167,7 +148,7 @@ var _ = Describe("Nsync Listener", func() {
 			response, err = requestDesireWithInstances(3)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(func() ([]receptor.ActualLRPResponse, error) { return receptorClient.ActualLRPs() }, 10).Should(HaveLen(3))
+			Eventually(func() ([]*models.ActualLRPGroup, error) { return bbsClient.ActualLRPGroups(models.ActualLRPFilter{}) }, 10).Should(HaveLen(3))
 		})
 
 		It("kills an index", func() {
@@ -175,7 +156,7 @@ var _ = Describe("Nsync Listener", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
-			Eventually(func() ([]receptor.ActualLRPResponse, error) { return receptorClient.ActualLRPs() }, 10).Should(HaveLen(2))
+			Eventually(func() ([]*models.ActualLRPGroup, error) { return bbsClient.ActualLRPGroups(models.ActualLRPFilter{}) }, 10).Should(HaveLen(2))
 		})
 
 		It("fails when the index is invalid", func() {

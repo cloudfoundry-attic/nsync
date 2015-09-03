@@ -5,13 +5,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	legacybbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry/dropsonde"
@@ -26,10 +26,10 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
-var diegoAPIURL = flag.String(
-	"diegoAPIURL",
+var bbsAddress = flag.String(
+	"bbsAddress",
 	"",
-	"URL of diego API",
+	"Address to the BBS Server",
 )
 
 var consulCluster = flag.String(
@@ -122,7 +122,7 @@ func main() {
 	logger, reconfigurableSink := cf_lager.New("nsync-bulker")
 	initializeDropsonde(logger)
 
-	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
+	diegoAPIClient := bbs.NewClient(*bbsAddress)
 
 	nsyncBBS := initializeNsyncBBS(logger)
 
@@ -196,7 +196,7 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeNsyncBBS(logger lager.Logger) bbs.NsyncBBS {
+func initializeNsyncBBS(logger lager.Logger) legacybbs.NsyncBBS {
 	client, err := consuladapter.NewClient(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
@@ -208,5 +208,5 @@ func initializeNsyncBBS(logger lager.Logger) bbs.NsyncBBS {
 		logger.Fatal("consul-session-failed", err)
 	}
 
-	return bbs.NewNsyncBBS(consulSession, clock.NewClock(), logger)
+	return legacybbs.NewNsyncBBS(consulSession, clock.NewClock(), logger)
 }
