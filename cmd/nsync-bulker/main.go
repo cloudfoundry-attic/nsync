@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"net/url"
 	"os"
 	"time"
 
@@ -103,6 +104,24 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var bbsCACert = flag.String(
+	"bbsCACert",
+	"",
+	"path to certificate authority cert used for mutually authenticated TLS BBS communication",
+)
+
+var bbsClientCert = flag.String(
+	"bbsClientCert",
+	"",
+	"path to client cert used for mutually authenticated TLS BBS communication",
+)
+
+var bbsClientKey = flag.String(
+	"bbsClientKey",
+	"",
+	"path to client key used for mutually authenticated TLS BBS communication",
+)
+
 const (
 	dropsondeOrigin      = "nsync_bulker"
 	dropsondeDestination = "localhost:3457"
@@ -121,10 +140,7 @@ func main() {
 	logger, reconfigurableSink := cf_lager.New("nsync-bulker")
 	initializeDropsonde(logger)
 
-	diegoAPIClient := bbs.NewClient(*bbsAddress)
-
 	locketClient := initializeLocket(logger)
-
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		logger.Fatal("Couldn't generate uuid", err)
@@ -143,7 +159,7 @@ func main() {
 	lockMaintainer := locketClient.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
 	runner := bulk.NewProcessor(
-		diegoAPIClient,
+		initializeBBSClient(logger),
 		*pollingInterval,
 		*domainTTL,
 		*bulkBatchSize,
@@ -208,4 +224,21 @@ func initializeLocket(logger lager.Logger) locket.Client {
 	}
 
 	return locket.NewClient(consulSession, clock.NewClock(), logger)
+}
+
+func initializeBBSClient(logger lager.Logger) bbs.Client {
+	bbsURL, err := url.Parse(*bbsAddress)
+	if err != nil {
+		logger.Fatal("Invalid BBS URL", err)
+	}
+
+	if bbsURL.Scheme != "https" {
+		return bbs.NewClient(*bbsAddress)
+	}
+
+	bbsClient, err := bbs.NewSecureClient(*bbsAddress, *bbsCACert, *bbsClientCert, *bbsClientKey)
+	if err != nil {
+		logger.Fatal("Failed to configure secure BBS client", err)
+	}
+	return bbsClient
 }
