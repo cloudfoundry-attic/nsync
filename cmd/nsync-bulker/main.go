@@ -123,7 +123,7 @@ func main() {
 
 	diegoAPIClient := bbs.NewClient(*bbsAddress)
 
-	locket := initializeLocket(logger)
+	locketClient := initializeLocket(logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {
@@ -140,7 +140,7 @@ func main() {
 		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
 	}
 
-	lockMaintainer := locket.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
+	lockMaintainer := locketClient.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
@@ -195,7 +195,7 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeLocket(logger lager.Logger) *locket.Locket {
+func initializeLocket(logger lager.Logger) locket.Client {
 	client, err := consuladapter.NewClient(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
@@ -207,5 +207,5 @@ func initializeLocket(logger lager.Logger) *locket.Locket {
 		logger.Fatal("consul-session-failed", err)
 	}
 
-	return locket.New(consulSession, clock.NewClock(), logger)
+	return locket.NewClient(consulSession, clock.NewClock(), logger)
 }

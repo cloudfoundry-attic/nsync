@@ -17,8 +17,8 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
+	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
@@ -579,7 +579,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			heartbeatInterval = 1 * time.Second
 
 			otherSession = consulRunner.NewSession("other-session")
-			err := otherSession.AcquireLock(shared.LockSchemaPath(bulkerLockName), []byte("something-else"))
+			err := otherSession.AcquireLock(locket.LockSchemaPath(bulkerLockName), []byte("something-else"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
