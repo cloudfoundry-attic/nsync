@@ -11,8 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	legacybbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/lock_bbs"
+	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/nu7hatch/gouuid"
@@ -40,13 +39,13 @@ var consulCluster = flag.String(
 
 var lockTTL = flag.Duration(
 	"lockTTL",
-	lock_bbs.LockTTL,
+	locket.LockTTL,
 	"TTL for service lock",
 )
 
 var lockRetryInterval = flag.Duration(
 	"lockRetryInterval",
-	lock_bbs.RetryInterval,
+	locket.RetryInterval,
 	"interval to wait before retrying a failed lock acquisition",
 )
 
@@ -124,7 +123,7 @@ func main() {
 
 	diegoAPIClient := bbs.NewClient(*bbsAddress)
 
-	nsyncBBS := initializeNsyncBBS(logger)
+	locket := initializeLocket(logger)
 
 	uuid, err := uuid.NewV4()
 	if err != nil {
@@ -141,7 +140,7 @@ func main() {
 		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
 	}
 
-	lockMaintainer := nsyncBBS.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
+	lockMaintainer := locket.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
 	runner := bulk.NewProcessor(
 		diegoAPIClient,
@@ -196,7 +195,7 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeNsyncBBS(logger lager.Logger) legacybbs.NsyncBBS {
+func initializeLocket(logger lager.Logger) *locket.Locket {
 	client, err := consuladapter.NewClient(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
@@ -208,5 +207,5 @@ func initializeNsyncBBS(logger lager.Logger) legacybbs.NsyncBBS {
 		logger.Fatal("consul-session-failed", err)
 	}
 
-	return legacybbs.NewNsyncBBS(consulSession, clock.NewClock(), logger)
+	return locket.New(consulSession, clock.NewClock(), logger)
 }
