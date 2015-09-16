@@ -41,10 +41,18 @@ var _ = Describe("DesireAppHandler", func() {
 	)
 
 	BeforeEach(func() {
+		var err error
+
 		logger = lagertest.NewTestLogger("test")
 		fakeBBS = new(fake_bbs.FakeClient)
 		buildpackBuilder = new(fakes.FakeRecipeBuilder)
 		dockerBuilder = new(fakes.FakeRecipeBuilder)
+
+		routingInfo, err := cc_messages.CCHTTPRoutes{
+			{Hostname: "route1"},
+			{Hostname: "route2"},
+		}.CCRouteInfo()
+		Expect(err).NotTo(HaveOccurred())
 
 		desireAppRequest = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "some-guid",
@@ -59,7 +67,7 @@ var _ = Describe("DesireAppHandler", func() {
 			DiskMB:          512,
 			FileDescriptors: 32,
 			NumInstances:    2,
-			Routes:          []string{"route1", "route2"},
+			RoutingInfo:     routingInfo,
 			LogGuid:         "some-log-guid",
 			ETag:            "last-modified-etag",
 		}
@@ -69,7 +77,6 @@ var _ = Describe("DesireAppHandler", func() {
 
 		responseRecorder = httptest.NewRecorder()
 
-		var err error
 		request, err = http.NewRequest("POST", "", nil)
 		Expect(err).NotTo(HaveOccurred())
 		request.Form = url.Values{
@@ -259,7 +266,7 @@ var _ = Describe("DesireAppHandler", func() {
 			Eventually(fakeBBS.DesiredLRPByProcessGuidCallCount).Should(Equal(1))
 		})
 
-		opaqueRoutingDataCheck := func(port uint32) {
+		opaqueRoutingDataCheck := func(expectedRoutes cfroutes.CFRoutes) {
 			Eventually(fakeBBS.UpdateDesiredLRPCallCount).Should(Equal(1))
 
 			processGuid, updateRequest := fakeBBS.UpdateDesiredLRPArgsForCall(0)
@@ -267,20 +274,23 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(*updateRequest.Instances).To(BeEquivalentTo(2))
 			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
 
-			expectedRoutePayload, err := json.Marshal(cfroutes.CFRoutes{
-				{Hostnames: []string{"route1", "route2"}, Port: port},
-			})
+			cfJson := (*updateRequest.Routes)[cfroutes.CF_ROUTER]
+			otherJson := (*updateRequest.Routes)["some-other-routing-data"]
+
+			var cfRoutes cfroutes.CFRoutes
+			err := json.Unmarshal(*cfJson, &cfRoutes)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedCfRouteMessage := json.RawMessage(expectedRoutePayload)
-			Expect(updateRequest.Routes).To(Equal(&models.Routes{
-				cfroutes.CF_ROUTER:        &expectedCfRouteMessage,
-				"some-other-routing-data": &opaqueRoutingMessage,
-			}))
+			Expect(cfRoutes).To(ConsistOf(expectedRoutes))
+			Expect(cfRoutes).To(HaveLen(len(expectedRoutes)))
+			Expect(otherJson).To(Equal(&opaqueRoutingMessage))
 		}
 
 		It("updates the LRP without stepping on opaque routing data", func() {
-			opaqueRoutingDataCheck(8080)
+			expected := cfroutes.CFRoutes{
+				{Hostnames: []string{"route1", "route2"}, Port: 8080},
+			}
+			opaqueRoutingDataCheck(expected)
 		})
 
 		It("responds with 202 Accepted", func() {
@@ -292,6 +302,56 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(buildpackBuilder.ExtractExposedPortCallCount()).To(Equal(1))
 
 			Expect(buildpackBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(""))
+		})
+
+		Context("when multiple routes with same route service are sent", func() {
+			var routesToEmit cfroutes.CFRoutes
+			BeforeEach(func() {
+				routingInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route1", RouteServiceUrl: "https://rs.example.com"},
+					{Hostname: "route2", RouteServiceUrl: "https://rs.example.com"},
+					{Hostname: "route3"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
+				desireAppRequest.RoutingInfo = routingInfo
+			})
+
+			It("aggregates the http routes with the same route service url", func() {
+				routesToEmit = cfroutes.CFRoutes{
+					{Hostnames: []string{"route1", "route2"}, Port: 8080, RouteServiceUrl: "https://rs.example.com"},
+					{Hostnames: []string{"route3"}, Port: 8080},
+				}
+				opaqueRoutingDataCheck(routesToEmit)
+			})
+		})
+
+		Context("when multiple routes with different route service are sent", func() {
+			var routesToEmit cfroutes.CFRoutes
+			BeforeEach(func() {
+				routingInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route1", RouteServiceUrl: "https://rs.example.com"},
+					{Hostname: "route2", RouteServiceUrl: "https://rs.example.com"},
+					{Hostname: "route3"},
+					{Hostname: "route4", RouteServiceUrl: "https://rs.other.com"},
+					{Hostname: "route5", RouteServiceUrl: "https://rs.other.com"},
+					{Hostname: "route6"},
+					{Hostname: "route7", RouteServiceUrl: "https://rs.another.com"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
+				desireAppRequest.RoutingInfo = routingInfo
+			})
+
+			It("aggregates the http routes with the same route service url", func() {
+				routesToEmit = cfroutes.CFRoutes{
+					{Hostnames: []string{"route1", "route2"}, Port: 8080, RouteServiceUrl: "https://rs.example.com"},
+					{Hostnames: []string{"route3", "route6"}, Port: 8080},
+					{Hostnames: []string{"route4", "route5"}, Port: 8080, RouteServiceUrl: "https://rs.other.com"},
+					{Hostnames: []string{"route7"}, Port: 8080, RouteServiceUrl: "https://rs.another.com"},
+				}
+				opaqueRoutingDataCheck(routesToEmit)
+			})
 		})
 
 		Context("when the bbs fails", func() {
@@ -351,7 +411,10 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("updates the LRP without stepping on opaque routing data", func() {
-				opaqueRoutingDataCheck(expectedPort)
+				expected := cfroutes.CFRoutes{
+					{Hostnames: []string{"route1", "route2"}, Port: expectedPort},
+				}
+				opaqueRoutingDataCheck(expected)
 			})
 
 			It("responds with 202 Accepted", func() {

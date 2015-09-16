@@ -114,10 +114,15 @@ var _ = Describe("Processor", func() {
 
 			results := []cc_messages.DesireAppRequestFromCC{}
 			for _, fingerprint := range batch {
+				routeInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "host-" + fingerprint.ProcessGuid},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
 				lrp := cc_messages.DesireAppRequestFromCC{
 					ProcessGuid: fingerprint.ProcessGuid,
 					ETag:        fingerprint.ETag,
-					Routes:      []string{"host-" + fingerprint.ProcessGuid},
+					RoutingInfo: routeInfo,
 				}
 				if strings.HasPrefix(fingerprint.ProcessGuid, "docker") {
 					lrp.DockerImageUrl = "some-image"
@@ -278,11 +283,16 @@ var _ = Describe("Processor", func() {
 				Eventually(buildpackRecipeBuilder.BuildCallCount).Should(Equal(1))
 				Consistently(buildpackRecipeBuilder.BuildCallCount).Should(Equal(1))
 
+				expectedRoutingInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "host-new-process-guid"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
 				Eventually(buildpackRecipeBuilder.BuildArgsForCall(0)).Should(Equal(
 					&cc_messages.DesireAppRequestFromCC{
 						ProcessGuid: "new-process-guid",
 						ETag:        "new-etag",
-						Routes:      []string{"host-new-process-guid"},
+						RoutingInfo: expectedRoutingInfo,
 					}))
 			})
 

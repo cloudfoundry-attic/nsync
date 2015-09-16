@@ -93,7 +93,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"log_guid": "log-guid-1",
 					"memory_mb": 256,
 					"process_guid": "process-guid-1",
-					"routes": [ "route-1", "route-2", "new-route" ],
+					"routing_info": {
+						"http_routes":
+							[
+								{"hostname": "route-1"},
+								{"hostname": "route-2"},
+								{"hostname": "new-route"}
+							]
+					},
 					"droplet_uri": "source-url-1",
 					"stack": "some-stack",
 					"start_command": "start-command-1",
@@ -112,7 +119,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"log_guid": "log-guid-1",
 					"memory_mb": 256,
 					"process_guid": "process-guid-2",
-					"routes": [ "route-3", "route-4" ],
+					"routing_info": {
+						"http_routes": [
+								{ "hostname": "route-3", "route_service_url":"https://rs.example.com"},
+								{ "hostname": "route-4"}
+							]
+						},
 					"droplet_uri": "source-url-1",
 					"stack": "some-stack",
 					"start_command": "start-command-1",
@@ -128,7 +140,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"log_guid": "log-guid-3",
 					"memory_mb": 128,
 					"process_guid": "process-guid-3",
-					"routes": [],
+					"routing_info": { "http_routes": [] },
 					"droplet_uri": "source-url-3",
 					"stack": "some-stack",
 					"start_command": "start-command-3",
@@ -200,7 +212,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"log_guid": "log-guid-1",
 				"memory_mb": 256,
 				"process_guid": "process-guid-1",
-				"routes": [ "route-1", "route-2" ],
+				"routing_info": {
+					"http_routes": [
+					{"hostname": "route-1"},
+					{"hostname": "route-2"}
+					]
+				},
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
 				"start_command": "start-command-1",
@@ -221,7 +238,12 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"log_guid": "log-guid-1",
 				"memory_mb": 256,
 				"process_guid": "process-guid-2",
-				"routes": [ "route-1", "route-2" ],
+				"routing_info": {
+					"http_routes": [
+					{"hostname": "route-1"},
+					{"hostname": "route-2"}
+					]
+				},
 				"droplet_uri": "source-url-1",
 				"stack": "some-stack",
 				"start_command": "start-command-1",

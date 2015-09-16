@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -330,11 +331,16 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 
-					routes := cfroutes.CFRoutes{
-						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
-					}.RoutingInfo()
+					cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desireAppRequest.RoutingInfo, exposedPort)
+					if err != nil {
+						logger.Error("failed-to-marshal-routes", err)
+						errc <- err
+						return
+					}
 
+					routes := cfRoutes.RoutingInfo()
 					updateReq.Routes = &routes
+
 					for k, v := range existingSchedulingInfo.Routes {
 						if k != cfroutes.CF_ROUTER {
 							(*updateReq.Routes)[k] = v

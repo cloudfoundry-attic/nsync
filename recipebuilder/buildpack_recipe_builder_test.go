@@ -51,6 +51,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		config := recipebuilder.Config{lifecycles, "http://file-server.com", fakeKeyFactory}
 		builder = recipebuilder.NewBuildpackRecipeBuilder(logger, config)
 
+		routingInfo, err := cc_messages.CCHTTPRoutes{
+			{Hostname: "route1"},
+			{Hostname: "route2"},
+		}.CCRouteInfo()
+		Expect(err).NotTo(HaveOccurred())
+
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
 			DropletUri:        "http://the-droplet.uri.com",
@@ -64,7 +70,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			DiskMB:          512,
 			FileDescriptors: 32,
 			NumInstances:    23,
-			Routes:          []string{"route1", "route2"},
+			RoutingInfo:     routingInfo,
 			LogGuid:         "the-log-id",
 
 			HealthCheckType:             cc_messages.PortHealthCheckType,
@@ -198,6 +204,31 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			}))
 
 			Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
+		})
+
+		Context("when route service url is specified in RoutingInfo", func() {
+			BeforeEach(func() {
+				routingInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route1"},
+					{Hostname: "route2", RouteServiceUrl: "https://rs.example.com"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+				desiredAppReq.RoutingInfo = routingInfo
+			})
+
+			It("sets up routes with the route service url", func() {
+				routes := *desiredLRP.Routes
+				cfRoutesJson := routes[cfroutes.CF_ROUTER]
+				cfRoutes := cfroutes.CFRoutes{}
+
+				err := json.Unmarshal(*cfRoutesJson, &cfRoutes)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(cfRoutes).To(ConsistOf([]cfroutes.CFRoute{
+					{Hostnames: []string{"route1"}, Port: 8080},
+					{Hostnames: []string{"route2"}, Port: 8080, RouteServiceUrl: "https://rs.example.com"},
+				}))
+			})
 		})
 
 		Context("when no health check is specified", func() {
