@@ -187,7 +187,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		}
 
 		sshRouteMessage := json.RawMessage(sshRoutePayload)
-		(*desiredAppRoutingInfo)[ssh_routes.DIEGO_SSH] = &sshRouteMessage
+		desiredAppRoutingInfo[ssh_routes.DIEGO_SSH] = &sshRouteMessage
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
@@ -201,7 +201,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		ProcessGuid: lrpGuid,
 		Instances:   int32(desiredApp.NumInstances),
-		Routes:      desiredAppRoutingInfo,
+		Routes:      &desiredAppRoutingInfo,
 		Annotation:  desiredApp.ETag,
 
 		CpuWeight: cpuWeight(desiredApp.MemoryMB),

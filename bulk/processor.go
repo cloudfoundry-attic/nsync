@@ -330,10 +330,11 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 
-					updateReq.Routes = cfroutes.CFRoutes{
+					routes := cfroutes.CFRoutes{
 						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
 					}.RoutingInfo()
 
+					updateReq.Routes = &routes
 					for k, v := range existingSchedulingInfo.Routes {
 						if k != cfroutes.CF_ROUTER {
 							(*updateReq.Routes)[k] = v

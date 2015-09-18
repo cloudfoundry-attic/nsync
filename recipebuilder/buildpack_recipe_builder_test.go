@@ -120,7 +120,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		It("builds a valid DesiredLRP", func() {
 			Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
 			Expect(desiredLRP.Instances).To(BeEquivalentTo(23))
-			Expect(desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
+			Expect(*desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
 				{Hostnames: []string{"route1", "route2"}, Port: 8080},
 			}.RoutingInfo()))
 
