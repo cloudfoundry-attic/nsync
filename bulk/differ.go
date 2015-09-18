@@ -7,6 +7,7 @@ import (
 )
 
 //go:generate counterfeiter -o fakes/fake_differ.go . Differ
+
 type Differ interface {
 	Diff(logger lager.Logger, cancel <-chan struct{}, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) <-chan error
 
@@ -18,16 +19,16 @@ type Differ interface {
 }
 
 type differ struct {
-	existingLRPs map[string]*models.DesiredLRP
+	existingSchedulingInfos map[string]*models.DesiredLRPSchedulingInfo
 
 	stale   chan []cc_messages.CCDesiredAppFingerprint
 	missing chan []cc_messages.CCDesiredAppFingerprint
 	deleted chan []string
 }
 
-func NewDiffer(existing map[string]*models.DesiredLRP) Differ {
+func NewDiffer(existing map[string]*models.DesiredLRPSchedulingInfo) Differ {
 	return &differ{
-		existingLRPs: copyLRPMap(existing),
+		existingSchedulingInfos: copySchedulingInfoMap(existing),
 
 		stale:   make(chan []cc_messages.CCDesiredAppFingerprint, 1),
 		missing: make(chan []cc_messages.CCDesiredAppFingerprint, 1),
@@ -59,7 +60,7 @@ func (d *differ) Diff(
 
 			case batch, open := <-fingerprints:
 				if !open {
-					remaining := remainingProcessGuids(d.existingLRPs)
+					remaining := remainingProcessGuids(d.existingSchedulingInfos)
 					if len(remaining) > 0 {
 						d.deleted <- remaining
 					}
@@ -70,7 +71,7 @@ func (d *differ) Diff(
 				stale := []cc_messages.CCDesiredAppFingerprint{}
 
 				for _, fingerprint := range batch {
-					desiredLRP, found := d.existingLRPs[fingerprint.ProcessGuid]
+					desiredLRP, found := d.existingSchedulingInfos[fingerprint.ProcessGuid]
 					if !found {
 						logger.Info("found-missing-desired-lrp", lager.Data{
 							"guid": fingerprint.ProcessGuid,
@@ -81,7 +82,7 @@ func (d *differ) Diff(
 						continue
 					}
 
-					delete(d.existingLRPs, fingerprint.ProcessGuid)
+					delete(d.existingSchedulingInfos, fingerprint.ProcessGuid)
 
 					if desiredLRP.Annotation != fingerprint.ETag {
 						logger.Info("found-stale-lrp", lager.Data{
@@ -115,18 +116,18 @@ func (d *differ) Diff(
 	return errc
 }
 
-func copyLRPMap(lrpMap map[string]*models.DesiredLRP) map[string]*models.DesiredLRP {
-	clone := map[string]*models.DesiredLRP{}
-	for k, v := range lrpMap {
+func copySchedulingInfoMap(schedulingInfoMap map[string]*models.DesiredLRPSchedulingInfo) map[string]*models.DesiredLRPSchedulingInfo {
+	clone := map[string]*models.DesiredLRPSchedulingInfo{}
+	for k, v := range schedulingInfoMap {
 		clone[k] = v
 	}
 	return clone
 }
 
-func remainingProcessGuids(remaining map[string]*models.DesiredLRP) []string {
+func remainingProcessGuids(remaining map[string]*models.DesiredLRPSchedulingInfo) []string {
 	keys := make([]string, 0, len(remaining))
-	for _, lrp := range remaining {
-		keys = append(keys, lrp.ProcessGuid)
+	for _, schedulingInfo := range remaining {
+		keys = append(keys, schedulingInfo.ProcessGuid)
 	}
 
 	return keys

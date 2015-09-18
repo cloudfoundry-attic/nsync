@@ -12,9 +12,9 @@ import (
 
 var _ = Describe("Differ", func() {
 	var (
-		existingLRP            *models.DesiredLRP
-		existingLRPMap         map[string]*models.DesiredLRP
-		existingAppFingerprint cc_messages.CCDesiredAppFingerprint
+		existingSchedulingInfo    *models.DesiredLRPSchedulingInfo
+		existingSchedulingInfoMap map[string]*models.DesiredLRPSchedulingInfo
+		existingAppFingerprint    cc_messages.CCDesiredAppFingerprint
 
 		cancelChan  chan struct{}
 		desiredChan chan []cc_messages.CCDesiredAppFingerprint
@@ -32,21 +32,15 @@ var _ = Describe("Differ", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 
-		existingLRP = &models.DesiredLRP{
-			ProcessGuid: "process-guid-1",
-			Instances:   1,
-			RootFs:      models.PreloadedRootFS("stack-1"),
-			Action: models.WrapAction(&models.DownloadAction{
-				From: "http://example.com",
-				To:   "/tmp/internet",
-				User: "diego",
-			}),
-			Annotation: "some-etag-1",
+		existingSchedulingInfo = &models.DesiredLRPSchedulingInfo{
+			DesiredLRPKey: models.NewDesiredLRPKey("process-guid", "domain", "log-guid"),
+			Instances:     1,
+			Annotation:    "some-etag-1",
 		}
 
 		existingAppFingerprint = cc_messages.CCDesiredAppFingerprint{
-			ProcessGuid: existingLRP.ProcessGuid,
-			ETag:        existingLRP.Annotation,
+			ProcessGuid: existingSchedulingInfo.ProcessGuid,
+			ETag:        existingSchedulingInfo.Annotation,
 		}
 
 		desiredChan = make(chan []cc_messages.CCDesiredAppFingerprint, 1)
@@ -54,10 +48,10 @@ var _ = Describe("Differ", func() {
 	})
 
 	JustBeforeEach(func() {
-		existingLRPMap = map[string]*models.DesiredLRP{
-			existingLRP.ProcessGuid: existingLRP,
+		existingSchedulingInfoMap = map[string]*models.DesiredLRPSchedulingInfo{
+			existingSchedulingInfo.ProcessGuid: existingSchedulingInfo,
 		}
-		differ = bulk.NewDiffer(existingLRPMap)
+		differ = bulk.NewDiffer(existingSchedulingInfoMap)
 
 		staleChan = differ.Stale()
 		missingChan = differ.Missing()
@@ -67,7 +61,7 @@ var _ = Describe("Differ", func() {
 	})
 
 	AfterEach(func() {
-		Expect(existingLRPMap).To(Equal(existingLRPMap))
+		Expect(existingSchedulingInfoMap).To(Equal(existingSchedulingInfoMap))
 		Eventually(staleChan).Should(BeClosed())
 		Eventually(missingChan).Should(BeClosed())
 		Eventually(deletedChan).Should(BeClosed())
@@ -135,7 +129,7 @@ var _ = Describe("Differ", func() {
 			})
 
 			It("sends a slice of process guids to the deleted channel that includes the excess LRP", func() {
-				Eventually(deletedChan).Should(Receive(ConsistOf(existingLRP.ProcessGuid)))
+				Eventually(deletedChan).Should(Receive(ConsistOf(existingSchedulingInfo.ProcessGuid)))
 
 				Consistently(staleChan).ShouldNot(Receive())
 				Consistently(missingChan).ShouldNot(Receive())

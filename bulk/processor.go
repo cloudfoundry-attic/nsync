@@ -106,13 +106,13 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	logger.Info("starting")
 	defer logger.Info("done")
 
-	existing, err := p.getDesiredLRPs(logger)
+	existing, err := p.getSchedulingInfos(logger)
 	if err != nil {
 		return false
 	}
 
-	existingLRPMap := organizeLRPsByProcessGuid(existing)
-	differ := NewDiffer(existingLRPMap)
+	existingSchedulingInfoMap := organizeSchedulingInfosByProcessGuid(existing)
+	differ := NewDiffer(existingSchedulingInfoMap)
 
 	cancel := make(chan struct{})
 
@@ -144,7 +144,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		differ.Stale(),
 	)
 
-	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingLRPMap)
+	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap)
 
 	bumpFreshness := true
 	success := true
@@ -278,7 +278,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	stale <-chan []cc_messages.DesireAppRequestFromCC,
-	existingLRPMap map[string]*models.DesiredLRP,
+	existingSchedulingInfoMap map[string]*models.DesiredLRPSchedulingInfo,
 ) <-chan error {
 	logger = logger.Session("update-stale-desired-lrps")
 
@@ -313,7 +313,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 				works[i] = func() {
 					processGuid := desireAppRequest.ProcessGuid
-					existingLRP := existingLRPMap[desireAppRequest.ProcessGuid]
+					existingSchedulingInfo := existingSchedulingInfoMap[desireAppRequest.ProcessGuid]
 
 					updateReq := &models.DesiredLRPUpdate{}
 					instances := int32(desireAppRequest.NumInstances)
@@ -334,7 +334,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 						{Hostnames: desireAppRequest.Routes, Port: exposedPort},
 					}.RoutingInfo()
 
-					for k, v := range *existingLRP.Routes {
+					for k, v := range existingSchedulingInfo.Routes {
 						if k != cfroutes.CF_ROUTER {
 							(*updateReq.Routes)[k] = v
 						}
@@ -368,9 +368,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 	return errc
 }
 
-func (p *Processor) getDesiredLRPs(logger lager.Logger) ([]*models.DesiredLRP, error) {
+func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLRPSchedulingInfo, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := p.bbsClient.DesiredLRPs(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
+	existing, err := p.bbsClient.DesiredLRPSchedulingInfos(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
 	if err != nil {
 		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
@@ -444,8 +444,8 @@ func mergeErrors(channels ...<-chan error) <-chan error {
 	return out
 }
 
-func organizeLRPsByProcessGuid(list []*models.DesiredLRP) map[string]*models.DesiredLRP {
-	result := make(map[string]*models.DesiredLRP)
+func organizeSchedulingInfosByProcessGuid(list []*models.DesiredLRPSchedulingInfo) map[string]*models.DesiredLRPSchedulingInfo {
+	result := make(map[string]*models.DesiredLRPSchedulingInfo)
 	for _, l := range list {
 		lrp := l
 		result[lrp.ProcessGuid] = lrp

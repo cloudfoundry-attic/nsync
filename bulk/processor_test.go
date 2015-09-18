@@ -28,8 +28,8 @@ import (
 
 var _ = Describe("Processor", func() {
 	var (
-		fingerprintsToFetch []cc_messages.CCDesiredAppFingerprint
-		existingDesired     []*models.DesiredLRP
+		fingerprintsToFetch     []cc_messages.CCDesiredAppFingerprint
+		existingSchedulingInfos []*models.DesiredLRPSchedulingInfo
 
 		bbsClient              *fake_bbs.FakeClient
 		fetcher                *fakes.FakeFetcher
@@ -64,23 +64,28 @@ var _ = Describe("Processor", func() {
 		}
 
 		staleRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
-		existingDesired = []*models.DesiredLRP{
-			{ProcessGuid: "current-process-guid", Annotation: "current-etag"},
+		existingSchedulingInfos = []*models.DesiredLRPSchedulingInfo{
 			{
-				ProcessGuid: "stale-process-guid",
-				Annotation:  "stale-etag",
-				Routes: &models.Routes{
+				DesiredLRPKey: models.NewDesiredLRPKey("current-process-guid", "domain", "log-guid"),
+				Annotation:    "current-etag"},
+			{
+				DesiredLRPKey: models.NewDesiredLRPKey("stale-process-guid", "domain", "log-guid"),
+				Annotation:    "stale-etag",
+				Routes: models.Routes{
 					"router-route-data": &staleRouteMessage,
 				},
 			},
 			{
-				ProcessGuid: "docker-process-guid",
-				Annotation:  "docker-etag",
-				Routes: &models.Routes{
+				DesiredLRPKey: models.NewDesiredLRPKey("docker-process-guid", "domain", "log-guid"),
+				Annotation:    "docker-etag",
+				Routes: models.Routes{
 					"router-route-data": &staleRouteMessage,
 				},
 			},
-			{ProcessGuid: "excess-process-guid", Annotation: "excess-etag"},
+			{
+				DesiredLRPKey: models.NewDesiredLRPKey("excess-process-guid", "domain", "log-guid"),
+				Annotation:    "excess-etag",
+			},
 		}
 
 		fetcher = new(fakes.FakeFetcher)
@@ -152,7 +157,7 @@ var _ = Describe("Processor", func() {
 		}
 
 		bbsClient = new(fake_bbs.FakeClient)
-		bbsClient.DesiredLRPsReturns(existingDesired, nil)
+		bbsClient.DesiredLRPSchedulingInfosReturns(existingSchedulingInfos, nil)
 
 		bbsClient.UpsertDomainStub = func(string, time.Duration) error {
 			clock.Increment(syncDuration)
@@ -188,7 +193,7 @@ var _ = Describe("Processor", func() {
 
 	Describe("when getting all desired LRPs fails", func() {
 		BeforeEach(func() {
-			bbsClient.DesiredLRPsReturns(nil, errors.New("oh no!"))
+			bbsClient.DesiredLRPSchedulingInfosReturns(nil, errors.New("oh no!"))
 		})
 
 		It("keeps calm and carries on", func() {
@@ -197,10 +202,10 @@ var _ = Describe("Processor", func() {
 
 		It("tries again after the polling interval", func() {
 			clock.Increment(pollingInterval / 2)
-			Consistently(bbsClient.DesiredLRPsCallCount).Should(Equal(1))
+			Consistently(bbsClient.DesiredLRPSchedulingInfosCallCount).Should(Equal(1))
 
 			clock.Increment(pollingInterval)
-			Eventually(bbsClient.DesiredLRPsCallCount).Should(Equal(2))
+			Eventually(bbsClient.DesiredLRPSchedulingInfosCallCount).Should(Equal(2))
 		})
 
 		It("does not call the differ, the fetcher, or the bbs client for updates", func() {
