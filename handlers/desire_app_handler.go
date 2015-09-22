@@ -45,6 +45,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	logger.Info("request-from-cc", lager.Data{"routing_info": desiredApp.RoutingInfo})
 
 	if processGuid != desiredApp.ProcessGuid {
 		logger.Error("process-guid-mismatch", err, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
@@ -120,6 +121,7 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
+	logger.Info("creating-desired-lrp", lager.Data{"routes": desiredLRP.Routes})
 	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
@@ -171,6 +173,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		Routes:     routes,
 	}
 
+	logger.Info("updating-desired-lrp", lager.Data{"routes": updateRequest.Routes})
 	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)

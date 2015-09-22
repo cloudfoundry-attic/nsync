@@ -119,6 +119,11 @@ var _ = Describe("DesireAppHandler", func() {
 			buildpackBuilder.BuildReturns(newlyDesiredLRP, nil)
 		})
 
+		It("logs the incoming and outgoing request", func() {
+			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("request-from-cc"))
+			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("creating-desired-lrp"))
+		})
+
 		It("creates the desired LRP", func() {
 			Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
 
@@ -260,6 +265,11 @@ var _ = Describe("DesireAppHandler", func() {
 					"some-other-routing-data": &opaqueRoutingMessage,
 				},
 			}, nil)
+		})
+
+		It("logs the incoming and outgoing request", func() {
+			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("request-from-cc"))
+			Eventually(logger.TestSink.Buffer).Should(gbytes.Say("updating-desired-lrp"))
 		})
 
 		It("checks to see if LRP already exists", func() {
