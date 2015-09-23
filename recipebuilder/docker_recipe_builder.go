@@ -10,7 +10,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	ssh_routes "github.com/cloudfoundry-incubator/diego-ssh/routes"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager"
 )
@@ -140,9 +140,12 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		},
 	})
 
-	desiredAppRoutingInfo := cfroutes.CFRoutes{
-		{Hostnames: desiredApp.Routes, Port: exposedPort},
-	}.RoutingInfo()
+	cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desiredApp.RoutingInfo, exposedPort)
+	if err != nil {
+		buildLogger.Error("marshaling-cc-route-info-failed", err)
+		return nil, err
+	}
+	desiredAppRoutingInfo := cfRoutes.RoutingInfo()
 
 	desiredAppPorts := []uint32{exposedPort}
 

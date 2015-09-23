@@ -252,6 +252,18 @@ var _ = Describe("Fetcher", func() {
 			var desireRequests []cc_messages.DesireAppRequestFromCC
 
 			BeforeEach(func() {
+				routeInfo1, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route-1"},
+					{Hostname: "route-2"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
+				routeInfo2, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route-3"},
+					{Hostname: "route-4"},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+
 				desireRequests = []cc_messages.DesireAppRequestFromCC{
 					{
 						ProcessGuid:  "process-guid-1",
@@ -266,12 +278,9 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          1024,
 						FileDescriptors: 16,
 						NumInstances:    2,
-						Routes: []string{
-							"route-1",
-							"route-2",
-						},
-						LogGuid: "log-guid-1",
-						ETag:    "1234567.1890",
+						RoutingInfo:     routeInfo1,
+						LogGuid:         "log-guid-1",
+						ETag:            "1234567.1890",
 					},
 					{
 						ProcessGuid:  "process-guid-2",
@@ -286,12 +295,9 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          2048,
 						FileDescriptors: 32,
 						NumInstances:    4,
-						Routes: []string{
-							"route-3",
-							"route-4",
-						},
-						LogGuid: "log-guid-2",
-						ETag:    "2345678.2901",
+						RoutingInfo:     routeInfo2,
+						LogGuid:         "log-guid-2",
+						ETag:            "2345678.2901",
 					},
 					{
 						ProcessGuid:     "process-guid-3",
@@ -303,7 +309,7 @@ var _ = Describe("Fetcher", func() {
 						DiskMB:          512,
 						FileDescriptors: 8,
 						NumInstances:    4,
-						Routes:          []string{},
+						RoutingInfo:     make(cc_messages.CCRouteInfo),
 						LogGuid:         "log-guid-3",
 						ETag:            "3456789.3012",
 					},

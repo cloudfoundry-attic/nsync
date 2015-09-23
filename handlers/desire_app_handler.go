@@ -6,6 +6,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
+	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -44,6 +45,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	logger.Info("request-from-cc", lager.Data{"routing_info": desiredApp.RoutingInfo})
 
 	if processGuid != desiredApp.ProcessGuid {
 		logger.Error("process-guid-mismatch", err, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
@@ -119,6 +121,7 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
+	logger.Info("creating-desired-lrp", lager.Data{"routes": desiredLRP.Routes})
 	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
@@ -143,9 +146,14 @@ func (h *DesireAppHandler) updateDesiredApp(
 		return err
 	}
 
-	cfRoutesJson, err := json.Marshal(cfroutes.CFRoutes{
-		{Hostnames: desireAppMessage.Routes, Port: port},
-	})
+	cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desireAppMessage.RoutingInfo, port)
+	if err != nil {
+		logger.Error("failed-to-marshal-routes", err)
+		return err
+	}
+
+	cfRoutesJson, err := json.Marshal(cfRoutes)
+
 	if err != nil {
 		logger.Error("failed-to-marshal-routes", err)
 		return err
@@ -165,6 +173,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		Routes:     routes,
 	}
 
+	logger.Info("updating-desired-lrp", lager.Data{"routes": updateRequest.Routes})
 	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
