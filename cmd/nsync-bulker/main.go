@@ -22,6 +22,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"github.com/cloudfoundry-incubator/nsync"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
@@ -152,11 +153,12 @@ func main() {
 	logger, reconfigurableSink := cf_lager.New("nsync-bulker")
 	initializeDropsonde(logger)
 
-	locketClient := initializeLocket(logger)
+	serviceClient := initializeServiceClient(logger)
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
+	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval)
 
 	recipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:    lifecycles,
@@ -167,8 +169,6 @@ func main() {
 		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),
 		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
 	}
-
-	lockMaintainer := locketClient.NewNsyncBulkerLock(uuid.String(), *lockRetryInterval)
 
 	runner := bulk.NewProcessor(
 		initializeBBSClient(logger),
@@ -223,7 +223,7 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeLocket(logger lager.Logger) locket.Client {
+func initializeServiceClient(logger lager.Logger) nsync.ServiceClient {
 	client, err := consuladapter.NewClient(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
@@ -235,7 +235,7 @@ func initializeLocket(logger lager.Logger) locket.Client {
 		logger.Fatal("consul-session-failed", err)
 	}
 
-	return locket.NewClient(consulSession, clock.NewClock(), logger)
+	return nsync.NewServiceClient(consulSession, clock.NewClock())
 }
 
 func initializeBBSClient(logger lager.Logger) bbs.Client {

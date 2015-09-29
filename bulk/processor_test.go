@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/ginkgomon"
 )
 
 var _ = Describe("Processor", func() {
@@ -192,8 +192,7 @@ var _ = Describe("Processor", func() {
 	})
 
 	AfterEach(func() {
-		process.Signal(os.Interrupt)
-		Eventually(process.Wait()).Should(Receive())
+		ginkgomon.Interrupt(process)
 	})
 
 	Describe("when getting all desired LRPs fails", func() {
@@ -206,6 +205,7 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("tries again after the polling interval", func() {
+			Eventually(bbsClient.DesiredLRPSchedulingInfosCallCount).Should(Equal(1))
 			clock.Increment(pollingInterval / 2)
 			Consistently(bbsClient.DesiredLRPSchedulingInfosCallCount).Should(Equal(1))
 
@@ -365,8 +365,9 @@ var _ = Describe("Processor", func() {
 						Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 						Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-						updatedGuid, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
-						Expect(updatedGuid).To(Equal("stale-process-guid"))
+						updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
+						updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
+						Expect([]string{updatedGuid1, updatedGuid2}).To(ConsistOf("stale-process-guid", "docker-process-guid"))
 					})
 				})
 			})
@@ -393,8 +394,9 @@ var _ = Describe("Processor", func() {
 						Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 						Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-						updatedGuid, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
-						Expect(updatedGuid).To(Equal("stale-process-guid"))
+						updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
+						updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
+						Expect([]string{updatedGuid1, updatedGuid2}).To(ConsistOf("stale-process-guid", "docker-process-guid"))
 					})
 				})
 			})

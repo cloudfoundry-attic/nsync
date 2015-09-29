@@ -25,6 +25,8 @@ import (
 )
 
 var _ = Describe("Syncing desired state with CC", func() {
+	const interruptTimeout = 2 * time.Second
+
 	var (
 		fakeCC *ghttp.Server
 
@@ -283,7 +285,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		AfterEach(func() {
-			ginkgomon.Interrupt(process)
+			ginkgomon.Interrupt(process, interruptTimeout)
 		})
 
 		Context("once the state has been synced with CC", func() {
@@ -584,7 +586,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		AfterEach(func() {
-			ginkgomon.Interrupt(process)
+			ginkgomon.Interrupt(process, interruptTimeout)
 		})
 
 		itIsMissingDomain()
@@ -610,7 +612,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		})
 
 		AfterEach(func() {
-			ginkgomon.Interrupt(process)
+			ginkgomon.Interrupt(process, interruptTimeout)
 		})
 
 		itIsMissingDomain()
