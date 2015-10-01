@@ -123,8 +123,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"process_guid": "process-guid-2",
 					"routing_info": {
 						"http_routes": [
-								{ "hostname": "route-3", "route_service_url":"https://rs.example.com"},
-								{ "hostname": "route-4"}
+								{ "hostname": "route-3", "route_service_url":"https://rs.example.com"}
 							]
 						},
 					"droplet_uri": "source-url-1",
@@ -406,7 +405,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}))
 
 				nofile = 16
-				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3","route-4"],"port":8080}]`))
+				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3"],"port":8080,"route_service_url":"https://rs.example.com"}]`))
 				newRoutes := &models.Routes{
 					cfroutes.CF_ROUTER: &newRouteMessage,
 				}
