@@ -17,7 +17,6 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	oldmodels "github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -107,7 +106,7 @@ var _ = Describe("DesireAppHandler", func() {
 			newlyDesiredLRP = &models.DesiredLRP{
 				ProcessGuid: "new-process-guid",
 				Instances:   1,
-				RootFs:      oldmodels.PreloadedRootFS("stack-2"),
+				RootFs:      models.PreloadedRootFS("stack-2"),
 				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
