@@ -26,15 +26,16 @@ const (
 )
 
 type Processor struct {
-	bbsClient       bbs.Client
-	pollingInterval time.Duration
-	domainTTL       time.Duration
-	bulkBatchSize   uint
-	skipCertVerify  bool
-	logger          lager.Logger
-	fetcher         Fetcher
-	builders        map[string]recipebuilder.RecipeBuilder
-	clock           clock.Clock
+	bbsClient             bbs.Client
+	pollingInterval       time.Duration
+	domainTTL             time.Duration
+	bulkBatchSize         uint
+	updateLRPWorkPoolSize int
+	skipCertVerify        bool
+	logger                lager.Logger
+	fetcher               Fetcher
+	builders              map[string]recipebuilder.RecipeBuilder
+	clock                 clock.Clock
 }
 
 func NewProcessor(
@@ -42,6 +43,7 @@ func NewProcessor(
 	pollingInterval time.Duration,
 	domainTTL time.Duration,
 	bulkBatchSize uint,
+	updateLRPWorkPoolSize int,
 	skipCertVerify bool,
 	logger lager.Logger,
 	fetcher Fetcher,
@@ -49,15 +51,16 @@ func NewProcessor(
 	clock clock.Clock,
 ) *Processor {
 	return &Processor{
-		bbsClient:       bbsClient,
-		pollingInterval: pollingInterval,
-		domainTTL:       domainTTL,
-		bulkBatchSize:   bulkBatchSize,
-		skipCertVerify:  skipCertVerify,
-		logger:          logger,
-		fetcher:         fetcher,
-		builders:        builders,
-		clock:           clock,
+		bbsClient:             bbsClient,
+		pollingInterval:       pollingInterval,
+		domainTTL:             domainTTL,
+		bulkBatchSize:         bulkBatchSize,
+		updateLRPWorkPoolSize: updateLRPWorkPoolSize,
+		skipCertVerify:        skipCertVerify,
+		logger:                logger,
+		fetcher:               fetcher,
+		builders:              builders,
+		clock:                 clock,
 	}
 }
 
@@ -260,7 +263,7 @@ func (p *Processor) createMissingDesiredLRPs(
 				}
 			}
 
-			throttler, err := workpool.NewThrottler(50, works)
+			throttler, err := workpool.NewThrottler(p.updateLRPWorkPoolSize, works)
 			if err != nil {
 				errc <- err
 				return
@@ -360,7 +363,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 				}
 			}
 
-			throttler, err := workpool.NewThrottler(50, works)
+			throttler, err := workpool.NewThrottler(p.updateLRPWorkPoolSize, works)
 			if err != nil {
 				errc <- err
 				return

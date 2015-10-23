@@ -135,6 +135,12 @@ var bbsMaxIdleConnsPerHost = flag.Int(
 	"Controls the maximum number of idle (keep-alive) connctions per host. If zero, golang's default will be used",
 )
 
+var updateLRPWorkers = flag.Int(
+	"updateLRPWorkers",
+	50,
+	"Max concurrency for updating/creating lrps",
+)
+
 const (
 	dropsondeOrigin      = "nsync_bulker"
 	dropsondeDestination = "localhost:3457"
@@ -175,6 +181,7 @@ func main() {
 		*pollingInterval,
 		*domainTTL,
 		*bulkBatchSize,
+		*updateLRPWorkers,
 		*skipCertVerify,
 		logger,
 		&bulk.CCFetcher{

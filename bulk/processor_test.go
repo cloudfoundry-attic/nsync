@@ -176,6 +176,7 @@ var _ = Describe("Processor", func() {
 			500*time.Millisecond,
 			time.Second,
 			10,
+			50,
 			false,
 			logger,
 			fetcher,
