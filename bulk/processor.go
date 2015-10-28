@@ -256,7 +256,9 @@ func (p *Processor) createMissingDesiredLRPs(
 					err = p.bbsClient.DesireLRP(desired)
 					if err != nil {
 						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
-						errc <- err
+						if models.ConvertError(err).Type != models.Error_InvalidRequest {
+							errc <- err
+						}
 						return
 					}
 					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(desired))
@@ -356,7 +358,10 @@ func (p *Processor) updateStaleDesiredLRPs(
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid": processGuid,
 						})
-						errc <- err
+
+						if models.ConvertError(err).Type != models.Error_InvalidRequest {
+							errc <- err
+						}
 						return
 					}
 					logger.Debug("succeeded-updating-stale-lrp", updateDesiredRequestDebugData(processGuid, updateReq))

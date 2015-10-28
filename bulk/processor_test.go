@@ -554,6 +554,17 @@ var _ = Describe("Processor", func() {
 				bbsClient.UpdateDesiredLRPReturns(errors.New("boom"))
 			})
 
+			Context("because the desired lrp is invalid", func() {
+				BeforeEach(func() {
+					validationError := models.NewError(models.Error_InvalidRequest, "some-validation-error")
+					bbsClient.UpdateDesiredLRPReturns(validationError.ToError())
+				})
+
+				It("updates the domain", func() {
+					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+				})
+			})
+
 			It("does not update the domain", func() {
 				Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
 			})
@@ -564,5 +575,30 @@ var _ = Describe("Processor", func() {
 			})
 		})
 
+		Context("when creating the desired lrp fails", func() {
+			BeforeEach(func() {
+				bbsClient.DesireLRPReturns(errors.New("boom"))
+			})
+
+			Context("because the desired lrp is invalid", func() {
+				BeforeEach(func() {
+					validationError := models.NewError(models.Error_InvalidRequest, "some-validation-error")
+					bbsClient.DesireLRPReturns(validationError.ToError())
+				})
+
+				It("updates the domain", func() {
+					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+				})
+			})
+
+			It("does not update the domain", func() {
+				Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
+			})
+
+			It("sends all the other updates", func() {
+				Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+				Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+			})
+		})
 	})
 })
