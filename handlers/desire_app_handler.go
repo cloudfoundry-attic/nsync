@@ -47,6 +47,12 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	}
 	logger.Info("request-from-cc", lager.Data{"routing_info": desiredApp.RoutingInfo})
 
+	envNames := []string{}
+	for _, envVar := range desiredApp.Environment {
+		envNames = append(envNames, envVar.Name)
+	}
+	logger.Info("environment", lager.Data{"keys": envNames})
+
 	if processGuid != desiredApp.ProcessGuid {
 		logger.Error("process-guid-mismatch", err, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
 		resp.WriteHeader(http.StatusBadRequest)
