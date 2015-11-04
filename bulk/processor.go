@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs"
@@ -23,6 +24,7 @@ import (
 
 const (
 	syncDesiredLRPsDuration = metric.Duration("DesiredLRPSyncDuration")
+	invalidLRPsFound        = metric.Metric("NsyncInvalidDesiredLRPsFound")
 )
 
 type Processor struct {
@@ -101,9 +103,11 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 
 func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool {
 	start := p.clock.Now()
+	invalidsFound := int32(0)
 	defer func() {
 		duration := p.clock.Now().Sub(start)
 		syncDesiredLRPsDuration.Send(duration)
+		invalidLRPsFound.Send(int(invalidsFound))
 	}()
 
 	logger := p.logger.Session("sync")
@@ -139,7 +143,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		differ.Missing(),
 	)
 
-	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps)
+	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps, &invalidsFound)
 
 	staleApps, staleAppErrors := p.fetcher.FetchDesiredApps(
 		logger.Session("fetch-stale-desired-lrps-from-cc"),
@@ -148,7 +152,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		differ.Stale(),
 	)
 
-	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap)
+	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap, &invalidsFound)
 
 	bumpFreshness := true
 	success := true
@@ -210,6 +214,7 @@ func (p *Processor) createMissingDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	missing <-chan []cc_messages.DesireAppRequestFromCC,
+	invalidCount *int32,
 ) <-chan error {
 	logger = logger.Session("create-missing-desired-lrps")
 
@@ -256,7 +261,9 @@ func (p *Processor) createMissingDesiredLRPs(
 					err = p.bbsClient.DesireLRP(desired)
 					if err != nil {
 						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
-						if models.ConvertError(err).Type != models.Error_InvalidRequest {
+						if models.ConvertError(err).Type == models.Error_InvalidRequest {
+							atomic.AddInt32(invalidCount, int32(1))
+						} else {
 							errc <- err
 						}
 						return
@@ -285,6 +292,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 	cancel <-chan struct{},
 	stale <-chan []cc_messages.DesireAppRequestFromCC,
 	existingSchedulingInfoMap map[string]*models.DesiredLRPSchedulingInfo,
+	invalidCount *int32,
 ) <-chan error {
 	logger = logger.Session("update-stale-desired-lrps")
 
@@ -359,7 +367,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 							"process-guid": processGuid,
 						})
 
-						if models.ConvertError(err).Type != models.Error_InvalidRequest {
+						if models.ConvertError(err).Type == models.Error_InvalidRequest {
+							atomic.AddInt32(invalidCount, int32(1))
+						} else {
 							errc <- err
 						}
 						return

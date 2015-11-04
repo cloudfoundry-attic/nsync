@@ -563,6 +563,12 @@ var _ = Describe("Processor", func() {
 				It("updates the domain", func() {
 					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
 				})
+
+				It("correctly emits the total number of invalid LRPs found while bulking", func() {
+					Eventually(func() fake.Metric {
+						return metricSender.GetValue("NsyncInvalidDesiredLRPsFound")
+					}).Should(Equal(fake.Metric{Value: 2, Unit: "Metric"}))
+				})
 			})
 
 			It("does not update the domain", func() {
@@ -588,6 +594,12 @@ var _ = Describe("Processor", func() {
 
 				It("updates the domain", func() {
 					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+				})
+
+				It("correctly emits the total number of invalid LRPs found while bulking", func() {
+					Eventually(func() fake.Metric {
+						return metricSender.GetValue("NsyncInvalidDesiredLRPsFound")
+					}).Should(Equal(fake.Metric{Value: 1, Unit: "Metric"}))
 				})
 			})
 
