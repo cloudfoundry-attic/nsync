@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
@@ -148,8 +148,8 @@ var _ = Describe("Processor", func() {
 			}
 			return &createRequest, nil
 		}
-		buildpackRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
-			return 8080, nil
+		buildpackRecipeBuilder.ExtractExposedPortsStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+			return []uint32{8080}, nil
 		}
 
 		dockerRecipeBuilder = new(fakes.FakeRecipeBuilder)
@@ -507,8 +507,8 @@ var _ = Describe("Processor", func() {
 					expectedRouteHost = "host-docker-process-guid"
 					expectedPort = 7070
 
-					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
-						return expectedPort, nil
+					dockerRecipeBuilder.ExtractExposedPortsStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+						return []uint32{expectedPort}, nil
 					}
 				})
 
@@ -525,8 +525,8 @@ var _ = Describe("Processor", func() {
 			Context("with incorrect docker port", func() {
 				BeforeEach(func() {
 					expectedClientCallCount = 1
-					dockerRecipeBuilder.ExtractExposedPortStub = func(desiredAppMetadata string) (uint32, error) {
-						return 0, errors.New("our-specific-test-error")
+					dockerRecipeBuilder.ExtractExposedPortsStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+						return nil, errors.New("our-specific-test-error")
 					}
 				})
 

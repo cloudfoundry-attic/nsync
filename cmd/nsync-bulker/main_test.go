@@ -18,8 +18,9 @@ import (
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/locket"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
@@ -243,6 +244,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"http_routes": [
 					{"hostname": "route-1"},
 					{"hostname": "route-2"}
+					],
+					"tcp_routes": [
+					{"router_group_guid": "guid-1", "external_port":5222, "container_port":60000}
 					]
 				},
 				"droplet_uri": "source-url-1",
@@ -381,12 +385,20 @@ var _ = Describe("Syncing desired state with CC", func() {
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
-						&models.RunAction{
-							User:           "vcap",
-							Path:           "/tmp/lifecycle/healthcheck",
-							Args:           []string{"-port=8080"},
-							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
+						&models.ParallelAction{
+							Actions: []*models.Action{
+								&models.Action{
+									RunAction: &models.RunAction{
+										User:      "vcap",
+										Path:      "/tmp/lifecycle/healthcheck",
+										Args:      []string{"-port=8080"},
+										LogSource: "HEALTH",
+										ResourceLimits: &models.ResourceLimits{
+											Nofile: &defaultNofile,
+										},
+									},
+								},
+							},
 						},
 						30*time.Second,
 					)),
@@ -406,8 +418,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 16
 				newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-3"],"port":8080,"route_service_url":"https://rs.example.com"}]`))
+				newTcpRouteMessage := json.RawMessage([]byte(`[{"router_group_guid":"guid-1","external_port":5222,"container_port":60000}]`))
 				newRoutes := &models.Routes{
-					cfroutes.CF_ROUTER: &newRouteMessage,
+					cfroutes.CF_ROUTER:    &newRouteMessage,
+					tcp_routes.TCP_ROUTER: &newTcpRouteMessage,
 				}
 				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
 					ProcessGuid:  "process-guid-2",
@@ -432,12 +446,20 @@ var _ = Describe("Syncing desired state with CC", func() {
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
-						&models.RunAction{
-							User:           "vcap",
-							Path:           "/tmp/lifecycle/healthcheck",
-							Args:           []string{"-port=8080"},
-							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
+						&models.ParallelAction{
+							Actions: []*models.Action{
+								&models.Action{
+									RunAction: &models.RunAction{
+										User:      "vcap",
+										Path:      "/tmp/lifecycle/healthcheck",
+										Args:      []string{"-port=8080"},
+										LogSource: "HEALTH",
+										ResourceLimits: &models.ResourceLimits{
+											Nofile: &defaultNofile,
+										},
+									},
+								},
+							},
 						},
 						30*time.Second,
 					)),
@@ -481,12 +503,20 @@ var _ = Describe("Syncing desired state with CC", func() {
 						LogSource:      recipebuilder.AppLogSource,
 					})),
 					Monitor: models.WrapAction(models.Timeout(
-						&models.RunAction{
-							User:           "vcap",
-							Path:           "/tmp/lifecycle/healthcheck",
-							Args:           []string{"-port=8080"},
-							LogSource:      recipebuilder.HealthLogSource,
-							ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
+						&models.ParallelAction{
+							Actions: []*models.Action{
+								&models.Action{
+									RunAction: &models.RunAction{
+										User:      "vcap",
+										Path:      "/tmp/lifecycle/healthcheck",
+										Args:      []string{"-port=8080"},
+										LogSource: "HEALTH",
+										ResourceLimits: &models.ResourceLimits{
+											Nofile: &defaultNofile,
+										},
+									},
+								},
+							},
 						},
 						30*time.Second,
 					)),

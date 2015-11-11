@@ -102,27 +102,14 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		User:     user,
 	})
 
-	var exposedPort = DefaultPort
-	exposedPort, err = extractExposedPort(executionMetadata, b.logger)
+	desiredAppPorts, err := extractExposedPorts(executionMetadata, b.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = models.Timeout(
-			&models.RunAction{
-				User:      user,
-				Path:      "/tmp/lifecycle/healthcheck",
-				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
-				LogSource: HealthLogSource,
-				ResourceLimits: &models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
-				},
-			},
-			30*time.Second,
-		)
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, user), 30*time.Second)
 	}
 
 	actions = append(actions, &models.RunAction{
@@ -133,21 +120,18 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
+		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 		LogSource: AppLogSource,
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
 
-	cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desiredApp.RoutingInfo, exposedPort)
+	desiredAppRoutingInfo, err := helpers.CCRouteInfoToRoutes(desiredApp.RoutingInfo, desiredAppPorts)
 	if err != nil {
 		buildLogger.Error("marshaling-cc-route-info-failed", err)
 		return nil, err
 	}
-	desiredAppRoutingInfo := cfRoutes.RoutingInfo()
-
-	desiredAppPorts := []uint32{exposedPort}
 
 	if desiredApp.AllowSSH {
 		hostKeyPair, err := b.config.KeyFactory.NewKeyPair(1024)
@@ -172,7 +156,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment, exposedPort),
+			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
@@ -232,36 +216,38 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	}, nil
 }
 
-func (b DockerRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint32, error) {
+func (b DockerRecipeBuilder) ExtractExposedPorts(desiredApp *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+	executionMetadata := desiredApp.ExecutionMetadata
 	metadata, err := NewDockerExecutionMetadata(executionMetadata)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return extractExposedPort(metadata, b.logger)
+	return extractExposedPorts(metadata, b.logger)
 }
 
-func extractExposedPort(executionMetadata DockerExecutionMetadata, logger lager.Logger) (uint32, error) {
+func extractExposedPorts(executionMetadata DockerExecutionMetadata, logger lager.Logger) ([]uint32, error) {
 	var exposedPort uint32 = DefaultPort
-	var portFound bool = true
 	exposedPorts := executionMetadata.ExposedPorts
+	ports := make([]uint32, 0)
+	if len(exposedPorts) == 0 {
+		ports = append(ports, exposedPort)
+	}
 	for _, port := range exposedPorts {
-		portFound = false
 		if port.Protocol == "tcp" {
 			exposedPort = port.Port
-			portFound = true
-			break
+			ports = append(ports, exposedPort)
 		}
 	}
 
-	if !portFound {
+	if len(ports) == 0 {
 		err := fmt.Errorf("No tcp ports found in image metadata")
 		logger.Error("parsing-exposed-ports-failed", err, lager.Data{
 			"desired-app-metadata": executionMetadata,
 		})
-		return 0, err
+		return nil, err
 	}
 
-	return exposedPort, nil
+	return ports, nil
 }
 
 func extractUser(executionMetadata DockerExecutionMetadata) (string, error) {

@@ -19,13 +19,13 @@ type FakeRecipeBuilder struct {
 		result1 *models.DesiredLRP
 		result2 error
 	}
-	ExtractExposedPortStub        func(executionMetadata string) (uint32, error)
-	extractExposedPortMutex       sync.RWMutex
-	extractExposedPortArgsForCall []struct {
-		executionMetadata string
+	ExtractExposedPortsStub        func(*cc_messages.DesireAppRequestFromCC) ([]uint32, error)
+	extractExposedPortsMutex       sync.RWMutex
+	extractExposedPortsArgsForCall []struct {
+		arg1 *cc_messages.DesireAppRequestFromCC
 	}
-	extractExposedPortReturns struct {
-		result1 uint32
+	extractExposedPortsReturns struct {
+		result1 []uint32
 		result2 error
 	}
 }
@@ -63,35 +63,35 @@ func (fake *FakeRecipeBuilder) BuildReturns(result1 *models.DesiredLRP, result2 
 	}{result1, result2}
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint32, error) {
-	fake.extractExposedPortMutex.Lock()
-	fake.extractExposedPortArgsForCall = append(fake.extractExposedPortArgsForCall, struct {
-		executionMetadata string
-	}{executionMetadata})
-	fake.extractExposedPortMutex.Unlock()
-	if fake.ExtractExposedPortStub != nil {
-		return fake.ExtractExposedPortStub(executionMetadata)
+func (fake *FakeRecipeBuilder) ExtractExposedPorts(arg1 *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+	fake.extractExposedPortsMutex.Lock()
+	fake.extractExposedPortsArgsForCall = append(fake.extractExposedPortsArgsForCall, struct {
+		arg1 *cc_messages.DesireAppRequestFromCC
+	}{arg1})
+	fake.extractExposedPortsMutex.Unlock()
+	if fake.ExtractExposedPortsStub != nil {
+		return fake.ExtractExposedPortsStub(arg1)
 	} else {
-		return fake.extractExposedPortReturns.result1, fake.extractExposedPortReturns.result2
+		return fake.extractExposedPortsReturns.result1, fake.extractExposedPortsReturns.result2
 	}
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPortCallCount() int {
-	fake.extractExposedPortMutex.RLock()
-	defer fake.extractExposedPortMutex.RUnlock()
-	return len(fake.extractExposedPortArgsForCall)
+func (fake *FakeRecipeBuilder) ExtractExposedPortsCallCount() int {
+	fake.extractExposedPortsMutex.RLock()
+	defer fake.extractExposedPortsMutex.RUnlock()
+	return len(fake.extractExposedPortsArgsForCall)
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPortArgsForCall(i int) string {
-	fake.extractExposedPortMutex.RLock()
-	defer fake.extractExposedPortMutex.RUnlock()
-	return fake.extractExposedPortArgsForCall[i].executionMetadata
+func (fake *FakeRecipeBuilder) ExtractExposedPortsArgsForCall(i int) *cc_messages.DesireAppRequestFromCC {
+	fake.extractExposedPortsMutex.RLock()
+	defer fake.extractExposedPortsMutex.RUnlock()
+	return fake.extractExposedPortsArgsForCall[i].arg1
 }
 
-func (fake *FakeRecipeBuilder) ExtractExposedPortReturns(result1 uint32, result2 error) {
-	fake.ExtractExposedPortStub = nil
-	fake.extractExposedPortReturns = struct {
-		result1 uint32
+func (fake *FakeRecipeBuilder) ExtractExposedPortsReturns(result1 []uint32, result2 error) {
+	fake.ExtractExposedPortsStub = nil
+	fake.extractExposedPortsReturns = struct {
+		result1 []uint32
 		result2 error
 	}{result1, result2}
 }

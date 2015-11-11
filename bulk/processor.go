@@ -14,7 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf_http"
 	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry/gunk/workpool"
@@ -334,7 +334,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					updateReq.Instances = &instances
 					updateReq.Annotation = &desireAppRequest.ETag
 
-					exposedPort, err := builder.ExtractExposedPort(desireAppRequest.ExecutionMetadata)
+					exposedPorts, err := builder.ExtractExposedPorts(&desireAppRequest)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid":       processGuid,
@@ -344,14 +344,13 @@ func (p *Processor) updateStaleDesiredLRPs(
 						return
 					}
 
-					cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desireAppRequest.RoutingInfo, exposedPort)
+					routes, err := helpers.CCRouteInfoToRoutes(desireAppRequest.RoutingInfo, exposedPorts)
 					if err != nil {
 						logger.Error("failed-to-marshal-routes", err)
 						errc <- err
 						return
 					}
 
-					routes := cfRoutes.RoutingInfo()
 					updateReq.Routes = &routes
 
 					for k, v := range existingSchedulingInfo.Routes {

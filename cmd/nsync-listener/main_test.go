@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync"
+	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -60,12 +64,24 @@ var _ = Describe("Nsync Listener", func() {
         "process_guid": "the-guid",
         "droplet_uri": "http://the-droplet.uri.com",
         "start_command": "the-start-command",
+        "execution_metadata": "execution-metadata-1",
         "memory_mb": 128,
         "disk_mb": 512,
         "file_descriptors": 32,
         "num_instances": `+strconv.Itoa(nInstances)+`,
         "stack": "some-stack",
-        "log_guid": "the-log-guid"
+        "log_guid": "the-log-guid",
+        "health_check_timeout_in_seconds": 123456,
+        "ports": [8080,5222],
+        "etag": "2.1",
+        "routing_info": {
+			"http_routes": [
+			{"hostname": "route-1"}
+			],
+			"tcp_routes": [
+			{"router_group_guid": "guid-1", "external_port":5222, "container_port":60000}
+			]
+		}
 			}`))
 		Expect(err).NotTo(HaveOccurred())
 		req.Header.Set("Content-Type", "application/json")
@@ -101,6 +117,93 @@ var _ = Describe("Nsync Listener", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
 			Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }, 10).Should(HaveLen(1))
+			desiredLrps, _ := bbsClient.DesiredLRPs(models.DesiredLRPFilter{})
+			newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-1"],"port":8080}]`))
+			newTcpRouteMessage := json.RawMessage([]byte(`[{"router_group_guid":"guid-1","external_port":5222,"container_port":60000}]`))
+			newRoutes := &models.Routes{
+				cfroutes.CF_ROUTER:    &newRouteMessage,
+				tcp_routes.TCP_ROUTER: &newTcpRouteMessage,
+			}
+			defaultNofile := recipebuilder.DefaultFileDescriptorLimit
+			nofile := uint64(32)
+			expectedSetupActions := models.Serial(
+				&models.DownloadAction{
+					From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+					To:       "/tmp/lifecycle",
+					CacheKey: "buildpack-some-stack-lifecycle",
+					User:     "vcap",
+				},
+				&models.DownloadAction{
+					From:     "http://the-droplet.uri.com",
+					To:       ".",
+					CacheKey: "droplets-the-guid",
+					User:     "vcap",
+				},
+			)
+			desiredLrpWithoutModificationTag := desiredLrps[0]
+			desiredLrpWithoutModificationTag.ModificationTag = nil
+			Expect(desiredLrpWithoutModificationTag).To(Equal(&models.DesiredLRP{
+				ProcessGuid:  "the-guid",
+				Domain:       "cf-apps",
+				Instances:    3,
+				RootFs:       models.PreloadedRootFS("some-stack"),
+				StartTimeout: 123456,
+				EnvironmentVariables: []*models.EnvironmentVariable{
+					{Name: "LANG", Value: recipebuilder.DefaultLANG},
+				},
+				Setup: models.WrapAction(expectedSetupActions),
+				Action: models.WrapAction(models.Codependent(&models.RunAction{
+					User: "vcap",
+					Path: "/tmp/lifecycle/launcher",
+					Args: []string{"app", "the-start-command", "execution-metadata-1"},
+					Env: []*models.EnvironmentVariable{
+						{Name: "PORT", Value: "8080"},
+					},
+					ResourceLimits: &models.ResourceLimits{Nofile: &nofile},
+					LogSource:      recipebuilder.AppLogSource,
+				})),
+				Monitor: models.WrapAction(models.Timeout(
+					&models.ParallelAction{
+						Actions: []*models.Action{
+							&models.Action{
+								RunAction: &models.RunAction{
+									User:      "vcap",
+									Path:      "/tmp/lifecycle/healthcheck",
+									Args:      []string{"-port=8080"},
+									LogSource: "HEALTH",
+									ResourceLimits: &models.ResourceLimits{
+										Nofile: &defaultNofile,
+									},
+								},
+							},
+							&models.Action{
+								RunAction: &models.RunAction{
+									User:      "vcap",
+									Path:      "/tmp/lifecycle/healthcheck",
+									Args:      []string{"-port=5222"},
+									LogSource: "HEALTH",
+									ResourceLimits: &models.ResourceLimits{
+										Nofile: &defaultNofile,
+									},
+								},
+							},
+						},
+					},
+					30*time.Second,
+				)),
+				DiskMb:    512,
+				MemoryMb:  128,
+				CpuWeight: 1,
+				Ports: []uint32{
+					8080, 5222,
+				},
+				Routes:      newRoutes,
+				LogGuid:     "the-log-guid",
+				LogSource:   recipebuilder.LRPLogSource,
+				MetricsGuid: "the-log-guid",
+				Privileged:  true,
+				Annotation:  "2.1",
+			}))
 		})
 	})
 
