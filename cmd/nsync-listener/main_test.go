@@ -46,7 +46,7 @@ var _ = Describe("Nsync Listener", func() {
 			Command: exec.Command(
 				listenerPath,
 				"-bbsAddress", bbsURL.String(),
-				"-nsyncURL", fmt.Sprintf("http://127.0.0.1:%d", nsyncPort),
+				"-listenAddress", fmt.Sprintf("127.0.0.1:%d", nsyncPort),
 				"-lifecycle", "buildpack/some-stack:some-health-check.tar.gz",
 				"-lifecycle", "docker:the/docker/lifecycle/path.tgz",
 				"-fileServerURL", "http://file-server.com",

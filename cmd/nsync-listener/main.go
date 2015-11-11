@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"net"
 	"net/url"
 	"os"
 	"time"
@@ -30,10 +29,10 @@ var bbsAddress = flag.String(
 	"Address to the BBS Server",
 )
 
-var nsyncURL = flag.String(
-	"nsyncURL",
+var listenAddress = flag.String(
+	"listenAddress",
 	"",
-	"URL of nsync",
+	"Address for nsync to serve requests",
 )
 
 var fileServerURL = flag.String(
@@ -108,13 +107,8 @@ func main() {
 
 	handler := handlers.New(logger, initializeBBSClient(logger), recipeBuilders)
 
-	address, err := getNsyncListenerAddress()
-	if err != nil {
-		logger.Fatal("Invalid nsync listener URL", err)
-	}
-
 	members := grouper.Members{
-		{"server", http_server.New(address, handler)},
+		{"server", http_server.New(*listenAddress, handler)},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
@@ -129,7 +123,7 @@ func main() {
 
 	logger.Info("started")
 
-	err = <-monitor.Wait()
+	err := <-monitor.Wait()
 	if err != nil {
 		logger.Error("exited-with-failure", err)
 		os.Exit(1)
@@ -143,20 +137,6 @@ func initializeDropsonde(logger lager.Logger) {
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
 	}
-}
-
-func getNsyncListenerAddress() (string, error) {
-	url, err := url.Parse(*nsyncURL)
-	if err != nil {
-		return "", err
-	}
-
-	_, port, err := net.SplitHostPort(url.Host)
-	if err != nil {
-		return "", err
-	}
-
-	return "0.0.0.0:" + port, nil
 }
 
 func initializeBBSClient(logger lager.Logger) bbs.Client {
