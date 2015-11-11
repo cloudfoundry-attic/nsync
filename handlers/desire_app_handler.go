@@ -8,9 +8,10 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -146,20 +147,13 @@ func (h *DesireAppHandler) updateDesiredApp(
 	if desireAppMessage.DockerImageUrl != "" {
 		builder = h.recipeBuilders["docker"]
 	}
-	port, err := builder.ExtractExposedPort(desireAppMessage.ExecutionMetadata)
+	ports, err := builder.ExtractExposedPorts(&desireAppMessage)
 	if err != nil {
 		logger.Error("failed to-get-exposed-port", err)
 		return err
 	}
 
-	cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desireAppMessage.RoutingInfo, port)
-	if err != nil {
-		logger.Error("failed-to-marshal-routes", err)
-		return err
-	}
-
-	cfRoutesJson, err := json.Marshal(cfRoutes)
-
+	updateRoutes, err := helpers.CCRouteInfoToRoutes(desireAppMessage.RoutingInfo, ports)
 	if err != nil {
 		logger.Error("failed-to-marshal-routes", err)
 		return err
@@ -170,8 +164,12 @@ func (h *DesireAppHandler) updateDesiredApp(
 		routes = &models.Routes{}
 	}
 
-	cfRoutesMessage := json.RawMessage(cfRoutesJson)
-	(*routes)[cfroutes.CF_ROUTER] = &cfRoutesMessage
+	if value, ok := updateRoutes[cfroutes.CF_ROUTER]; ok {
+		(*routes)[cfroutes.CF_ROUTER] = value
+	}
+	if value, ok := updateRoutes[tcp_routes.TCP_ROUTER]; ok {
+		(*routes)[tcp_routes.TCP_ROUTER] = value
+	}
 	instances := int32(desireAppMessage.NumInstances)
 	updateRequest := &models.DesiredLRPUpdate{
 		Annotation: &desireAppMessage.ETag,

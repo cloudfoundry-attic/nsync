@@ -15,7 +15,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
@@ -243,8 +243,8 @@ var _ = Describe("DesireAppHandler", func() {
 		var opaqueRoutingMessage json.RawMessage
 
 		BeforeEach(func() {
-			buildpackBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint32, error) {
-				return 8080, nil
+			buildpackBuilder.ExtractExposedPortsStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+				return []uint32{8080}, nil
 			}
 
 			cfRoute := cfroutes.CFRoute{
@@ -307,10 +307,10 @@ var _ = Describe("DesireAppHandler", func() {
 		})
 
 		It("uses buildpack builder", func() {
-			Expect(dockerBuilder.ExtractExposedPortCallCount()).To(Equal(0))
-			Expect(buildpackBuilder.ExtractExposedPortCallCount()).To(Equal(1))
+			Expect(dockerBuilder.ExtractExposedPortsCallCount()).To(Equal(0))
+			Expect(buildpackBuilder.ExtractExposedPortsCallCount()).To(Equal(1))
 
-			Expect(buildpackBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(""))
+			Expect(buildpackBuilder.ExtractExposedPortsArgsForCall(0)).To(Equal(&desireAppRequest))
 		})
 
 		Context("when multiple routes with same route service are sent", func() {
@@ -397,8 +397,8 @@ var _ = Describe("DesireAppHandler", func() {
 				expectedMetadata = fmt.Sprintf(`{"ports": {"port": %d, "protocol":"http"}}`, expectedPort)
 				desireAppRequest.ExecutionMetadata = expectedMetadata
 
-				dockerBuilder.ExtractExposedPortStub = func(executionMetadata string) (uint32, error) {
-					return expectedPort, nil
+				dockerBuilder.ExtractExposedPortsStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+					return []uint32{expectedPort}, nil
 				}
 
 				existingDesiredDockerLRP = &models.DesiredLRP{
@@ -431,10 +431,10 @@ var _ = Describe("DesireAppHandler", func() {
 			})
 
 			It("uses docker builder", func() {
-				Expect(buildpackBuilder.ExtractExposedPortCallCount()).To(Equal(0))
-				Expect(dockerBuilder.ExtractExposedPortCallCount()).To(Equal(1))
+				Expect(buildpackBuilder.ExtractExposedPortsCallCount()).To(Equal(0))
+				Expect(dockerBuilder.ExtractExposedPortsCallCount()).To(Equal(1))
 
-				Expect(dockerBuilder.ExtractExposedPortArgsForCall(0)).To(Equal(expectedMetadata))
+				Expect(dockerBuilder.ExtractExposedPortsArgsForCall(0)).To(Equal(&desireAppRequest))
 			})
 		})
 	})

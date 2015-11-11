@@ -74,23 +74,14 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		User:     "vcap",
 	})
 
-	var exposedPort = DefaultPort
+	desiredAppPorts, err := b.ExtractExposedPorts(desiredApp)
+	if err != nil {
+		return nil, err
+	}
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		fileDescriptorLimit := DefaultFileDescriptorLimit
-		monitor = models.Timeout(
-			&models.RunAction{
-				User:      "vcap",
-				Path:      "/tmp/lifecycle/healthcheck",
-				Args:      []string{fmt.Sprintf("-port=%d", exposedPort)},
-				LogSource: HealthLogSource,
-				ResourceLimits: &models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
-				},
-			},
-			30*time.Second,
-		)
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, "vcap"), 30*time.Second)
 	}
 
 	setup = append(setup, &models.DownloadAction{
@@ -108,21 +99,18 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment, exposedPort),
+		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 		LogSource: AppLogSource,
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
 		},
 	})
 
-	cfRoutes, err := helpers.CCRouteInfoToCFRoutes(desiredApp.RoutingInfo, exposedPort)
+	desiredAppRoutingInfo, err := helpers.CCRouteInfoToRoutes(desiredApp.RoutingInfo, desiredAppPorts)
 	if err != nil {
 		buildLogger.Error("marshaling-cc-route-info-failed", err)
 		return nil, err
 	}
-	desiredAppRoutingInfo := cfRoutes.RoutingInfo()
-
-	desiredAppPorts := []uint32{exposedPort}
 
 	if desiredApp.AllowSSH {
 		hostKeyPair, err := b.config.KeyFactory.NewKeyPair(1024)
@@ -147,7 +135,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment, exposedPort),
+			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
@@ -207,6 +195,6 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	}, nil
 }
 
-func (b BuildpackRecipeBuilder) ExtractExposedPort(executionMetadata string) (uint32, error) {
-	return DefaultPort, nil
+func (b BuildpackRecipeBuilder) ExtractExposedPorts(desiredApp *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
+	return getDesiredAppPorts(desiredApp.Ports), nil
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/file-server"
+	fileserver "github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
@@ -45,7 +45,7 @@ type Config struct {
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder
 type RecipeBuilder interface {
 	Build(*cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error)
-	ExtractExposedPort(executionMetadata string) (uint32, error)
+	ExtractExposedPorts(*cc_messages.DesireAppRequestFromCC) ([]uint32, error)
 }
 
 type Error struct {
@@ -83,4 +83,33 @@ func cpuWeight(memoryMB int) uint32 {
 func createLrpEnv(env []*models.EnvironmentVariable, exposedPort uint32) []*models.EnvironmentVariable {
 	env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPort)})
 	return env
+}
+
+func getParallelAction(ports []uint32, user string) *models.ParallelAction {
+	fileDescriptorLimit := DefaultFileDescriptorLimit
+	parallelAction := &models.ParallelAction{}
+	for _, port := range ports {
+		parallelAction.Actions = append(parallelAction.Actions,
+			&models.Action{
+				RunAction: &models.RunAction{
+					User:      user,
+					Path:      "/tmp/lifecycle/healthcheck",
+					Args:      []string{fmt.Sprintf("-port=%d", port)},
+					LogSource: HealthLogSource,
+					ResourceLimits: &models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+				},
+			})
+	}
+	return parallelAction
+}
+
+func getDesiredAppPorts(ports []uint32) []uint32 {
+	desiredAppPorts := ports
+
+	if desiredAppPorts == nil {
+		desiredAppPorts = []uint32{DefaultPort}
+	}
+	return desiredAppPorts
 }

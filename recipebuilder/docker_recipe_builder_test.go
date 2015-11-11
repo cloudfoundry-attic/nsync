@@ -10,7 +10,8 @@ import (
 	"github.com/cloudfoundry-incubator/diego-ssh/keys/fake_keys"
 	"github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/nsync/test_helpers"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -162,13 +163,19 @@ var _ = Describe("Docker Recipe Builder", func() {
 			runAction := parallelRunAction.Actions[0].RunAction
 
 			Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
-				&models.RunAction{
-					User:      "root",
-					Path:      "/tmp/lifecycle/healthcheck",
-					Args:      []string{"-port=8080"},
-					LogSource: "HEALTH",
-					ResourceLimits: &models.ResourceLimits{
-						Nofile: &defaultNofile,
+				&models.ParallelAction{
+					Actions: []*models.Action{
+						&models.Action{
+							RunAction: &models.RunAction{
+								User:      "root",
+								Path:      "/tmp/lifecycle/healthcheck",
+								Args:      []string{"-port=8080"},
+								LogSource: "HEALTH",
+								ResourceLimits: &models.ResourceLimits{
+									Nofile: &defaultNofile,
+								},
+							},
+						},
 					},
 				},
 				30*time.Second,
@@ -243,12 +250,20 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
 
 				Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
-					&models.RunAction{
-						User:           "root",
-						Path:           "/tmp/lifecycle/healthcheck",
-						Args:           []string{"-port=8080"},
-						LogSource:      "HEALTH",
-						ResourceLimits: &models.ResourceLimits{Nofile: &defaultNofile},
+					&models.ParallelAction{
+						Actions: []*models.Action{
+							&models.Action{
+								RunAction: &models.RunAction{
+									User:      "root",
+									Path:      "/tmp/lifecycle/healthcheck",
+									Args:      []string{"-port=8080"},
+									LogSource: "HEALTH",
+									ResourceLimits: &models.ResourceLimits{
+										Nofile: &defaultNofile,
+									},
+								},
+							},
+						},
 					},
 					30*time.Second,
 				)))
@@ -454,13 +469,19 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 
 			Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
-				&models.RunAction{
-					Path:      "/tmp/lifecycle/healthcheck",
-					Args:      []string{"-port=8080"},
-					LogSource: "HEALTH",
-					User:      "root",
-					ResourceLimits: &models.ResourceLimits{
-						Nofile: &defaultNofile,
+				&models.ParallelAction{
+					Actions: []*models.Action{
+						&models.Action{
+							RunAction: &models.RunAction{
+								User:      "root",
+								Path:      "/tmp/lifecycle/healthcheck",
+								Args:      []string{"-port=8080"},
+								LogSource: "HEALTH",
+								ResourceLimits: &models.ResourceLimits{
+									Nofile: &defaultNofile,
+								},
+							},
+						},
 					},
 				},
 				30*time.Second,
@@ -476,30 +497,56 @@ var _ = Describe("Docker Recipe Builder", func() {
 			BeforeEach(func() {
 				desiredAppReq.ExecutionMetadata = `{"ports":[
 				  {"Port":320, "Protocol": "udp"},
-					{"Port":8081, "Protocol": "tcp"}
+					{"Port":8081, "Protocol": "tcp"},
+					{"Port":8082, "Protocol": "tcp"}
 				]}`
+				routingInfo, err := cc_messages.CCHTTPRoutes{
+					{Hostname: "route1", Port: 8081},
+					{Hostname: "route2", Port: 8082},
+				}.CCRouteInfo()
+				Expect(err).NotTo(HaveOccurred())
+				desiredAppReq.RoutingInfo = routingInfo
 			})
 
-			It("exposes the first encountered tcp port", func() {
+			It("exposes all encountered tcp ports", func() {
 				parallelRunAction := desiredLRP.Action.CodependentAction
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
 
 				runAction := parallelRunAction.Actions[0].RunAction
 
-				Expect(*desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
-					{Hostnames: []string{"route1", "route2"}, Port: 8081},
-				}.RoutingInfo()))
+				httpRoutes := cfroutes.CFRoutes{
+					{Hostnames: []string{"route1"}, Port: 8081},
+					{Hostnames: []string{"route2"}, Port: 8082},
+				}
+				test_helpers.VerifyHttpRoutes(*desiredLRP.Routes, httpRoutes)
 
-				Expect(desiredLRP.Ports).To(Equal([]uint32{8081}))
+				Expect(desiredLRP.Ports).To(Equal([]uint32{8081, 8082}))
 
 				Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
-					&models.RunAction{
-						Path:      "/tmp/lifecycle/healthcheck",
-						Args:      []string{"-port=8081"},
-						LogSource: "HEALTH",
-						User:      "root",
-						ResourceLimits: &models.ResourceLimits{
-							Nofile: &defaultNofile,
+					&models.ParallelAction{
+						Actions: []*models.Action{
+							&models.Action{
+								RunAction: &models.RunAction{
+									User:      "root",
+									Path:      "/tmp/lifecycle/healthcheck",
+									Args:      []string{"-port=8081"},
+									LogSource: "HEALTH",
+									ResourceLimits: &models.ResourceLimits{
+										Nofile: &defaultNofile,
+									},
+								},
+							},
+							&models.Action{
+								RunAction: &models.RunAction{
+									User:      "root",
+									Path:      "/tmp/lifecycle/healthcheck",
+									Args:      []string{"-port=8082"},
+									LogSource: "HEALTH",
+									ResourceLimits: &models.ResourceLimits{
+										Nofile: &defaultNofile,
+									},
+								},
+							},
 						},
 					},
 					30*time.Second,
@@ -562,7 +609,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			return func() {
 				timeoutAction := desiredLRP.Monitor.TimeoutAction
 
-				healthcheckRunAction := timeoutAction.Action.RunAction
+				healthcheckRunAction := timeoutAction.Action.ParallelAction.Actions[0].RunAction
 				Expect(healthcheckRunAction.User).To(Equal(user))
 			}
 		}

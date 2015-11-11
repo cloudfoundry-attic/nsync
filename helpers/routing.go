@@ -3,40 +3,103 @@ package helpers
 import (
 	"encoding/json"
 
-	"github.com/cloudfoundry-incubator/route-emitter/cfroutes"
+	"github.com/cloudfoundry-incubator/bbs/models"
+	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 )
 
-func CCRouteInfoToCFRoutes(ccRoutes cc_messages.CCRouteInfo, port uint32) (cfroutes.CFRoutes, error) {
-	cfRoutes := make(cfroutes.CFRoutes, 0)
+type routingKey struct {
+	Port            uint32
+	RouteServiceUrl string
+}
+
+func CCRouteInfoToRoutes(ccRoutes cc_messages.CCRouteInfo, ports []uint32) (models.Routes, error) {
+	var defaultPort uint32
+	if len(ports) > 0 {
+		defaultPort = ports[0]
+	} else {
+		defaultPort = 8080
+	}
+
+	routes := models.Routes{}
 
 	if ccRoutes[cc_messages.CC_HTTP_ROUTES] != nil {
-
-		var httpRoutes cc_messages.CCHTTPRoutes
-		routeServiceMap := make(map[string][]string)
-
-		err := json.Unmarshal(*ccRoutes[cc_messages.CC_HTTP_ROUTES], &httpRoutes)
+		httpRoutingInfo, err := constructHttpRoutes(ccRoutes, defaultPort)
 		if err != nil {
 			return nil, err
 		}
-
-		if len(httpRoutes) == 0 {
-			cfRoutes = append(cfRoutes, cfroutes.CFRoute{Hostnames: []string{}, Port: port})
-		}
-
-		for _, httpRoute := range httpRoutes {
-			list := routeServiceMap[httpRoute.RouteServiceUrl]
-			routeServiceMap[httpRoute.RouteServiceUrl] = append(list, httpRoute.Hostname)
-		}
-
-		for routeServiceUrl, hostnames := range routeServiceMap {
-			cfRoutes = append(cfRoutes, cfroutes.CFRoute{
-				Hostnames: hostnames, Port: port, RouteServiceUrl: routeServiceUrl,
-			})
-		}
-	} else {
-		cfRoutes = append(cfRoutes, cfroutes.CFRoute{Hostnames: []string{}, Port: port})
+		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
 	}
 
-	return cfRoutes, nil
+	if ccRoutes[cc_messages.CC_TCP_ROUTES] != nil {
+		tcpRoutingInfo, err := constructTcpRoutes(ccRoutes)
+		if err != nil {
+			return nil, err
+		}
+		routes[tcp_routes.TCP_ROUTER] = tcpRoutingInfo[tcp_routes.TCP_ROUTER]
+	}
+
+	if len(routes) == 0 {
+		cfRoutes := cfroutes.CFRoutes{
+			{Hostnames: []string{}, Port: defaultPort},
+		}
+		httpRoutingInfo := cfRoutes.RoutingInfo()
+		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
+	}
+
+	return routes, nil
+}
+
+func constructTcpRoutes(ccRoutes cc_messages.CCRouteInfo) (models.Routes, error) {
+	var ccTcpRoutes cc_messages.CCTCPRoutes
+	err := json.Unmarshal(*ccRoutes[cc_messages.CC_TCP_ROUTES], &ccTcpRoutes)
+	if err != nil {
+		return nil, err
+	}
+	tcpRoutes := tcp_routes.TCPRoutes{}
+	for _, tcpRoute := range ccTcpRoutes {
+		tcpRoutes = append(tcpRoutes, tcp_routes.TCPRoute{
+			RouterGroupGuid: tcpRoute.RouterGroupGuid,
+			ExternalPort:    tcpRoute.ExternalPort,
+			ContainerPort:   tcpRoute.ContainerPort,
+		})
+	}
+
+	tcpRoutingInfoPtr := tcpRoutes.RoutingInfo()
+	tcpRoutingInfo := *tcpRoutingInfoPtr
+	return tcpRoutingInfo, nil
+}
+
+func constructHttpRoutes(ccRoutes cc_messages.CCRouteInfo, defaultPort uint32) (models.Routes, error) {
+	var httpRoutes cc_messages.CCHTTPRoutes
+	cfRoutes := make(cfroutes.CFRoutes, 0)
+	routeServiceMap := make(map[routingKey][]string)
+
+	err := json.Unmarshal(*ccRoutes[cc_messages.CC_HTTP_ROUTES], &httpRoutes)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(httpRoutes) == 0 {
+		cfRoutes = append(cfRoutes, cfroutes.CFRoute{Hostnames: []string{}, Port: defaultPort})
+	}
+
+	for _, httpRoute := range httpRoutes {
+		key := routingKey{Port: httpRoute.Port, RouteServiceUrl: httpRoute.RouteServiceUrl}
+		if key.Port == 0 {
+			key.Port = defaultPort
+		}
+		list := routeServiceMap[key]
+		routeServiceMap[key] = append(list, httpRoute.Hostname)
+	}
+
+	for key, hostnames := range routeServiceMap {
+		cfRoutes = append(cfRoutes, cfroutes.CFRoute{
+			Hostnames: hostnames, Port: key.Port, RouteServiceUrl: key.RouteServiceUrl,
+		})
+	}
+
+	httpRoutingInfo := cfRoutes.RoutingInfo()
+	return httpRoutingInfo, nil
 }
