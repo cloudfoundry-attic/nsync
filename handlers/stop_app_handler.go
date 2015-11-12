@@ -30,6 +30,8 @@ func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	logger.Info("stop-request-from-cc", lager.Data{"processGuid": processGuid})
+
 	err := h.bbsClient.RemoveDesiredLRP(processGuid)
 	if err != nil {
 		logger.Error("failed-to-delete-desired-lrp", err)
