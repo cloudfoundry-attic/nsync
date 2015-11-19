@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 	"time"
@@ -47,6 +48,12 @@ var communicationTimeout = flag.Duration(
 	"Timeout applied to all HTTP requests.",
 )
 
+var dropsondePort = flag.Int(
+	"dropsondePort",
+	3457,
+	"port the local metron agent is listening on",
+)
+
 var bbsCACert = flag.String(
 	"bbsCACert",
 	"",
@@ -78,8 +85,7 @@ var bbsMaxIdleConnsPerHost = flag.Int(
 )
 
 const (
-	dropsondeOrigin      = "nsync_listener"
-	dropsondeDestination = "localhost:3457"
+	dropsondeOrigin = "nsync_listener"
 )
 
 func main() {
@@ -133,6 +139,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
+	dropsondeDestination := fmt.Sprint("localhost:", *dropsondePort)
 	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)

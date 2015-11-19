@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 	"time"
@@ -49,6 +50,12 @@ var lockRetryInterval = flag.Duration(
 	"lockRetryInterval",
 	locket.RetryInterval,
 	"interval to wait before retrying a failed lock acquisition",
+)
+
+var dropsondePort = flag.Int(
+	"dropsondePort",
+	3457,
+	"port the local metron agent is listening on",
 )
 
 var ccBaseURL = flag.String(
@@ -142,8 +149,7 @@ var updateLRPWorkers = flag.Int(
 )
 
 const (
-	dropsondeOrigin      = "nsync_bulker"
-	dropsondeDestination = "localhost:3457"
+	dropsondeOrigin = "nsync_bulker"
 )
 
 func main() {
@@ -224,6 +230,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
+	dropsondeDestination := fmt.Sprint("localhost:", *dropsondePort)
 	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
