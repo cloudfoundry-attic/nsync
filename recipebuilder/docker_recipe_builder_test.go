@@ -506,7 +506,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Context("with ports specified in execution metadata", func() {
 					BeforeEach(func() {
 						desiredAppReq.ExecutionMetadata = `{"ports":[
-				    {"Port":320, "Protocol": "udp"},
+					{"Port":320, "Protocol": "udp"},
 					{"Port":8081, "Protocol": "tcp"},
 					{"Port":8082, "Protocol": "tcp"}
 				]}`
@@ -548,7 +548,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Context("with ports specified in execution metadata", func() {
 					BeforeEach(func() {
 						desiredAppReq.ExecutionMetadata = `{"ports":[
-				    {"Port":320, "Protocol": "udp"},
+					{"Port":320, "Protocol": "udp"},
 					{"Port":8081, "Protocol": "tcp"},
 					{"Port":8082, "Protocol": "tcp"}
 				]}`
@@ -570,7 +570,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		Context("when the docker image exposes several ports in its metadata", func() {
 			BeforeEach(func() {
 				desiredAppReq.ExecutionMetadata = `{"ports":[
-				    {"Port":320, "Protocol": "udp"},
+					{"Port":320, "Protocol": "udp"},
 					{"Port":8081, "Protocol": "tcp"},
 					{"Port":8082, "Protocol": "tcp"}
 				]}`
