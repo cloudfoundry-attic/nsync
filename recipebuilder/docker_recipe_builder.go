@@ -102,7 +102,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		User:     user,
 	})
 
-	desiredAppPorts, err := extractExposedPorts(executionMetadata, b.logger)
+	desiredAppPorts, err := b.ExtractExposedPorts(desiredApp)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,10 @@ func (b DockerRecipeBuilder) ExtractExposedPorts(desiredApp *cc_messages.DesireA
 	if err != nil {
 		return nil, err
 	}
-	return extractExposedPorts(metadata, b.logger)
+	if len(desiredApp.Ports) == 0 {
+		return extractExposedPorts(metadata, b.logger)
+	}
+	return desiredApp.Ports, nil
 }
 
 func extractExposedPorts(executionMetadata DockerExecutionMetadata, logger lager.Logger) ([]uint32, error) {

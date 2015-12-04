@@ -493,10 +493,84 @@ var _ = Describe("Docker Recipe Builder", func() {
 			}))
 		})
 
+		Context("when ports are passed in desired app request", func() {
+			BeforeEach(func() {
+				desiredAppReq.Ports = []uint32{1456, 2345, 3456}
+			})
+
+			Context("when allow ssh is false", func() {
+				BeforeEach(func() {
+					desiredAppReq.AllowSSH = false
+				})
+
+				Context("with ports specified in execution metadata", func() {
+					BeforeEach(func() {
+						desiredAppReq.ExecutionMetadata = `{"ports":[
+					{"Port":320, "Protocol": "udp"},
+					{"Port":8081, "Protocol": "tcp"},
+					{"Port":8082, "Protocol": "tcp"}
+				]}`
+					})
+					It("builds the desiredLRP with the ports specified in the desireAppRequest", func() {
+						Expect(desiredLRP.Ports).To(Equal([]uint32{1456, 2345, 3456}))
+					})
+				})
+
+				Context("with ports not specified in execution metadata", func() {
+					It("builds the desiredLRP with the ports specified in the desireAppRequest", func() {
+						Expect(desiredLRP.Ports).To(Equal([]uint32{1456, 2345, 3456}))
+					})
+				})
+
+			})
+
+			Context("when allow ssh is true", func() {
+				BeforeEach(func() {
+					desiredAppReq.AllowSSH = true
+					keyPairChan := make(chan keys.KeyPair, 2)
+
+					fakeHostKeyPair := &fake_keys.FakeKeyPair{}
+					fakeHostKeyPair.PEMEncodedPrivateKeyReturns("pem-host-private-key")
+					fakeHostKeyPair.FingerprintReturns("host-fingerprint")
+
+					fakeUserKeyPair := &fake_keys.FakeKeyPair{}
+					fakeUserKeyPair.AuthorizedKeyReturns("authorized-user-key")
+					fakeUserKeyPair.PEMEncodedPrivateKeyReturns("pem-user-private-key")
+
+					keyPairChan <- fakeHostKeyPair
+					keyPairChan <- fakeUserKeyPair
+
+					fakeKeyFactory.NewKeyPairStub = func(bits int) (keys.KeyPair, error) {
+						return <-keyPairChan, nil
+					}
+				})
+
+				Context("with ports specified in execution metadata", func() {
+					BeforeEach(func() {
+						desiredAppReq.ExecutionMetadata = `{"ports":[
+					{"Port":320, "Protocol": "udp"},
+					{"Port":8081, "Protocol": "tcp"},
+					{"Port":8082, "Protocol": "tcp"}
+				]}`
+					})
+
+					It("builds the desiredLRP with the ports specified in the desireAppRequest", func() {
+						Expect(desiredLRP.Ports).To(Equal([]uint32{1456, 2345, 3456, 2222}))
+					})
+				})
+
+				Context("with ports not specified in execution metadata", func() {
+					It("builds the desiredLRP with the ports specified in the desireAppRequest", func() {
+						Expect(desiredLRP.Ports).To(Equal([]uint32{1456, 2345, 3456, 2222}))
+					})
+				})
+			})
+		})
+
 		Context("when the docker image exposes several ports in its metadata", func() {
 			BeforeEach(func() {
 				desiredAppReq.ExecutionMetadata = `{"ports":[
-				  {"Port":320, "Protocol": "udp"},
+					{"Port":320, "Protocol": "udp"},
 					{"Port":8081, "Protocol": "tcp"},
 					{"Port":8082, "Protocol": "tcp"}
 				]}`
@@ -556,6 +630,15 @@ var _ = Describe("Docker Recipe Builder", func() {
 					Name:  "PORT",
 					Value: "8081",
 				}))
+			})
+
+			Context("when ports in desired app request is empty slice", func() {
+				BeforeEach(func() {
+					desiredAppReq.Ports = []uint32{}
+				})
+				It("exposes all encountered tcp ports", func() {
+					Expect(desiredLRP.Ports).To(Equal([]uint32{8081, 8082}))
+				})
 			})
 		})
 
