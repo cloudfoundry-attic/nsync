@@ -9,9 +9,9 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -128,7 +128,7 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
-	logger.Info("creating-desired-lrp", lager.Data{"routes": desiredLRP.Routes})
+	logger.Info("creating-desired-lrp", lager.Data{"routes": getCfRoutes(desiredLRP.Routes)})
 	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
@@ -177,7 +177,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		Routes:     routes,
 	}
 
-	logger.Info("updating-desired-lrp", lager.Data{"routes": updateRequest.Routes})
+	logger.Info("updating-desired-lrp", lager.Data{"routes": getCfRoutes(existingLRP.Routes)})
 	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
@@ -185,4 +185,13 @@ func (h *DesireAppHandler) updateDesiredApp(
 	}
 
 	return nil
+}
+
+func getCfRoutes(routes *models.Routes) *models.Routes {
+	newRoutes := make(models.Routes)
+	if routes != nil {
+		cfRoutes := *routes
+		newRoutes[cfroutes.CF_ROUTER] = cfRoutes[cfroutes.CF_ROUTER]
+	}
+	return &newRoutes
 }
