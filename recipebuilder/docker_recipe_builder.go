@@ -146,15 +146,19 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			return nil, err
 		}
 
+		command := fmt.Sprintf("/tmp/lifecycle/diego-sshd -address=0.0.0.0:%d -hostKey='%s' -authorizedKey='%s' -inheritDaemonEnv -logLevel=fatal",
+			DefaultSSHPort,
+			hostKeyPair.PEMEncodedPrivateKey(),
+			userKeyPair.AuthorizedKey(),
+		)
+
 		actions = append(actions, &models.RunAction{
-			User: user,
-			Path: "/tmp/lifecycle/diego-sshd",
+			User: "root",
+			Path: "/tmp/lifecycle/launcher",
 			Args: []string{
-				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
-				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
-				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
-				"-inheritDaemonEnv",
-				"-logLevel=fatal",
+				"/tmp/lifecycle",
+				command,
+				desiredApp.ExecutionMetadata,
 			},
 			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 			ResourceLimits: &models.ResourceLimits{

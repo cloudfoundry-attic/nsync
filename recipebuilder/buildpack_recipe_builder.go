@@ -125,15 +125,19 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			return nil, err
 		}
 
+		command := fmt.Sprintf("/tmp/lifecycle/diego-sshd -address=0.0.0.0:%d -hostKey='%s' -authorizedKey='%s' -inheritDaemonEnv -logLevel=fatal",
+			DefaultSSHPort,
+			hostKeyPair.PEMEncodedPrivateKey(),
+			userKeyPair.AuthorizedKey(),
+		)
+
 		actions = append(actions, &models.RunAction{
 			User: "vcap",
-			Path: "/tmp/lifecycle/diego-sshd",
+			Path: "/tmp/lifecycle/launcher",
 			Args: []string{
-				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
-				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
-				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
-				"-inheritDaemonEnv",
-				"-logLevel=fatal",
+				"/tmp/lifecycle",
+				command,
+				desiredApp.ExecutionMetadata,
 			},
 			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
 			ResourceLimits: &models.ResourceLimits{

@@ -306,7 +306,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					keyPairChan := make(chan keys.KeyPair, 2)
 
 					fakeHostKeyPair := &fake_keys.FakeKeyPair{}
-					fakeHostKeyPair.PEMEncodedPrivateKeyReturns("pem-host-private-key")
+					fakeHostKeyPair.PEMEncodedPrivateKeyReturns("pem-host-private-key\nwith-lines")
 					fakeHostKeyPair.FingerprintReturns("host-fingerprint")
 
 					fakeUserKeyPair := &fake_keys.FakeKeyPair{}
@@ -363,13 +363,11 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 						},
 						&models.RunAction{
 							User: "vcap",
-							Path: "/tmp/lifecycle/diego-sshd",
+							Path: "/tmp/lifecycle/launcher",
 							Args: []string{
-								"-address=0.0.0.0:2222",
-								"-hostKey=pem-host-private-key",
-								"-authorizedKey=authorized-user-key",
-								"-inheritDaemonEnv",
-								"-logLevel=fatal",
+								"/tmp/lifecycle",
+								"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey='pem-host-private-key\nwith-lines' -authorizedKey='authorized-user-key' -inheritDaemonEnv -logLevel=fatal",
+								"the-execution-metadata",
 							},
 							Env: []*models.EnvironmentVariable{
 								{Name: "foo", Value: "bar"},
