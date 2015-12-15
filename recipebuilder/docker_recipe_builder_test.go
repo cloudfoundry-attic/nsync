@@ -353,7 +353,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 						User: "root",
 						Path: "/tmp/lifecycle/launcher",
 						Args: []string{
-							"/tmp/lifecycle",
+							"",
 							"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey='pem-host-private-key' -authorizedKey='authorized-user-key' -inheritDaemonEnv -logLevel=fatal",
 							"{}",
 						},

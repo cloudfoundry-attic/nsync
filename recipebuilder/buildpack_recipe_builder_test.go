@@ -365,7 +365,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							User: "vcap",
 							Path: "/tmp/lifecycle/launcher",
 							Args: []string{
-								"/tmp/lifecycle",
+								"",
 								"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey='pem-host-private-key\nwith-lines' -authorizedKey='authorized-user-key' -inheritDaemonEnv -logLevel=fatal",
 								"the-execution-metadata",
 							},

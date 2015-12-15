@@ -156,7 +156,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			User: "root",
 			Path: "/tmp/lifecycle/launcher",
 			Args: []string{
-				"/tmp/lifecycle",
+				"",
 				command,
 				desiredApp.ExecutionMetadata,
 			},
