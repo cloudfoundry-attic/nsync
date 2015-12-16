@@ -135,7 +135,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			User: "vcap",
 			Path: "/tmp/lifecycle/launcher",
 			Args: []string{
-				"",
+				"app",
 				command,
 				desiredApp.ExecutionMetadata,
 			},
