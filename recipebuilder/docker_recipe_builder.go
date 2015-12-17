@@ -95,11 +95,11 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		return nil, err
 	}
 
-	setup = append(setup, &models.DownloadAction{
+	cachedDependencies := []*models.CachedDependency{}
+	cachedDependencies = append(cachedDependencies, &models.CachedDependency{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
-		User:     user,
 	})
 
 	desiredAppPorts, err := b.ExtractExposedPorts(desiredApp)
@@ -210,6 +210,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		MetricsGuid: desiredApp.LogGuid,
 
 		EnvironmentVariables: containerEnvVars,
+		CachedDependencies:   cachedDependencies,
 		Setup:                models.WrapAction(setupAction),
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),

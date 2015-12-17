@@ -147,15 +147,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-			expectedSetup := models.Serial(
-				&models.DownloadAction{
-					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
-					To:       "/tmp/lifecycle",
-					CacheKey: "docker-lifecycle",
-					User:     "root",
-				},
-			)
-			Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
+			expectedCachedDependencies := []*models.CachedDependency{}
+			expectedCachedDependencies = append(expectedCachedDependencies, &models.CachedDependency{
+				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
+				To:       "/tmp/lifecycle",
+				CacheKey: "docker-lifecycle",
+			})
+			Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCachedDependencies))
 
 			parallelRunAction := desiredLRP.Action.CodependentAction
 			Expect(parallelRunAction.Actions).To(HaveLen(1))
@@ -240,10 +238,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			It("sets up the port check for backwards compatibility", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.SerialAction.Actions {
-					downloadAction := action.DownloadAction
-					if downloadAction != nil {
-						downloadDestinations = append(downloadDestinations, downloadAction.To)
+				for _, dep := range desiredLRP.CachedDependencies {
+					if dep != nil {
+						downloadDestinations = append(downloadDestinations, dep.To)
 					}
 				}
 
@@ -281,10 +278,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 			It("still downloads the lifecycle, since we need it for the launcher", func() {
 				downloadDestinations := []string{}
-				for _, action := range desiredLRP.Setup.SerialAction.Actions {
-					downloadAction := action.DownloadAction
-					if downloadAction != nil {
-						downloadDestinations = append(downloadDestinations, downloadAction.To)
+				for _, dep := range desiredLRP.CachedDependencies {
+					if dep != nil {
+						downloadDestinations = append(downloadDestinations, dep.To)
 					}
 				}
 
@@ -315,17 +311,15 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			It("setup should download the ssh daemon", func() {
-				expectedSetup := models.Serial(
-					&models.DownloadAction{
+				expectedCacheDependencies := []*models.CachedDependency{
+					{
 						From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "docker-lifecycle",
-						User:     "root",
 					},
-				)
+				}
 
-				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
-				Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
+				Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
 			})
 
 			It("runs the ssh daemon in the container", func() {
@@ -443,15 +437,6 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		It("converts the docker image url into a root fs path", func() {
 			Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
-		})
-
-		It("uses the docker lifecycle", func() {
-			Expect(desiredLRP.Setup.SerialAction.Actions[0].GetValue()).To(Equal(&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
-				To:       "/tmp/lifecycle",
-				CacheKey: "docker-lifecycle",
-				User:     "root",
-			}))
 		})
 
 		It("exposes the default port", func() {
@@ -669,10 +654,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		testSetupActionUser := func(user string) func() {
 			return func() {
 				serialAction := desiredLRP.Setup.SerialAction
-				Expect(serialAction.Actions).To(HaveLen(1))
-
-				downloadAction := serialAction.Actions[0].DownloadAction
-				Expect(downloadAction.User).To(Equal(user))
+				Expect(serialAction.Actions).To(HaveLen(0))
 			}
 		}
 

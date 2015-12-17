@@ -19,8 +19,8 @@ import (
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
@@ -300,13 +300,15 @@ var _ = Describe("Syncing desired state with CC", func() {
 				defaultNofile := recipebuilder.DefaultFileDescriptorLimit
 				nofile := uint64(16)
 
-				expectedSetupActions1 := models.Serial(
-					&models.DownloadAction{
+				expectedCachedDependencies := []*models.CachedDependency{
+					{
 						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 						To:       "/tmp/lifecycle",
 						CacheKey: "buildpack-some-stack-lifecycle",
-						User:     "vcap",
 					},
+				}
+
+				expectedSetupActions1 := models.Serial(
 					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
@@ -317,12 +319,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				expectedSetupActions2 := models.Serial(
 					&models.DownloadAction{
-						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-						To:       "/tmp/lifecycle",
-						CacheKey: "buildpack-some-stack-lifecycle",
-						User:     "vcap",
-					},
-					&models.DownloadAction{
 						From:     "source-url-1",
 						To:       ".",
 						CacheKey: "droplets-process-guid-2",
@@ -331,12 +327,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 				)
 
 				expectedSetupActions3 := models.Serial(
-					&models.DownloadAction{
-						From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-						To:       "/tmp/lifecycle",
-						CacheKey: "buildpack-some-stack-lifecycle",
-						User:     "vcap",
-					},
 					&models.DownloadAction{
 						From:     "source-url-3",
 						To:       ".",
@@ -363,12 +353,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}
 
 				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
-					ProcessGuid:  "process-guid-1",
-					Domain:       "cf-apps",
-					Instances:    42,
-					RootFs:       models.PreloadedRootFS("some-stack"),
-					Setup:        models.WrapAction(expectedSetupActions1),
-					StartTimeout: 123456,
+					ProcessGuid:        "process-guid-1",
+					Domain:             "cf-apps",
+					Instances:          42,
+					RootFs:             models.PreloadedRootFS("some-stack"),
+					CachedDependencies: expectedCachedDependencies,
+					Setup:              models.WrapAction(expectedSetupActions1),
+					StartTimeout:       123456,
 					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
@@ -424,12 +415,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 					tcp_routes.TCP_ROUTER: &newTcpRouteMessage,
 				}
 				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
-					ProcessGuid:  "process-guid-2",
-					Domain:       "cf-apps",
-					Instances:    4,
-					RootFs:       models.PreloadedRootFS("some-stack"),
-					Setup:        models.WrapAction(expectedSetupActions2),
-					StartTimeout: 123456,
+					ProcessGuid:        "process-guid-2",
+					Domain:             "cf-apps",
+					Instances:          4,
+					RootFs:             models.PreloadedRootFS("some-stack"),
+					CachedDependencies: expectedCachedDependencies,
+					Setup:              models.WrapAction(expectedSetupActions2),
+					StartTimeout:       123456,
 					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},
@@ -483,12 +475,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
 				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
-					ProcessGuid:  "process-guid-3",
-					Domain:       "cf-apps",
-					Instances:    4,
-					RootFs:       models.PreloadedRootFS("some-stack"),
-					Setup:        models.WrapAction(expectedSetupActions3),
-					StartTimeout: 123456,
+					ProcessGuid:        "process-guid-3",
+					Domain:             "cf-apps",
+					Instances:          4,
+					RootFs:             models.PreloadedRootFS("some-stack"),
+					CachedDependencies: expectedCachedDependencies,
+					Setup:              models.WrapAction(expectedSetupActions3),
+					StartTimeout:       123456,
 					EnvironmentVariables: []*models.EnvironmentVariable{
 						{Name: "LANG", Value: recipebuilder.DefaultLANG},
 					},

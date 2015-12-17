@@ -82,7 +82,6 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 	})
 
 	Describe("Build", func() {
-
 		var desiredLRP *models.DesiredLRP
 
 		JustBeforeEach(func() {
@@ -150,12 +149,6 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{
-						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
-						To:       "/tmp/lifecycle",
-						CacheKey: "buildpack-some-stack-lifecycle",
-						User:     "vcap",
-					},
-					&models.DownloadAction{
 						From:     "http://the-droplet.uri.com",
 						To:       ".",
 						CacheKey: "droplets-the-app-guid-the-app-version",
@@ -163,6 +156,15 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					},
 				)
 				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
+
+				expectedCacheDependencies := []*models.CachedDependency{
+					&models.CachedDependency{
+						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+						To:       "/tmp/lifecycle",
+						CacheKey: "buildpack-some-stack-lifecycle",
+					},
+				}
+				Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
 
 				parallelRunAction := desiredLRP.Action.CodependentAction
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
@@ -247,10 +249,9 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				It("sets up the port check for backwards compatibility", func() {
 					downloadDestinations := []string{}
-					for _, action := range desiredLRP.Setup.SerialAction.Actions {
-						downloadAction := action.DownloadAction
-						if downloadAction != nil {
-							downloadDestinations = append(downloadDestinations, downloadAction.To)
+					for _, dep := range desiredLRP.CachedDependencies {
+						if dep != nil {
+							downloadDestinations = append(downloadDestinations, dep.To)
 						}
 					}
 
@@ -288,10 +289,9 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				It("still downloads the lifecycle, since we need it for the launcher", func() {
 					downloadDestinations := []string{}
-					for _, action := range desiredLRP.Setup.SerialAction.Actions {
-						downloadAction := action.DownloadAction
-						if downloadAction != nil {
-							downloadDestinations = append(downloadDestinations, downloadAction.To)
+					for _, dep := range desiredLRP.CachedDependencies {
+						if dep != nil {
+							downloadDestinations = append(downloadDestinations, dep.To)
 						}
 					}
 
@@ -322,22 +322,15 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				})
 
 				It("setup should download the ssh daemon", func() {
-					expectedSetup := models.Serial(
-						&models.DownloadAction{
+					expectedCacheDependencies := []*models.CachedDependency{
+						{
 							From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
 							To:       "/tmp/lifecycle",
 							CacheKey: "buildpack-some-stack-lifecycle",
-							User:     "vcap",
 						},
-						&models.DownloadAction{
-							From:     "http://the-droplet.uri.com",
-							To:       ".",
-							CacheKey: "droplets-the-app-guid-the-app-version",
-							User:     "vcap",
-						},
-					)
+					}
 
-					Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
+					Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
 				})
 
 				It("runs the ssh daemon in the container", func() {

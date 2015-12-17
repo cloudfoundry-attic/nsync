@@ -67,11 +67,11 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	var actions []models.ActionInterface
 	var monitor models.ActionInterface
 
-	setup = append(setup, &models.DownloadAction{
+	cachedDependencies := []*models.CachedDependency{}
+	cachedDependencies = append(cachedDependencies, &models.CachedDependency{
 		From:     lifecycleURL,
 		To:       "/tmp/lifecycle",
 		CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
-		User:     "vcap",
 	})
 
 	desiredAppPorts, err := b.ExtractExposedPorts(desiredApp)
@@ -189,6 +189,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		MetricsGuid: desiredApp.LogGuid,
 
 		EnvironmentVariables: containerEnvVars,
+		CachedDependencies:   cachedDependencies,
 		Setup:                models.WrapAction(setupAction),
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),

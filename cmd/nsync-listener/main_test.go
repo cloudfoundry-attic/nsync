@@ -126,13 +126,16 @@ var _ = Describe("Nsync Listener", func() {
 			}
 			defaultNofile := recipebuilder.DefaultFileDescriptorLimit
 			nofile := uint64(32)
-			expectedSetupActions := models.Serial(
-				&models.DownloadAction{
+
+			expectedCachedDependencies := []*models.CachedDependency{
+				{
 					From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
 					To:       "/tmp/lifecycle",
 					CacheKey: "buildpack-some-stack-lifecycle",
-					User:     "vcap",
 				},
+			}
+
+			expectedSetupActions := models.Serial(
 				&models.DownloadAction{
 					From:     "http://the-droplet.uri.com",
 					To:       ".",
@@ -151,7 +154,8 @@ var _ = Describe("Nsync Listener", func() {
 				EnvironmentVariables: []*models.EnvironmentVariable{
 					{Name: "LANG", Value: recipebuilder.DefaultLANG},
 				},
-				Setup: models.WrapAction(expectedSetupActions),
+				CachedDependencies: expectedCachedDependencies,
+				Setup:              models.WrapAction(expectedSetupActions),
 				Action: models.WrapAction(models.Codependent(&models.RunAction{
 					User: "vcap",
 					Path: "/tmp/lifecycle/launcher",
