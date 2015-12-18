@@ -201,12 +201,13 @@ var _ = Describe("Nsync Listener", func() {
 				Ports: []uint32{
 					8080, 5222,
 				},
-				Routes:      newRoutes,
-				LogGuid:     "the-log-guid",
-				LogSource:   recipebuilder.LRPLogSource,
-				MetricsGuid: "the-log-guid",
-				Privileged:  true,
-				Annotation:  "2.1",
+				Routes:             newRoutes,
+				LogGuid:            "the-log-guid",
+				LogSource:          recipebuilder.LRPLogSource,
+				MetricsGuid:        "the-log-guid",
+				Privileged:         true,
+				Annotation:         "2.1",
+				LegacyDownloadUser: "vcap",
 			}))
 		})
 	})

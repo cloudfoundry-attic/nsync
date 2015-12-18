@@ -217,7 +217,8 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
 
-		EgressRules: desiredApp.EgressRules,
+		EgressRules:        desiredApp.EgressRules,
+		LegacyDownloadUser: user,
 	}, nil
 }
 

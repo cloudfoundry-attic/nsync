@@ -196,7 +196,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
 
-		EgressRules: desiredApp.EgressRules,
+		EgressRules:        desiredApp.EgressRules,
+		LegacyDownloadUser: "vcap",
 	}, nil
 }
 

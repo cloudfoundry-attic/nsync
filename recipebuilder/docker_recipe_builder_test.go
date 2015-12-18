@@ -154,6 +154,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				CacheKey: "docker-lifecycle",
 			})
 			Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCachedDependencies))
+			Expect(desiredLRP.LegacyDownloadUser).To(Equal("root"))
 
 			parallelRunAction := desiredLRP.Action.CodependentAction
 			Expect(parallelRunAction.Actions).To(HaveLen(1))

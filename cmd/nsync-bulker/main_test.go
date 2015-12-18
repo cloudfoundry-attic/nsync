@@ -399,12 +399,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:      routes,
-					LogGuid:     "log-guid-1",
-					LogSource:   recipebuilder.LRPLogSource,
-					MetricsGuid: "log-guid-1",
-					Privileged:  true,
-					Annotation:  "1.1",
+					Routes:             routes,
+					LogGuid:            "log-guid-1",
+					LogSource:          recipebuilder.LRPLogSource,
+					MetricsGuid:        "log-guid-1",
+					Privileged:         true,
+					Annotation:         "1.1",
+					LegacyDownloadUser: "vcap",
 				}))
 
 				nofile = 16
@@ -461,12 +462,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:      newRoutes,
-					LogGuid:     "log-guid-1",
-					LogSource:   recipebuilder.LRPLogSource,
-					MetricsGuid: "log-guid-1",
-					Privileged:  true,
-					Annotation:  "2.1",
+					Routes:             newRoutes,
+					LogGuid:            "log-guid-1",
+					LogSource:          recipebuilder.LRPLogSource,
+					MetricsGuid:        "log-guid-1",
+					Privileged:         true,
+					Annotation:         "2.1",
+					LegacyDownloadUser: "vcap",
 				}))
 
 				nofile = 8
@@ -519,12 +521,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Ports: []uint32{
 						8080,
 					},
-					Routes:      emptyRoutes,
-					LogGuid:     "log-guid-3",
-					LogSource:   recipebuilder.LRPLogSource,
-					MetricsGuid: "log-guid-3",
-					Privileged:  true,
-					Annotation:  "3.1",
+					Routes:             emptyRoutes,
+					LogGuid:            "log-guid-3",
+					LogSource:          recipebuilder.LRPLogSource,
+					MetricsGuid:        "log-guid-3",
+					Privileged:         true,
+					Annotation:         "3.1",
+					LegacyDownloadUser: "vcap",
 				}))
 			})
 
