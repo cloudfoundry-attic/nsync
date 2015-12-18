@@ -652,10 +652,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 		})
 
-		testSetupActionUser := func(user string) func() {
+		testLegacySetupUser := func(user string) func() {
 			return func() {
-				serialAction := desiredLRP.Setup.SerialAction
-				Expect(serialAction.Actions).To(HaveLen(0))
+				Expect(desiredLRP.LegacyDownloadUser).To(Equal(user))
 			}
 		}
 
@@ -683,13 +682,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 				desiredAppReq.ExecutionMetadata = `{"user":"custom"}`
 			})
 
-			It("builds a setup action with the correct user", testSetupActionUser("custom"))
+			It("builds a setup action with the correct user", testLegacySetupUser("custom"))
 			It("builds a run action with the correct user", testRunActionUser("custom"))
 			It("builds a healthcheck action with the correct user", testHealthcheckActionUser("custom"))
 		})
 
 		Context("when the docker image does not exposes a user in its metadata", func() {
-			It("builds a setup action with the default user", testSetupActionUser("root"))
+			It("builds a setup action with the default user", testLegacySetupUser("root"))
 			It("builds a run action with the default user", testRunActionUser("root"))
 			It("builds a healthcheck action with the default user", testHealthcheckActionUser("root"))
 		})

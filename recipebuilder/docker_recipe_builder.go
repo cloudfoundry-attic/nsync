@@ -78,7 +78,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		numFiles = desiredApp.FileDescriptors
 	}
 
-	var setup []models.ActionInterface
 	var actions []models.ActionInterface
 	var monitor models.ActionInterface
 
@@ -182,7 +181,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		desiredAppPorts = append(desiredAppPorts, DefaultSSHPort)
 	}
 
-	setupAction := models.Serial(setup...)
 	actionAction := models.Codependent(actions...)
 
 	return &models.DesiredLRP{
@@ -211,7 +209,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		EnvironmentVariables: containerEnvVars,
 		CachedDependencies:   cachedDependencies,
-		Setup:                models.WrapAction(setupAction),
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),
 
