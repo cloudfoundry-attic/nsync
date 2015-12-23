@@ -125,7 +125,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			return nil, err
 		}
 
-		command := fmt.Sprintf("/tmp/lifecycle/diego-sshd -address=0.0.0.0:%d -hostKey='%s' -authorizedKey='%s' -inheritDaemonEnv -logLevel=fatal",
+		command := fmt.Sprintf(`/tmp/lifecycle/diego-sshd -address=0.0.0.0:%d -hostKey="%s" -authorizedKey="%s" -inheritDaemonEnv -logLevel=fatal`,
 			DefaultSSHPort,
 			hostKeyPair.PEMEncodedPrivateKey(),
 			userKeyPair.AuthorizedKey(),
