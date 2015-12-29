@@ -360,7 +360,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							Path: "/tmp/lifecycle/launcher",
 							Args: []string{
 								"app",
-								"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey='pem-host-private-key\nwith-lines' -authorizedKey='authorized-user-key' -inheritDaemonEnv -logLevel=fatal",
+								"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey=\"pem-host-private-key\nwith-lines\" -authorizedKey=\"authorized-user-key\" -inheritDaemonEnv -logLevel=fatal",
 								"the-execution-metadata",
 							},
 							Env: []*models.EnvironmentVariable{
