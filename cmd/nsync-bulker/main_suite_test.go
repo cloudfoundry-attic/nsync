@@ -11,7 +11,6 @@ import (
 	bbstestrunner "github.com/cloudfoundry-incubator/bbs/cmd/bbs/testrunner"
 	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -33,7 +32,6 @@ var (
 	bbsProcess ifrit.Process
 
 	etcdRunner *etcdstorerunner.ETCDClusterRunner
-	etcdClient storeadapter.StoreAdapter
 
 	consulRunner  *consulrunner.ClusterRunner
 	consulSession *consuladapter.Session
@@ -75,7 +73,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	)
 
 	bulkerPath = string(binaries["bulker"])
-	etcdClient = etcdRunner.Adapter(nil)
 
 	bbsPath = string(binaries["bbs"])
 	bbsAddress := fmt.Sprintf("127.0.0.1:%d", 13000+GinkgoParallelNode())

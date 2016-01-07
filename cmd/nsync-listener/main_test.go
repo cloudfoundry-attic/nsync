@@ -14,7 +14,6 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
@@ -36,8 +35,6 @@ var _ = Describe("Nsync Listener", func() {
 
 		runner  ifrit.Runner
 		process ifrit.Process
-
-		etcdAdapter storeadapter.StoreAdapter
 
 		logger lager.Logger
 	)
@@ -96,7 +93,6 @@ var _ = Describe("Nsync Listener", func() {
 		requestGenerator = rata.NewRequestGenerator(nsyncURL, nsync.Routes)
 		httpClient = http.DefaultClient
 
-		etcdAdapter = etcdRunner.Adapter(nil)
 		logger = lagertest.NewTestLogger("test")
 
 		runner = newNSyncRunner(nsyncPort)
@@ -104,7 +100,6 @@ var _ = Describe("Nsync Listener", func() {
 	})
 
 	AfterEach(func() {
-		etcdAdapter.Disconnect()
 		ginkgomon.Interrupt(process, exitDuration)
 	})
 
