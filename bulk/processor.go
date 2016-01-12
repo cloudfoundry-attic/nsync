@@ -104,14 +104,21 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool {
 	start := p.clock.Now()
 	invalidsFound := int32(0)
-	defer func() {
-		duration := p.clock.Now().Sub(start)
-		syncDesiredLRPsDuration.Send(duration)
-		invalidLRPsFound.Send(int(invalidsFound))
-	}()
-
 	logger := p.logger.Session("sync")
 	logger.Info("starting")
+
+	defer func() {
+		duration := p.clock.Now().Sub(start)
+		err := syncDesiredLRPsDuration.Send(duration)
+		if err != nil {
+			logger.Error("failed-to-send-sync-desired-lrps-duration-metric", err)
+		}
+		err = invalidLRPsFound.Send(int(invalidsFound))
+		if err != nil {
+			logger.Error("failed-to-send-sync-invalid-lrps-found-metric", err)
+		}
+	}()
+
 	defer logger.Info("done")
 
 	existing, err := p.getSchedulingInfos(logger)
