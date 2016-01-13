@@ -414,14 +414,17 @@ func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLR
 func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
 	logger = logger.Session("delete-excess")
 
-	logger.Info("processing-batch", lager.Data{"size": len(excess)})
+	logger.Info("processing-batch", lager.Data{"num-to-delete": len(excess), "guids-to-delete": excess})
+	deletedGuids := make([]string, 0, len(excess))
 	for _, deleteGuid := range excess {
 		err := p.bbsClient.RemoveDesiredLRP(deleteGuid)
 		if err != nil {
 			logger.Error("failed-processing-batch", err, lager.Data{"delete-request": deleteGuid})
+		} else {
+			deletedGuids = append(deletedGuids, deleteGuid)
 		}
 	}
-	logger.Info("succeeded-processing-batch")
+	logger.Info("succeeded-processing-batch", lager.Data{"num-deleted": len(deletedGuids), "deleted-guids": deletedGuids})
 }
 
 func countErrors(source <-chan error) (<-chan error, <-chan int) {
