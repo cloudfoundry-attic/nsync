@@ -111,7 +111,9 @@ var _ = Describe("Nsync Listener", func() {
 		It("desires the app from the bbs", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
-			Eventually(func() ([]*models.DesiredLRP, error) { return bbsClient.DesiredLRPs(models.DesiredLRPFilter{}) }, 10).Should(HaveLen(1))
+			Eventually(func() ([]*models.DesiredLRP, error) {
+				return bbsClient.DesiredLRPs(models.DesiredLRPFilter{})
+			}, 10).Should(HaveLen(1))
 			desiredLrps, _ := bbsClient.DesiredLRPs(models.DesiredLRPFilter{})
 			newRouteMessage := json.RawMessage([]byte(`[{"hostnames":["route-1"],"port":8080}]`))
 			newTcpRouteMessage := json.RawMessage([]byte(`[{"router_group_guid":"guid-1","external_port":5222,"container_port":60000}]`))
@@ -173,6 +175,7 @@ var _ = Describe("Nsync Listener", func() {
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
 									},
+									SuppressLogOutput: true,
 								},
 							},
 							&models.Action{
@@ -184,6 +187,7 @@ var _ = Describe("Nsync Listener", func() {
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
 									},
+									SuppressLogOutput: true,
 								},
 							},
 						},

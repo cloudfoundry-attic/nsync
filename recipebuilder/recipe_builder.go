@@ -99,6 +99,7 @@ func getParallelAction(ports []uint32, user string) *models.ParallelAction {
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
+					SuppressLogOutput: true,
 				},
 			})
 	}

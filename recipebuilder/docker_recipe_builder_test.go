@@ -173,6 +173,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 								ResourceLimits: &models.ResourceLimits{
 									Nofile: &defaultNofile,
 								},
+								SuppressLogOutput: true,
 							},
 						},
 					},
@@ -259,6 +260,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
 									},
+									SuppressLogOutput: true,
 								},
 							},
 						},
@@ -466,6 +468,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 								ResourceLimits: &models.ResourceLimits{
 									Nofile: &defaultNofile,
 								},
+								SuppressLogOutput: true,
 							},
 						},
 					},
@@ -594,6 +597,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
 									},
+									SuppressLogOutput: true,
 								},
 							},
 							&models.Action{
@@ -605,6 +609,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
 									},
+									SuppressLogOutput: true,
 								},
 							},
 						},

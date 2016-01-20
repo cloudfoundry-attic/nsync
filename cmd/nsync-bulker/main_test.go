@@ -387,6 +387,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 										ResourceLimits: &models.ResourceLimits{
 											Nofile: &defaultNofile,
 										},
+										SuppressLogOutput: true,
 									},
 								},
 							},
@@ -450,6 +451,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 										ResourceLimits: &models.ResourceLimits{
 											Nofile: &defaultNofile,
 										},
+										SuppressLogOutput: true,
 									},
 								},
 							},
@@ -509,6 +511,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 										ResourceLimits: &models.ResourceLimits{
 											Nofile: &defaultNofile,
 										},
+										SuppressLogOutput: true,
 									},
 								},
 							},
