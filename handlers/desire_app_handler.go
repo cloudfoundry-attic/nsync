@@ -35,9 +35,15 @@ func NewDesireAppHandler(logger lager.Logger, bbsClient bbs.Client, builders map
 
 func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request) {
 	processGuid := req.FormValue(":process_guid")
+
 	logger := h.logger.Session("desire-app", lager.Data{
 		"process_guid": processGuid,
+		"method":       req.Method,
+		"request":      req.URL.String(),
 	})
+
+	logger.Info("serving")
+	defer logger.Info("complete")
 
 	desiredApp := cc_messages.DesireAppRequestFromCC{}
 	err := json.NewDecoder(req.Body).Decode(&desiredApp)
@@ -52,7 +58,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	for _, envVar := range desiredApp.Environment {
 		envNames = append(envNames, envVar.Name)
 	}
-	logger.Info("environment", lager.Data{"keys": envNames})
+	logger.Debug("environment", lager.Data{"keys": envNames})
 
 	if processGuid != desiredApp.ProcessGuid {
 		logger.Error("process-guid-mismatch", err, lager.Data{"body-process-guid": desiredApp.ProcessGuid})
@@ -63,9 +69,8 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	statusCode := http.StatusConflict
 
 	for tries := 2; tries > 0 && statusCode == http.StatusConflict; tries-- {
-		existingLRP, err := h.getDesiredLRP(processGuid)
+		existingLRP, err := h.getDesiredLRP(logger, processGuid)
 		if err != nil {
-			logger.Error("unexpected-error-from-get-desired-lrp", err)
 			statusCode = http.StatusServiceUnavailable
 			break
 		}
@@ -99,14 +104,18 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 	resp.WriteHeader(statusCode)
 }
 
-func (h *DesireAppHandler) getDesiredLRP(processGuid string) (*models.DesiredLRP, error) {
+func (h *DesireAppHandler) getDesiredLRP(logger lager.Logger, processGuid string) (*models.DesiredLRP, error) {
+	logger.Debug("fetching-desired-lrp")
 	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(processGuid)
 	if err == nil {
+		logger.Error("failed-fetching-desired-lrp", err)
 		return lrp, nil
 	}
+	logger.Debug("fetched-desired-lrp")
 
 	bbsError := models.ConvertError(err)
 	if bbsError.Type == models.Error_ResourceNotFound {
+		logger.Error("desired-lrp-not-found", err)
 		return nil, nil
 	}
 
@@ -128,12 +137,13 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
-	logger.Info("creating-desired-lrp", lager.Data{"routes": getCfRoutes(desiredLRP.Routes)})
+	logger.Debug("creating-desired-lrp", lager.Data{"routes": getCfRoutes(desiredLRP.Routes)})
 	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
 		return err
 	}
+	logger.Debug("created-desired-lrp")
 
 	return nil
 }
@@ -177,12 +187,13 @@ func (h *DesireAppHandler) updateDesiredApp(
 		Routes:     routes,
 	}
 
-	logger.Info("updating-desired-lrp", lager.Data{"routes": getCfRoutes(existingLRP.Routes)})
+	logger.Debug("updating-desired-lrp", lager.Data{"routes": getCfRoutes(existingLRP.Routes)})
 	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
 		return err
 	}
+	logger.Debug("updated-desired-lrp")
 
 	return nil
 }

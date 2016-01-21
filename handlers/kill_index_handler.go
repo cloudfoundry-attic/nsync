@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -31,10 +30,16 @@ func NewKillIndexHandler(logger lager.Logger, bbsClient bbs.Client) KillIndexHan
 func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request) {
 	processGuid := req.FormValue(":process_guid")
 	indexString := req.FormValue(":index")
+
 	logger := h.logger.Session("kill-index", lager.Data{
-		"ProcessGuid": processGuid,
-		"Index":       indexString,
+		"process_guid": processGuid,
+		"index":        indexString,
+		"method":       req.Method,
+		"request":      req.URL.String(),
 	})
+
+	logger.Info("serving")
+	defer logger.Info("complete")
 
 	if processGuid == "" {
 		logger.Error("missing-process-guid", missingParameterErr)
@@ -55,32 +60,38 @@ func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	err = h.killActualLRPByProcessGuidAndIndex(processGuid, index)
+	err = h.killActualLRPByProcessGuidAndIndex(logger, processGuid, index)
 	if err != nil {
 		status := http.StatusServiceUnavailable
 		bbsError := models.ConvertError(err)
 		if bbsError.Type == models.Error_ResourceNotFound {
-			err = fmt.Errorf("process-guid '%s' does not exist or has no instance at index %d", processGuid, index)
 			status = http.StatusNotFound
 		}
 		resp.WriteHeader(status)
-		logger.Error("request-kill-actual-lrp-index-failed", err)
 		return
 	}
 
-	logger.Info("requested-stop-index", lager.Data{
-		"process_guid": processGuid,
-		"index":        index,
-	})
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-func (h *KillIndexHandler) killActualLRPByProcessGuidAndIndex(processGuid string, index int) error {
+func (h *KillIndexHandler) killActualLRPByProcessGuidAndIndex(logger lager.Logger, processGuid string, index int) error {
+	logger.Debug("fetching-actual-lrp-group")
 	actualLRPGroup, err := h.bbsClient.ActualLRPGroupByProcessGuidAndIndex(processGuid, index)
 	if err != nil {
+		logger.Error("failed-fetching-actual-lrp-group", err)
 		return err
 	}
+	logger.Debug("fetched-actual-lrp-group")
 
 	actualLRP, _ := actualLRPGroup.Resolve()
-	return h.bbsClient.RetireActualLRP(&actualLRP.ActualLRPKey)
+
+	logger.Debug("retiring-actual-lrp")
+	err = h.bbsClient.RetireActualLRP(&actualLRP.ActualLRPKey)
+	if err != nil {
+		logger.Error("failed-to-retire-actual-lrp", err)
+		return err
+	}
+	logger.Debug("retired-actual-lrp")
+
+	return nil
 }

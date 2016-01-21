@@ -22,7 +22,12 @@ func NewStopAppHandler(logger lager.Logger, bbsClient bbs.Client) *StopAppHandle
 
 func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 	processGuid := req.FormValue(":process_guid")
-	logger := h.logger.Session("stop-app", lager.Data{"process-guid": processGuid})
+
+	logger := h.logger.Session("stop-app", lager.Data{
+		"process-guid": processGuid,
+		"method":       req.Method,
+		"request":      req.URL.String(),
+	})
 
 	if processGuid == "" {
 		logger.Error("missing-process-guid", missingParameterErr)
@@ -30,11 +35,13 @@ func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logger.Info("stop-request-from-cc", lager.Data{"processGuid": processGuid})
+	logger.Info("serving")
+	defer logger.Info("complete")
 
+	logger.Debug("removing-desired-lrp")
 	err := h.bbsClient.RemoveDesiredLRP(processGuid)
 	if err != nil {
-		logger.Error("failed-to-delete-desired-lrp", err)
+		logger.Error("failed-to-remove-desired-lrp", err)
 
 		bbsError := models.ConvertError(err)
 		if bbsError.Type == models.Error_ResourceNotFound {
@@ -45,6 +52,7 @@ func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
+	logger.Debug("removed-desired-lrp")
 
 	resp.WriteHeader(http.StatusAccepted)
 }

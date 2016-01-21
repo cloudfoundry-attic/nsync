@@ -11,7 +11,6 @@ import (
 )
 
 func New(logger lager.Logger, bbsClient bbs.Client, recipebuilders map[string]recipebuilder.RecipeBuilder) http.Handler {
-
 	desireAppHandler := NewDesireAppHandler(logger, bbsClient, recipebuilders)
 	stopAppHandler := NewStopAppHandler(logger, bbsClient)
 	killIndexHandler := NewKillIndexHandler(logger, bbsClient)
