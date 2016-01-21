@@ -14,47 +14,29 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
+	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/lager"
-	"github.com/pivotal-golang/lager/lagertest"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 	"github.com/tedsuo/rata"
 )
 
 var _ = Describe("Nsync Listener", func() {
+	const exitDuration = 3 * time.Second
+
 	var (
-		nsyncPort    int
-		exitDuration = 3 * time.Second
+		nsyncPort int
 
 		requestGenerator *rata.RequestGenerator
 		httpClient       *http.Client
 		response         *http.Response
 		err              error
 
-		runner  ifrit.Runner
 		process ifrit.Process
-
-		logger lager.Logger
 	)
-
-	newNSyncRunner := func(nsyncPort int, args ...string) *ginkgomon.Runner {
-		return ginkgomon.New(ginkgomon.Config{
-			Name:          "nsync",
-			AnsiColorCode: "97m",
-			StartCheck:    "nsync.listener.started",
-			Command: exec.Command(
-				listenerPath,
-				"-bbsAddress", bbsURL.String(),
-				"-listenAddress", fmt.Sprintf("127.0.0.1:%d", nsyncPort),
-				"-lifecycle", "buildpack/some-stack:some-health-check.tar.gz",
-				"-lifecycle", "docker:the/docker/lifecycle/path.tgz",
-				"-fileServerURL", "http://file-server.com",
-				"-logLevel", "debug",
-			),
-		})
-	}
 
 	requestDesireWithInstances := func(nInstances int) (*http.Response, error) {
 		req, err := requestGenerator.CreateRequest(nsync.DesireAppRoute, rata.Params{"process_guid": "the-guid"}, strings.NewReader(`{
@@ -93,9 +75,7 @@ var _ = Describe("Nsync Listener", func() {
 		requestGenerator = rata.NewRequestGenerator(nsyncURL, nsync.Routes)
 		httpClient = http.DefaultClient
 
-		logger = lagertest.NewTestLogger("test")
-
-		runner = newNSyncRunner(nsyncPort)
+		runner := newNSyncRunner(fmt.Sprintf("127.0.0.1:%d", nsyncPort))
 		process = ginkgomon.Invoke(runner)
 	})
 
@@ -343,3 +323,100 @@ var _ = Describe("Nsync Listener", func() {
 		})
 	})
 })
+
+var _ = Describe("Nsync Listener Initialization", func() {
+	const exitDuration = 3 * time.Second
+
+	var (
+		nsyncPort int
+
+		runner  *ginkgomon.Runner
+		process ifrit.Process
+	)
+
+	BeforeEach(func() {
+		nsyncPort = 8888 + GinkgoParallelNode()
+		nsyncAddress := fmt.Sprintf("127.0.0.1:%d", nsyncPort)
+
+		runner = newNSyncRunner(nsyncAddress)
+	})
+
+	JustBeforeEach(func() {
+		process = ifrit.Invoke(runner)
+	})
+
+	AfterEach(func() {
+		ginkgomon.Interrupt(process, exitDuration)
+	})
+
+	Describe("Flag validation", func() {
+		Context("when the listenAddress does not match host:port pattern", func() {
+			BeforeEach(func() {
+				runner = newNSyncRunner("portless")
+			})
+
+			It("exits with an error", func() {
+				Eventually(runner).Should(gexec.Exit(2))
+				Expect(runner.Buffer()).Should(gbytes.Say("missing port"))
+			})
+		})
+
+		Context("when the listenAddress port is not a number or recognized service", func() {
+			BeforeEach(func() {
+				runner = newNSyncRunner("127.0.0.1:onehundred")
+			})
+
+			It("exits with an error", func() {
+				Eventually(runner).Should(gexec.Exit(2))
+				Expect(runner.Buffer()).Should(gbytes.Say("unknown port"))
+			})
+		})
+	})
+
+	Describe("Initialization", func() {
+		It("registers itself with consul", func() {
+			services, err := consulClient.Agent().Services()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(services).To(HaveKeyWithValue("nsync",
+				&api.AgentService{
+					Service: "nsync",
+					ID:      "nsync",
+					Port:    nsyncPort,
+				}))
+		})
+
+		It("registers a TTL healthcheck", func() {
+			checks, err := consulClient.Agent().Checks()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(checks).To(HaveKeyWithValue("service:nsync",
+				&api.AgentCheck{
+					Node:        "0",
+					CheckID:     "service:nsync",
+					Name:        "Service 'nsync' check",
+					Status:      "passing",
+					ServiceID:   "nsync",
+					ServiceName: "nsync",
+				}))
+		})
+	})
+})
+
+var newNSyncRunner = func(nsyncListenAddress string) *ginkgomon.Runner {
+	return ginkgomon.New(ginkgomon.Config{
+		Name:          "nsync",
+		AnsiColorCode: "97m",
+		StartCheck:    "nsync.listener.started",
+		Command: exec.Command(
+			listenerPath,
+			"-bbsAddress", bbsURL.String(),
+			"-listenAddress", nsyncListenAddress,
+			"-lifecycle", "buildpack/some-stack:some-health-check.tar.gz",
+			"-lifecycle", "docker:the/docker/lifecycle/path.tgz",
+			"-fileServerURL", "http://file-server.com",
+			"-logLevel", "debug",
+			"-consulCluster", consulRunner.ConsulCluster(),
+		),
+	})
+}

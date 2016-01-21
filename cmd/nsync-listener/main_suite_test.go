@@ -36,7 +36,7 @@ var etcdRunner *etcdstorerunner.ETCDClusterRunner
 var natsPort int
 
 var consulRunner *consulrunner.ClusterRunner
-var consulSession *consuladapter.Session
+var consulClient consuladapter.Client
 
 func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -100,7 +100,7 @@ var _ = BeforeEach(func() {
 	etcdRunner.Start()
 	consulRunner.Start()
 	consulRunner.WaitUntilReady()
-	consulSession = consulRunner.NewSession("a-session")
+	consulClient = consulRunner.NewConsulClient()
 
 	bbsRunner = bbstestrunner.New(bbsPath, bbsArgs)
 	bbsProcess = ginkgomon.Invoke(bbsRunner)

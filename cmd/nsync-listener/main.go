@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"time"
@@ -11,9 +12,13 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/cf_http"
+	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
+	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
+	"github.com/hashicorp/consul/api"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -52,6 +57,12 @@ var dropsondePort = flag.Int(
 	"dropsondePort",
 	3457,
 	"port the local metron agent is listening on",
+)
+
+var consulCluster = flag.String(
+	"consulCluster",
+	"",
+	"comma-separated list of consul server URLs (scheme://ip:port)",
 )
 
 var bbsCACert = flag.String(
@@ -113,8 +124,26 @@ func main() {
 
 	handler := handlers.New(logger, initializeBBSClient(logger), recipeBuilders)
 
+	consulClient, err := consuladapter.NewClient(*consulCluster)
+	if err != nil {
+		logger.Fatal("new-consul-client-failed", err)
+	}
+
+	_, portString, err := net.SplitHostPort(*listenAddress)
+	if err != nil {
+		logger.Fatal("failed-invalid-listen-address", err)
+	}
+	portNum, err := net.LookupPort("tcp", portString)
+	if err != nil {
+		logger.Fatal("failed-invalid-listen-port", err)
+	}
+
+	clock := clock.NewClock()
+	registrationRunner := initializeRegistrationRunner(logger, consuladapter.NewConsulClient(consulClient), portNum, clock)
+
 	members := grouper.Members{
 		{"server", http_server.New(*listenAddress, handler)},
+		{"registration-runner", registrationRunner},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
@@ -129,7 +158,7 @@ func main() {
 
 	logger.Info("started")
 
-	err := <-monitor.Wait()
+	err = <-monitor.Wait()
 	if err != nil {
 		logger.Error("exited-with-failure", err)
 		os.Exit(1)
@@ -161,4 +190,19 @@ func initializeBBSClient(logger lager.Logger) bbs.Client {
 		logger.Fatal("Failed to configure secure BBS client", err)
 	}
 	return bbsClient
+}
+
+func initializeRegistrationRunner(
+	logger lager.Logger,
+	consulClient consuladapter.Client,
+	port int,
+	clock clock.Clock) ifrit.Runner {
+	registration := &api.AgentServiceRegistration{
+		Name: "nsync",
+		Port: port,
+		Check: &api.AgentServiceCheck{
+			TTL: "3s",
+		},
+	}
+	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
 }
