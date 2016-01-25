@@ -137,7 +137,7 @@ func (h *DesireAppHandler) createDesiredApp(
 		return err
 	}
 
-	logger.Debug("creating-desired-lrp", lager.Data{"routes": getCfRoutes(desiredLRP.Routes)})
+	logger.Debug("creating-desired-lrp", lager.Data{"routes": sanitizeRoutes(desiredLRP.Routes)})
 	err = h.bbsClient.DesireLRP(desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
@@ -187,7 +187,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 		Routes:     routes,
 	}
 
-	logger.Debug("updating-desired-lrp", lager.Data{"routes": getCfRoutes(existingLRP.Routes)})
+	logger.Debug("updating-desired-lrp", lager.Data{"routes": sanitizeRoutes(existingLRP.Routes)})
 	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
@@ -198,11 +198,12 @@ func (h *DesireAppHandler) updateDesiredApp(
 	return nil
 }
 
-func getCfRoutes(routes *models.Routes) *models.Routes {
+func sanitizeRoutes(routes *models.Routes) *models.Routes {
 	newRoutes := make(models.Routes)
 	if routes != nil {
 		cfRoutes := *routes
 		newRoutes[cfroutes.CF_ROUTER] = cfRoutes[cfroutes.CF_ROUTER]
+		newRoutes[tcp_routes.TCP_ROUTER] = cfRoutes[tcp_routes.TCP_ROUTER]
 	}
 	return &newRoutes
 }
