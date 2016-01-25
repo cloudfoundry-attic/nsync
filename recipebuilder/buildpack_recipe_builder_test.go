@@ -567,4 +567,126 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 		})
 	})
+
+	Describe("BuildTask", func() {
+		var (
+			err            error
+			newTaskReq     cc_messages.TaskRequestFromCC
+			taskDefinition *models.TaskDefinition
+		)
+
+		BeforeEach(func() {
+			newTaskReq = cc_messages.TaskRequestFromCC{
+				LogGuid:   "some-log-guid",
+				MemoryMb:  128,
+				DiskMb:    512,
+				Lifecycle: "docker",
+				EnvironmentVariables: []*models.EnvironmentVariable{
+					{Name: "foo", Value: "bar"},
+					{Name: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
+				},
+				DropletUri:            "http://the-droplet.uri.com",
+				RootFs:                "some-stack",
+				CompletionCallbackUrl: "http://api.cc.com/v1/tasks/complete",
+				Command:               "the-start-command",
+				EgressRules:           egressRules,
+			}
+		})
+
+		JustBeforeEach(func() {
+			taskDefinition, err = builder.BuildTask(&newTaskReq)
+		})
+
+		Describe("CPU weight calculation", func() {
+			Context("when the memory limit is below the minimum value", func() {
+				BeforeEach(func() {
+					newTaskReq.MemoryMb = recipebuilder.MinCpuProxy - 9999
+				})
+
+				It("returns 1", func() {
+					Expect(taskDefinition.CpuWeight).To(BeEquivalentTo(1))
+				})
+			})
+
+			Context("when the memory limit is above the maximum value", func() {
+				BeforeEach(func() {
+					newTaskReq.MemoryMb = recipebuilder.MaxCpuProxy + 9999
+				})
+
+				It("returns 100", func() {
+					Expect(taskDefinition.CpuWeight).To(BeEquivalentTo(100))
+				})
+			})
+
+			Context("when the memory limit is in between the minimum and maximum value", func() {
+				BeforeEach(func() {
+					newTaskReq.MemoryMb = (recipebuilder.MinCpuProxy + recipebuilder.MaxCpuProxy) / 2
+				})
+
+				It("returns 50", func() {
+					Expect(taskDefinition.CpuWeight).To(BeEquivalentTo(50))
+				})
+			})
+		})
+
+		It("returns the desired TaskDefinition", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(taskDefinition.LogGuid).To(Equal("some-log-guid"))
+			Expect(taskDefinition.MemoryMb).To(BeEquivalentTo(128))
+			Expect(taskDefinition.DiskMb).To(BeEquivalentTo(512))
+			Expect(taskDefinition.EnvironmentVariables).To(Equal(newTaskReq.EnvironmentVariables))
+			Expect(taskDefinition.RootFs).To(Equal(models.PreloadedRootFS("some-stack")))
+			Expect(taskDefinition.CompletionCallbackUrl).To(Equal("http://api.cc.com/v1/tasks/complete"))
+			Expect(taskDefinition.Privileged).To(BeTrue())
+			Expect(taskDefinition.EgressRules).To(ConsistOf(egressRules))
+
+			expectedAction := models.Serial(&models.DownloadAction{
+				From:     newTaskReq.DropletUri,
+				To:       ".",
+				CacheKey: "",
+				User:     "vcap",
+			},
+				&models.RunAction{
+					User:           "vcap",
+					Path:           "/tmp/lifecycle/launcher",
+					Args:           []string{"app", "the-start-command"},
+					Env:            newTaskReq.EnvironmentVariables,
+					LogSource:      "",
+					ResourceLimits: &models.ResourceLimits{},
+				},
+			)
+			Expect(taskDefinition.Action.GetValue()).To(Equal(expectedAction))
+
+			expectedCacheDependencies := []*models.CachedDependency{
+				&models.CachedDependency{
+					From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
+					To:       "/tmp/lifecycle",
+					CacheKey: "buildpack-some-stack-lifecycle",
+				},
+			}
+
+			Expect(taskDefinition.LegacyDownloadUser).To(Equal("vcap"))
+			Expect(taskDefinition.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
+		})
+
+		Context("when the droplet uri is missing", func() {
+			BeforeEach(func() {
+				newTaskReq.DropletUri = ""
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(Equal(recipebuilder.ErrDropletSourceMissing))
+			})
+		})
+
+		Context("when the lifecycle does not exist", func() {
+			BeforeEach(func() {
+				newTaskReq.RootFs = "some-other-rootfs"
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(Equal(recipebuilder.ErrNoLifecycleDefined))
+			})
+		})
+	})
 })

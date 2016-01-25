@@ -45,6 +45,7 @@ type Config struct {
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder
 type RecipeBuilder interface {
 	Build(*cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error)
+	BuildTask(*cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error)
 	ExtractExposedPorts(*cc_messages.DesireAppRequestFromCC) ([]uint32, error)
 }
 

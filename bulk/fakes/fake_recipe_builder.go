@@ -19,6 +19,15 @@ type FakeRecipeBuilder struct {
 		result1 *models.DesiredLRP
 		result2 error
 	}
+	BuildTaskStub        func(*cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error)
+	buildTaskMutex       sync.RWMutex
+	buildTaskArgsForCall []struct {
+		arg1 *cc_messages.TaskRequestFromCC
+	}
+	buildTaskReturns struct {
+		result1 *models.TaskDefinition
+		result2 error
+	}
 	ExtractExposedPortsStub        func(*cc_messages.DesireAppRequestFromCC) ([]uint32, error)
 	extractExposedPortsMutex       sync.RWMutex
 	extractExposedPortsArgsForCall []struct {
@@ -59,6 +68,39 @@ func (fake *FakeRecipeBuilder) BuildReturns(result1 *models.DesiredLRP, result2 
 	fake.BuildStub = nil
 	fake.buildReturns = struct {
 		result1 *models.DesiredLRP
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeRecipeBuilder) BuildTask(arg1 *cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error) {
+	fake.buildTaskMutex.Lock()
+	fake.buildTaskArgsForCall = append(fake.buildTaskArgsForCall, struct {
+		arg1 *cc_messages.TaskRequestFromCC
+	}{arg1})
+	fake.buildTaskMutex.Unlock()
+	if fake.BuildTaskStub != nil {
+		return fake.BuildTaskStub(arg1)
+	} else {
+		return fake.buildTaskReturns.result1, fake.buildTaskReturns.result2
+	}
+}
+
+func (fake *FakeRecipeBuilder) BuildTaskCallCount() int {
+	fake.buildTaskMutex.RLock()
+	defer fake.buildTaskMutex.RUnlock()
+	return len(fake.buildTaskArgsForCall)
+}
+
+func (fake *FakeRecipeBuilder) BuildTaskArgsForCall(i int) *cc_messages.TaskRequestFromCC {
+	fake.buildTaskMutex.RLock()
+	defer fake.buildTaskMutex.RUnlock()
+	return fake.buildTaskArgsForCall[i].arg1
+}
+
+func (fake *FakeRecipeBuilder) BuildTaskReturns(result1 *models.TaskDefinition, result2 error) {
+	fake.BuildTaskStub = nil
+	fake.buildTaskReturns = struct {
+		result1 *models.TaskDefinition
 		result2 error
 	}{result1, result2}
 }
