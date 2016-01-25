@@ -5,8 +5,8 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type routingKey struct {

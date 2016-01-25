@@ -462,7 +462,6 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(fakeBBS.UpdateDesiredLRPCallCount()).To(Equal(0))
 			Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(0))
 		})
-
 	})
 
 	Context("when the process guids do not match", func() {

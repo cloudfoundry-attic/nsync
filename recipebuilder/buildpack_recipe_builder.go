@@ -25,6 +25,73 @@ func NewBuildpackRecipeBuilder(logger lager.Logger, config Config) *BuildpackRec
 	}
 }
 
+func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error) {
+	logger := b.logger.Session("build-task", lager.Data{"request": task})
+
+	if task.DropletUri == "" {
+		logger.Error("missing-droplet-source", ErrDropletSourceMissing)
+		return nil, ErrDropletSourceMissing
+	}
+
+	downloadAction := &models.DownloadAction{
+		From:     task.DropletUri,
+		To:       ".",
+		CacheKey: "",
+		User:     "vcap",
+	}
+
+	runAction := &models.RunAction{
+		User:           "vcap",
+		Path:           "/tmp/lifecycle/launcher",
+		Args:           []string{"app", task.Command},
+		Env:            task.EnvironmentVariables,
+		LogSource:      "",
+		ResourceLimits: &models.ResourceLimits{},
+	}
+
+	var lifecycle = "buildpack/" + task.RootFs
+	lifecyclePath, ok := b.config.Lifecycles[lifecycle]
+	if !ok {
+		logger.Error("unknown-lifecycle", ErrNoLifecycleDefined, lager.Data{
+			"lifecycle": lifecycle,
+		})
+
+		return nil, ErrNoLifecycleDefined
+	}
+
+	lifecycleURL := lifecycleDownloadURL(lifecyclePath, b.config.FileServerURL)
+
+	cachedDependencies := []*models.CachedDependency{
+		&models.CachedDependency{
+			From:     lifecycleURL,
+			To:       "/tmp/lifecycle",
+			CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
+		},
+	}
+
+	rootFSPath := models.PreloadedRootFS(task.RootFs)
+
+	taskDefinition := &models.TaskDefinition{
+		Privileged:            true,
+		LogGuid:               task.LogGuid,
+		MemoryMb:              int32(task.MemoryMb),
+		DiskMb:                int32(task.DiskMb),
+		CpuWeight:             cpuWeight(task.MemoryMb),
+		EnvironmentVariables:  task.EnvironmentVariables,
+		RootFs:                rootFSPath,
+		CompletionCallbackUrl: task.CompletionCallbackUrl,
+		Action: models.WrapAction(models.Serial(
+			downloadAction,
+			runAction,
+		)),
+		CachedDependencies: cachedDependencies,
+		EgressRules:        task.EgressRules,
+		LegacyDownloadUser: "vcap",
+	}
+
+	return taskDefinition, nil
+}
+
 func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
 	lrpGuid := desiredApp.ProcessGuid
 
@@ -54,7 +121,6 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 	rootFSPath := models.PreloadedRootFS(desiredApp.Stack)
 
-	var privilegedContainer bool = true
 	var containerEnvVars []*models.EnvironmentVariable
 	containerEnvVars = append(containerEnvVars, &models.EnvironmentVariable{"LANG", DefaultLANG})
 
@@ -161,7 +227,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	actionAction := models.Codependent(actions...)
 
 	return &models.DesiredLRP{
-		Privileged: privilegedContainer,
+		Privileged: true,
 
 		Domain: cc_messages.AppLRPDomain,
 
