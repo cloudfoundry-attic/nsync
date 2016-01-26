@@ -275,8 +275,9 @@ var _ = Describe("Nsync Listener", func() {
 
 	Describe("Desire a task", func() {
 		BeforeEach(func() {
-			req, err := requestGenerator.CreateRequest(nsync.TasksRoute, rata.Params{"task_guid": "the-guid"}, strings.NewReader(`{
-			"droplet_url": "http://the-droplet.uri.com",
+			req, err := requestGenerator.CreateRequest(nsync.TasksRoute, rata.Params{}, strings.NewReader(`{
+			"task_guid": "the-guid",
+			"droplet_uri": "http://the-droplet.uri.com",
 			"command": "the-start-command",
 			"memory_mb": 128,
 			"disk_mb": 512,
@@ -321,7 +322,7 @@ var _ = Describe("Nsync Listener", func() {
 				&models.RunAction{
 					User:           "vcap",
 					Path:           "/tmp/lifecycle/launcher",
-					Args:           []string{"app", "the-start-command"},
+					Args:           []string{"app", "the-start-command", ""},
 					LogSource:      "",
 					ResourceLimits: &models.ResourceLimits{},
 				},

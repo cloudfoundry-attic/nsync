@@ -32,6 +32,10 @@ func NewDockerRecipeBuilder(logger lager.Logger, config Config) *DockerRecipeBui
 	}
 }
 
+func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error) {
+	return &models.TaskDefinition{}, nil
+}
+
 func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
 	lrpGuid := desiredApp.ProcessGuid
 

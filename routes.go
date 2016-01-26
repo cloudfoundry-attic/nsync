@@ -15,5 +15,5 @@ var Routes = rata.Routes{
 	{Path: "/v1/apps/:process_guid", Method: "DELETE", Name: StopAppRoute},
 	{Path: "/v1/apps/:process_guid/index/:index", Method: "DELETE", Name: KillIndexRoute},
 
-	{Path: "/v1/tasks/:task_guid", Method: "PUT", Name: TasksRoute},
+	{Path: "/v1/tasks", Method: "POST", Name: TasksRoute},
 }

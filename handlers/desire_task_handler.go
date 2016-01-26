@@ -29,7 +29,6 @@ func NewTaskHandler(
 }
 
 func (h *TaskHandler) DesireTask(resp http.ResponseWriter, req *http.Request) {
-	taskGuid := req.FormValue(":task_guid")
 	logger := h.logger.Session("create-task", lager.Data{
 		"method":  req.Method,
 		"request": req.URL.String(),
@@ -55,7 +54,7 @@ func (h *TaskHandler) DesireTask(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	logger.Info("desiring-task")
-	err = h.bbsClient.DesireTask(taskGuid, cc_messages.RunningTaskDomain, desiredTask)
+	err = h.bbsClient.DesireTask(task.TaskGuid, cc_messages.RunningTaskDomain, desiredTask)
 	if err != nil {
 		logger.Error("desire-task-failed", err)
 		resp.WriteHeader(http.StatusBadRequest)
