@@ -272,4 +272,73 @@ var _ = Describe("Nsync Listener", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})
+
+	Describe("Desire a task", func() {
+		BeforeEach(func() {
+			req, err := requestGenerator.CreateRequest(nsync.TasksRoute, rata.Params{"task_guid": "the-guid"}, strings.NewReader(`{
+			"droplet_url": "http://the-droplet.uri.com",
+			"command": "the-start-command",
+			"memory_mb": 128,
+			"disk_mb": 512,
+			"rootfs": "some-stack",
+			"log_guid": "the-log-guid",
+			"completion_callback": "http://google.com",
+			"lifecycle": "buildpack"
+	}`))
+
+			Expect(err).NotTo(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+
+			response, err = httpClient.Do(req)
+		})
+
+		It("desires the task from the bbs", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(response.StatusCode).To(Equal(http.StatusAccepted))
+
+			Eventually(func() ([]*models.Task, error) {
+				return bbsClient.Tasks()
+			}, 10).Should(HaveLen(1))
+
+			task, err := bbsClient.TaskByGuid("the-guid")
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedCachedDependencies := []*models.CachedDependency{
+				{
+					From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+					To:       "/tmp/lifecycle",
+					CacheKey: "buildpack-some-stack-lifecycle",
+				},
+			}
+
+			expectedActions := models.Serial(
+				&models.DownloadAction{
+					From:     "http://the-droplet.uri.com",
+					To:       ".",
+					CacheKey: "",
+					User:     "vcap",
+				},
+				&models.RunAction{
+					User:           "vcap",
+					Path:           "/tmp/lifecycle/launcher",
+					Args:           []string{"app", "the-start-command"},
+					LogSource:      "",
+					ResourceLimits: &models.ResourceLimits{},
+				},
+			)
+
+			Expect(task.TaskDefinition).To(BeEquivalentTo(&models.TaskDefinition{
+				Privileged:            true,
+				LogGuid:               "the-log-guid",
+				MemoryMb:              128,
+				DiskMb:                512,
+				CpuWeight:             1,
+				RootFs:                models.PreloadedRootFS("some-stack"),
+				CompletionCallbackUrl: "http://google.com",
+				CachedDependencies:    expectedCachedDependencies,
+				Action:                models.WrapAction(expectedActions),
+				LegacyDownloadUser:    "vcap",
+			}))
+		})
+	})
 })
