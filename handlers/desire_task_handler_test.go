@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
@@ -41,6 +40,7 @@ var _ = Describe("DesireTaskHandler", func() {
 		buildpackBuilder = new(fakes.FakeRecipeBuilder)
 
 		taskRequest = cc_messages.TaskRequestFromCC{
+			TaskGuid:  "the-task-guid",
 			LogGuid:   "some-log-guid",
 			MemoryMb:  128,
 			DiskMb:    512,
@@ -59,10 +59,6 @@ var _ = Describe("DesireTaskHandler", func() {
 
 		request, err = http.NewRequest("POST", "", nil)
 		Expect(err).NotTo(HaveOccurred())
-
-		request.Form = url.Values{
-			":task_guid": []string{"the-task-guid"},
-		}
 	})
 
 	JustBeforeEach(func() {

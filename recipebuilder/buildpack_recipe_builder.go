@@ -43,7 +43,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 	runAction := &models.RunAction{
 		User:           "vcap",
 		Path:           "/tmp/lifecycle/launcher",
-		Args:           []string{"app", task.Command},
+		Args:           []string{"app", task.Command, ""},
 		Env:            task.EnvironmentVariables,
 		LogSource:      "",
 		ResourceLimits: &models.ResourceLimits{},

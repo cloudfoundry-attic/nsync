@@ -649,7 +649,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				&models.RunAction{
 					User:           "vcap",
 					Path:           "/tmp/lifecycle/launcher",
-					Args:           []string{"app", "the-start-command"},
+					Args:           []string{"app", "the-start-command", ""},
 					Env:            newTaskReq.EnvironmentVariables,
 					LogSource:      "",
 					ResourceLimits: &models.ResourceLimits{},
