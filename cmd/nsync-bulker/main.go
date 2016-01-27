@@ -170,7 +170,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
-	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval)
+	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval, *lockTTL)
 
 	recipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:    lifecycles,
@@ -243,12 +243,9 @@ func initializeServiceClient(logger lager.Logger) nsync.ServiceClient {
 		logger.Fatal("new-client-failed", err)
 	}
 
-	consulSession, err := consuladapter.NewSession("nsync-bulker", *lockTTL, consuladapter.NewConsulClient(client))
-	if err != nil {
-		logger.Fatal("consul-session-failed", err)
-	}
+	consulClient := consuladapter.NewConsulClient(client)
 
-	return nsync.NewServiceClient(consulSession, clock.NewClock())
+	return nsync.NewServiceClient(consulClient, clock.NewClock())
 }
 
 func initializeBBSClient(logger lager.Logger) bbs.Client {
