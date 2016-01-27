@@ -679,6 +679,16 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 		})
 
+		Context("when the docker path is specified", func() {
+			BeforeEach(func() {
+				newTaskReq.DockerPath = "jim/jim"
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(Equal(recipebuilder.ErrMultipleAppSources))
+			})
+		})
+
 		Context("when the lifecycle does not exist", func() {
 			BeforeEach(func() {
 				newTaskReq.RootFs = "some-other-rootfs"

@@ -33,7 +33,66 @@ func NewDockerRecipeBuilder(logger lager.Logger, config Config) *DockerRecipeBui
 }
 
 func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*models.TaskDefinition, error) {
-	return &models.TaskDefinition{}, nil
+	logger := b.logger.Session("task-builder")
+
+	var lifecycle = "docker"
+	lifecyclePath, ok := b.config.Lifecycles[lifecycle]
+	if !ok {
+		logger.Error("unknown-lifecycle", ErrNoLifecycleDefined, lager.Data{
+			"lifecycle": lifecycle,
+		})
+
+		return nil, ErrNoLifecycleDefined
+	}
+
+	lifecycleURL := lifecycleDownloadURL(lifecyclePath, b.config.FileServerURL)
+	cachedDependencies := []*models.CachedDependency{
+		{
+			From:     lifecycleURL,
+			To:       "/tmp/lifecycle",
+			CacheKey: fmt.Sprintf("%s-lifecycle", strings.Replace(lifecycle, "/", "-", 1)),
+		},
+	}
+
+	action := models.WrapAction(&models.RunAction{
+		User:           "root",
+		Path:           "/tmp/lifecycle/launcher",
+		Args:           []string{"app", task.Command, "{}"},
+		Env:            task.EnvironmentVariables,
+		LogSource:      "",
+		ResourceLimits: &models.ResourceLimits{},
+	})
+
+	if task.DockerPath == "" {
+		logger.Error("invalid-docker-path", ErrDockerImageMissing, lager.Data{"task": task})
+		return nil, ErrDockerImageMissing
+	}
+
+	if task.DropletUri != "" {
+		logger.Error("invalid-droplet-uri", ErrMultipleAppSources, lager.Data{"task": task})
+		return nil, ErrMultipleAppSources
+	}
+
+	rootFSPath, err := convertDockerURI(task.DockerPath)
+	if err != nil {
+		return nil, err
+	}
+
+	taskDefinition := &models.TaskDefinition{
+		LogGuid:               task.LogGuid,
+		MemoryMb:              int32(task.MemoryMb),
+		DiskMb:                int32(task.DiskMb),
+		Privileged:            false,
+		EnvironmentVariables:  task.EnvironmentVariables,
+		EgressRules:           task.EgressRules,
+		CompletionCallbackUrl: task.CompletionCallbackUrl,
+		CachedDependencies:    cachedDependencies,
+		LegacyDownloadUser:    "vcap",
+		Action:                action,
+		RootFs:                rootFSPath,
+	}
+
+	return taskDefinition, nil
 }
 
 func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
@@ -49,10 +108,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	if desiredApp.DropletUri != "" && desiredApp.DockerImageUrl != "" {
 		buildLogger.Error("desired-app-invalid", ErrMultipleAppSources, lager.Data{"desired-app": desiredApp})
 		return nil, ErrMultipleAppSources
-	}
-
-	if desiredApp.DockerImageUrl == "" {
-		return nil, ErrNoDockerImage
 	}
 
 	var lifecycle = "docker"

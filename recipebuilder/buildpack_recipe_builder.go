@@ -33,6 +33,11 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		return nil, ErrDropletSourceMissing
 	}
 
+	if task.DockerPath != "" {
+		logger.Error("invalid-docker-path", ErrMultipleAppSources)
+		return nil, ErrMultipleAppSources
+	}
+
 	downloadAction := &models.DownloadAction{
 		From:     task.DropletUri,
 		To:       ".",
