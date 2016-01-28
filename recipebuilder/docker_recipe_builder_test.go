@@ -860,6 +860,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				),
 				Env:            taskRequest.EnvironmentVariables,
 				ResourceLimits: &models.ResourceLimits{},
+				LogSource:      "TASK",
 			})
 
 			Expect(taskDefinition.Action).To(BeEquivalentTo(expectedAction))

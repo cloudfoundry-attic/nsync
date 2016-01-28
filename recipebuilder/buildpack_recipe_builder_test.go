@@ -651,7 +651,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					Path:           "/tmp/lifecycle/launcher",
 					Args:           []string{"app", "the-start-command", ""},
 					Env:            newTaskReq.EnvironmentVariables,
-					LogSource:      "",
+					LogSource:      "TASK",
 					ResourceLimits: &models.ResourceLimits{},
 				},
 			)
