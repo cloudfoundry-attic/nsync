@@ -323,7 +323,7 @@ var _ = Describe("Nsync Listener", func() {
 					User:           "vcap",
 					Path:           "/tmp/lifecycle/launcher",
 					Args:           []string{"app", "the-start-command", ""},
-					LogSource:      "",
+					LogSource:      "TASK",
 					ResourceLimits: &models.ResourceLimits{},
 				},
 			)
