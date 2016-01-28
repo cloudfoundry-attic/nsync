@@ -171,5 +171,23 @@ var _ = Describe("DesireTaskHandler", func() {
 				})
 			})
 		})
+
+		Context("when the requested lifecycle does not have a corresponding builder", func() {
+			BeforeEach(func() {
+				taskRequest.Lifecycle = "something-else"
+			})
+
+			It("responds with a 400 Bad Request", func() {
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+			})
+
+			It("does not send a request to bbs", func() {
+				Expect(fakeBBSClient.DesireTaskCallCount()).To(Equal(0))
+			})
+
+			It("does not build a task", func() {
+				Expect(buildpackBuilder.BuildTaskCallCount()).To(Equal(0))
+			})
+		})
 	})
 })

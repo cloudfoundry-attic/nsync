@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/cloudfoundry-incubator/bbs"
@@ -45,7 +46,13 @@ func (h *TaskHandler) DesireTask(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	builder := h.recipeBuilders[task.Lifecycle]
+	builder, ok := h.recipeBuilders[task.Lifecycle]
+	if !ok {
+		logger.Error("builder-not-found", errors.New("no-builder"), lager.Data{"lifecycle": task.Lifecycle})
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	desiredTask, err := builder.BuildTask(&task)
 	if err != nil {
 		logger.Error("building-task-failed", err)
@@ -53,7 +60,7 @@ func (h *TaskHandler) DesireTask(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logger.Info("desiring-task")
+	logger.Info("desiring-task", lager.Data{"task-guid": task.TaskGuid})
 	err = h.bbsClient.DesireTask(task.TaskGuid, cc_messages.RunningTaskDomain, desiredTask)
 	if err != nil {
 		logger.Error("desire-task-failed", err)
