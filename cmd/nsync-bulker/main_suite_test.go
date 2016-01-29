@@ -9,7 +9,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs"
 	bbstestrunner "github.com/cloudfoundry-incubator/bbs/cmd/bbs/testrunner"
-	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
@@ -33,8 +32,7 @@ var (
 
 	etcdRunner *etcdstorerunner.ETCDClusterRunner
 
-	consulRunner  *consulrunner.ClusterRunner
-	consulSession *consuladapter.Session
+	consulRunner *consulrunner.ClusterRunner
 )
 
 func TestBulker(t *testing.T) {
@@ -99,7 +97,6 @@ var _ = BeforeEach(func() {
 
 	consulRunner.Start()
 	consulRunner.WaitUntilReady()
-	consulSession = consulRunner.NewSession("a-session")
 
 	bbsRunner = bbstestrunner.New(bbsPath, bbsArgs)
 	bbsProcess = ginkgomon.Invoke(bbsRunner)

@@ -9,13 +9,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/consuladapter"
 	"github.com/cloudfoundry-incubator/diego-ssh/keys"
 	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
@@ -625,14 +625,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	Context("when the bulker initially does not have the lock", func() {
-		var otherSession *consuladapter.Session
+		var competingBulkerProcess ifrit.Process
 
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
 
-			otherSession = consulRunner.NewSession("other-session")
-			err := otherSession.AcquireLock(locket.LockSchemaPath(bulkerLockName), []byte("something-else"))
-			Expect(err).NotTo(HaveOccurred())
+			competingBulker := locket.NewLock(logger, consulRunner.NewConsulClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.LockTTL)
+			competingBulkerProcess = ifrit.Invoke(competingBulker)
 		})
 
 		JustBeforeEach(func() {
@@ -641,13 +640,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		AfterEach(func() {
 			ginkgomon.Interrupt(process, interruptTimeout)
+			ginkgomon.Kill(competingBulkerProcess)
 		})
 
 		itIsMissingDomain()
 
 		Context("when the lock becomes available", func() {
 			BeforeEach(func() {
-				otherSession.Destroy()
+				ginkgomon.Kill(competingBulkerProcess)
 
 				time.Sleep(pollingInterval + 10*time.Millisecond)
 			})
