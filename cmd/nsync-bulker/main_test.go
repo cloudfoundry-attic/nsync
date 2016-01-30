@@ -610,7 +610,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Eventually(bbsClient.Domains, 5*domainTTL).Should(ContainElement("cf-apps"))
 
-			consulRunner.DestroySession("nsync-bulker")
+			_, err := consulRunner.NewClient().KV().DeleteTree(locket.LockSchemaPath(bulkerLockName), nil)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -630,7 +631,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
 
-			competingBulker := locket.NewLock(logger, consulRunner.NewConsulClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.LockTTL)
+			competingBulker := locket.NewLock(logger, consulRunner.NewClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.LockTTL)
 			competingBulkerProcess = ifrit.Invoke(competingBulker)
 		})
 

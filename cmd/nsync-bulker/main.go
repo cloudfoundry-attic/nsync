@@ -238,12 +238,10 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeServiceClient(logger lager.Logger) nsync.ServiceClient {
-	client, err := consuladapter.NewClient(*consulCluster)
+	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
 	}
-
-	consulClient := consuladapter.NewConsulClient(client)
 
 	return nsync.NewServiceClient(consulClient, clock.NewClock())
 }

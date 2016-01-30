@@ -124,7 +124,7 @@ func main() {
 
 	handler := handlers.New(logger, initializeBBSClient(logger), recipeBuilders)
 
-	consulClient, err := consuladapter.NewClient(*consulCluster)
+	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-consul-client-failed", err)
 	}
@@ -139,7 +139,7 @@ func main() {
 	}
 
 	clock := clock.NewClock()
-	registrationRunner := initializeRegistrationRunner(logger, consuladapter.NewConsulClient(consulClient), portNum, clock)
+	registrationRunner := initializeRegistrationRunner(logger, consulClient, portNum, clock)
 
 	members := grouper.Members{
 		{"server", http_server.New(*listenAddress, handler)},

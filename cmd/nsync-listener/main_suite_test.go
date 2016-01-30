@@ -100,7 +100,7 @@ var _ = BeforeEach(func() {
 	etcdRunner.Start()
 	consulRunner.Start()
 	consulRunner.WaitUntilReady()
-	consulClient = consulRunner.NewConsulClient()
+	consulClient = consulRunner.NewClient()
 
 	bbsRunner = bbstestrunner.New(bbsPath, bbsArgs)
 	bbsProcess = ginkgomon.Invoke(bbsRunner)
