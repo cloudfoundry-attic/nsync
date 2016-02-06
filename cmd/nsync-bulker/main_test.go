@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"time"
@@ -193,6 +194,30 @@ var _ = Describe("Syncing desired state with CC", func() {
 				w.Write(payload)
 			}),
 		)
+
+		fakeCC.RouteToHandler("GET", "/internal/v3/bulk/task_states",
+			ghttp.RespondWith(200, `{
+					"token": {},
+					"task_states": [
+						{
+							"task_guid": "task-guid-1",
+							"state": "RUNNING",
+							"completion_callback": "`+fmt.Sprintf("%s/internal/v3/tasks/task-guid-1/completed", fakeCC.URL())+`"
+						}
+					]
+				}`),
+		)
+
+		fakeCC.RouteToHandler("POST", "/internal/v3/tasks/task-guid-1/completed",
+			ghttp.CombineHandlers(
+				ghttp.VerifyJSON(`{
+					"task_guid": "task-guid-1",
+					"failed": true,
+					"failure_reason": "Unable to determine completion status"
+				}`),
+				ghttp.RespondWith(200, `{}`),
+			),
+		)
 	})
 
 	AfterEach(func() {
@@ -200,7 +225,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 	})
 
 	Describe("when the CC polling interval elapses", func() {
-		var desired1, desired2 *models.DesiredLRP
+		var (
+			desired1, desired2 *models.DesiredLRP
+		)
+
 		BeforeEach(func() {
 			var existing1 cc_messages.DesireAppRequestFromCC
 			var existing2 cc_messages.DesireAppRequestFromCC
@@ -542,6 +570,19 @@ var _ = Describe("Syncing desired state with CC", func() {
 					LegacyDownloadUser:           "vcap",
 					TrustedSystemCertificatesPath: "/etc/cf-system-certificates",
 				}))
+			})
+
+			It("completes tasks that are completed on bbs but not on cc", func() {
+				var request *http.Request
+				Eventually(func() *http.Request {
+					for _, r := range fakeCC.ReceivedRequests() {
+						if r.URL.Path == "/internal/v3/tasks/task-guid-1/completed" {
+							request = r
+							return r
+						}
+					}
+					return nil
+				}).ShouldNot(BeNil())
 			})
 
 			Describe("domains", func() {

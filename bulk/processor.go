@@ -30,10 +30,12 @@ const (
 
 type Processor struct {
 	bbsClient             bbs.Client
+	taskClient            TaskClient
 	pollingInterval       time.Duration
 	domainTTL             time.Duration
 	bulkBatchSize         uint
 	updateLRPWorkPoolSize int
+	failTaskPoolSize      int
 	skipCertVerify        bool
 	logger                lager.Logger
 	fetcher               Fetcher
@@ -42,23 +44,27 @@ type Processor struct {
 }
 
 func NewProcessor(
+	logger lager.Logger,
 	bbsClient bbs.Client,
+	taskClient TaskClient,
 	pollingInterval time.Duration,
 	domainTTL time.Duration,
 	bulkBatchSize uint,
 	updateLRPWorkPoolSize int,
+	failTaskPoolSize int,
 	skipCertVerify bool,
-	logger lager.Logger,
 	fetcher Fetcher,
 	builders map[string]recipebuilder.RecipeBuilder,
 	clock clock.Clock,
 ) *Processor {
 	return &Processor{
 		bbsClient:             bbsClient,
+		taskClient:            taskClient,
 		pollingInterval:       pollingInterval,
 		domainTTL:             domainTTL,
 		bulkBatchSize:         bulkBatchSize,
 		updateLRPWorkPoolSize: updateLRPWorkPoolSize,
+		failTaskPoolSize:      failTaskPoolSize,
 		skipCertVerify:        skipCertVerify,
 		logger:                logger,
 		fetcher:               fetcher,
@@ -127,6 +133,11 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		return false
 	}
 
+	existingTasks, err := p.existingTasksMap()
+	if err != nil {
+		return false
+	}
+
 	existingSchedulingInfoMap := organizeSchedulingInfosByProcessGuid(existing)
 	differ := NewDiffer(existingSchedulingInfoMap)
 
@@ -162,10 +173,19 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 
 	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap, &invalidsFound)
 
+	taskStates, taskStateErrors := p.fetcher.FetchTaskStates(
+		logger,
+		cancel,
+		httpClient,
+	)
+
+	failTaskErrors := p.failMismatchedTasks(logger, cancel, taskStates, existingTasks, httpClient)
+
 	bumpFreshness := true
 	success := true
 
 	fingerprintErrors, fingerprintErrorCount := countErrors(fingerprintErrors)
+	taskStateErrors, taskStateErrorCount := countErrors(taskStateErrors)
 
 	errors := mergeErrors(
 		fingerprintErrors,
@@ -174,6 +194,8 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		staleAppErrors,
 		createErrors,
 		updateErrors,
+		taskStateErrors,
+		failTaskErrors,
 	)
 
 	logger.Info("processing-updates-and-creates")
@@ -198,6 +220,11 @@ process_loop:
 
 	if <-fingerprintErrorCount != 0 {
 		logger.Error("failed-to-fetch-all-cc-fingerprints", nil)
+		success = false
+	}
+
+	if <-taskStateErrorCount != 0 {
+		logger.Error("failed-to-fetch-all-cc-task-states", nil)
 		success = false
 	}
 
@@ -412,6 +439,21 @@ func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLR
 	return existing, nil
 }
 
+func (p *Processor) existingTasksMap() (map[string]struct{}, error) {
+	existingTasks, err := p.bbsClient.Tasks()
+	if err != nil {
+		return nil, err
+	}
+
+	existingTasksMap := make(map[string]struct{}, len(existingTasks))
+
+	for _, existingTask := range existingTasks {
+		existingTasksMap[existingTask.TaskGuid] = struct{}{}
+	}
+
+	return existingTasksMap, nil
+}
+
 func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
 	logger = logger.Session("delete-excess")
 
@@ -426,6 +468,70 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 		}
 	}
 	logger.Info("succeeded-processing-batch", lager.Data{"num-deleted": len(deletedGuids), "deleted-guids": deletedGuids})
+}
+
+func (p *Processor) failMismatchedTasks(
+	logger lager.Logger,
+	cancel <-chan struct{},
+	taskStatesCh <-chan []cc_messages.CCTaskState,
+	existingTasks map[string]struct{},
+	httpClient *http.Client,
+) <-chan error {
+	logger = logger.Session("fail-mismatched-tasks")
+
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(errc)
+
+		for {
+			var taskStates []cc_messages.CCTaskState
+
+			select {
+			case <-cancel:
+				return
+
+			case selected, open := <-taskStatesCh:
+				if !open {
+					return
+				}
+
+				taskStates = selected
+			}
+
+			works := make([]func(), len(taskStates))
+
+			for i, taskState := range taskStates {
+				taskState := taskState
+
+				works[i] = func() {
+					taskGuid := taskState.TaskGuid
+					_, exists := existingTasks[taskGuid]
+					if !exists && taskState.State == cc_messages.TaskStateRunning {
+						err := p.taskClient.FailTask(logger, &taskState, httpClient)
+						if err != nil {
+							logger.Error("failed-failing-mismatched-task", err)
+							errc <- err
+						} else {
+							logger.Debug("succeeded-failing-mismatched-task", lager.Data{"task_guid": taskGuid})
+						}
+					}
+				}
+			}
+
+			throttler, err := workpool.NewThrottler(p.failTaskPoolSize, works)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			logger.Info("processing-batch", lager.Data{"size": len(taskStates)})
+			throttler.Work()
+			logger.Info("done-processing-batch", lager.Data{"size": len(taskStates)})
+		}
+	}()
+
+	return errc
 }
 
 func countErrors(source <-chan error) (<-chan error, <-chan int) {

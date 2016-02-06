@@ -22,6 +22,17 @@ type FakeFetcher struct {
 		result1 <-chan []cc_messages.CCDesiredAppFingerprint
 		result2 <-chan error
 	}
+	FetchTaskStatesStub        func(logger lager.Logger, cancel <-chan struct{}, httpClient *http.Client) (<-chan []cc_messages.CCTaskState, <-chan error)
+	fetchTaskStatesMutex       sync.RWMutex
+	fetchTaskStatesArgsForCall []struct {
+		logger     lager.Logger
+		cancel     <-chan struct{}
+		httpClient *http.Client
+	}
+	fetchTaskStatesReturns struct {
+		result1 <-chan []cc_messages.CCTaskState
+		result2 <-chan error
+	}
 	FetchDesiredAppsStub        func(logger lager.Logger, cancel <-chan struct{}, httpClient *http.Client, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) (<-chan []cc_messages.DesireAppRequestFromCC, <-chan error)
 	fetchDesiredAppsMutex       sync.RWMutex
 	fetchDesiredAppsArgsForCall []struct {
@@ -67,6 +78,41 @@ func (fake *FakeFetcher) FetchFingerprintsReturns(result1 <-chan []cc_messages.C
 	fake.FetchFingerprintsStub = nil
 	fake.fetchFingerprintsReturns = struct {
 		result1 <-chan []cc_messages.CCDesiredAppFingerprint
+		result2 <-chan error
+	}{result1, result2}
+}
+
+func (fake *FakeFetcher) FetchTaskStates(logger lager.Logger, cancel <-chan struct{}, httpClient *http.Client) (<-chan []cc_messages.CCTaskState, <-chan error) {
+	fake.fetchTaskStatesMutex.Lock()
+	fake.fetchTaskStatesArgsForCall = append(fake.fetchTaskStatesArgsForCall, struct {
+		logger     lager.Logger
+		cancel     <-chan struct{}
+		httpClient *http.Client
+	}{logger, cancel, httpClient})
+	fake.fetchTaskStatesMutex.Unlock()
+	if fake.FetchTaskStatesStub != nil {
+		return fake.FetchTaskStatesStub(logger, cancel, httpClient)
+	} else {
+		return fake.fetchTaskStatesReturns.result1, fake.fetchTaskStatesReturns.result2
+	}
+}
+
+func (fake *FakeFetcher) FetchTaskStatesCallCount() int {
+	fake.fetchTaskStatesMutex.RLock()
+	defer fake.fetchTaskStatesMutex.RUnlock()
+	return len(fake.fetchTaskStatesArgsForCall)
+}
+
+func (fake *FakeFetcher) FetchTaskStatesArgsForCall(i int) (lager.Logger, <-chan struct{}, *http.Client) {
+	fake.fetchTaskStatesMutex.RLock()
+	defer fake.fetchTaskStatesMutex.RUnlock()
+	return fake.fetchTaskStatesArgsForCall[i].logger, fake.fetchTaskStatesArgsForCall[i].cancel, fake.fetchTaskStatesArgsForCall[i].httpClient
+}
+
+func (fake *FakeFetcher) FetchTaskStatesReturns(result1 <-chan []cc_messages.CCTaskState, result2 <-chan error) {
+	fake.FetchTaskStatesStub = nil
+	fake.fetchTaskStatesReturns = struct {
+		result1 <-chan []cc_messages.CCTaskState
 		result2 <-chan error
 	}{result1, result2}
 }
