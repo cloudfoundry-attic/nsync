@@ -481,4 +481,195 @@ var _ = Describe("Fetcher", func() {
 			})
 		})
 	})
+
+	Describe("Fetching Task States", func() {
+		var resultsChan <-chan []cc_messages.CCTaskState
+		var errorsChan <-chan error
+
+		JustBeforeEach(func() {
+			resultsChan, errorsChan = fetcher.FetchTaskStates(logger, cancel, httpClient)
+		})
+
+		AfterEach(func() {
+			Eventually(resultsChan).Should(BeClosed())
+			Eventually(errorsChan).Should(BeClosed())
+		})
+
+		Context("when retrieving task states", func() {
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/internal/v3/bulk/task_states", "batch_size=2&token={}"),
+						ghttp.VerifyBasicAuth("the-username", "the-password"),
+						ghttp.RespondWith(200, `{
+						"token": {"id":"the-token-id"},
+						"task_states": [
+							{
+								"task_guid": "task-guid-1",
+								"state": "RUNNING"
+							},
+							{
+								"task_guid": "task-guid-2",
+								"state": "PENDING"
+							}
+						]
+					}`),
+					),
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/internal/v3/bulk/task_states", `batch_size=2&token={"id":"the-token-id"}`),
+						ghttp.VerifyBasicAuth("the-username", "the-password"),
+						ghttp.RespondWith(200, `{
+							"token": {"id":"another-token-id"},
+							"task_states": [
+								{
+									"task_guid": "task-guid-3",
+									"state": "COMPLETE"
+								}
+							]
+						}`),
+					),
+				)
+			})
+
+			It("retrieves task states of all tasks known by CC", func() {
+				Eventually(resultsChan).Should(Receive(ConsistOf(
+					cc_messages.CCTaskState{
+						TaskGuid: "task-guid-1",
+						State:    "RUNNING",
+					},
+					cc_messages.CCTaskState{
+						TaskGuid: "task-guid-2",
+						State:    "PENDING",
+					},
+				)))
+
+				Eventually(resultsChan).Should(Receive(ConsistOf(
+					cc_messages.CCTaskState{
+						TaskGuid: "task-guid-3",
+						State:    "COMPLETE",
+					})))
+
+				Eventually(resultsChan).Should(BeClosed())
+				Expect(fakeCC.ReceivedRequests()).To(HaveLen(2))
+			})
+		})
+
+		Context("when the response is missing a bulk token", func() {
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/internal/v3/bulk/task_states", "batch_size=2&token={}"),
+						ghttp.VerifyBasicAuth("the-username", "the-password"),
+						ghttp.RespondWith(200, `{
+							"task_states": [
+								{
+									"task_guid": "task-guid-1",
+									"state": "RUNNING"
+								},
+								{
+									"task_guid": "task-guid-2",
+									"state": "PENDING"
+								}
+							]
+						}`),
+					),
+				)
+			})
+
+			It("sends an error on the error channel", func() {
+				Eventually(resultsChan).Should(Receive())
+				Eventually(errorsChan).Should(Receive(MatchError("token not included in response")))
+			})
+
+			It("rerturns the fingerprints that were retrieved", func() {
+				Eventually(resultsChan).Should(Receive(ConsistOf(
+					cc_messages.CCTaskState{
+						TaskGuid: "task-guid-1",
+						State:    "RUNNING",
+					},
+					cc_messages.CCTaskState{
+						TaskGuid: "task-guid-2",
+						State:    "PENDING",
+					},
+				)))
+			})
+		})
+
+		Context("when the API times out", func() {
+			ccResponseTime := 100 * time.Millisecond
+
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(func(w http.ResponseWriter, req *http.Request) {
+					time.Sleep(ccResponseTime)
+
+					w.Write([]byte(`{
+						"token": {"id":"another-token-id"},
+						"task_states": [
+							{
+								"task_guid": "task-guid-1",
+								"state": "RUNNING"
+							},
+							{
+								"task_guid": "task-guid-2",
+								"state": "PENDING"
+							}
+						]
+					}`))
+				})
+
+				httpClient = &http.Client{Timeout: ccResponseTime / 2}
+			})
+
+			It("sends an error on the error channel", func() {
+				Eventually(errorsChan).Should(Receive(BeAssignableToTypeOf(&url.Error{})))
+			})
+		})
+
+		Context("when the API returns an error response", func() {
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(ghttp.RespondWith(403, ""))
+			})
+
+			It("sends an error on the error channel", func() {
+				Eventually(errorsChan).Should(Receive(HaveOccurred()))
+			})
+		})
+
+		Context("when the server responds with invalid JSON", func() {
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(ghttp.RespondWith(200, "{"))
+			})
+
+			It("sends an error on the error channel", func() {
+				Eventually(errorsChan).Should(Receive(HaveOccurred()))
+			})
+		})
+
+		Describe("cancelling", func() {
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/internal/v3/bulk/task_states", "batch_size=2&token={}"),
+						ghttp.RespondWith(200, `{
+							"token": {"id":"another-token-id"},
+							"task_states": [
+								{
+									"task_guid": "task-guid-3",
+									"state": "COMPLETE"
+								}
+							]
+						}`),
+					),
+				)
+			})
+
+			Context("when waiting to send task states", func() {
+				It("exits when cancelled", func() {
+					close(cancel)
+					Eventually(resultsChan).Should(BeClosed())
+					Eventually(errorsChan).Should(BeClosed())
+				})
+			})
+		})
+	})
 })

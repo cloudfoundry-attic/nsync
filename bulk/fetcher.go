@@ -12,12 +12,19 @@ import (
 )
 
 //go:generate counterfeiter -o fakes/fake_fetcher.go . Fetcher
+
 type Fetcher interface {
 	FetchFingerprints(
 		logger lager.Logger,
 		cancel <-chan struct{},
 		httpClient *http.Client,
 	) (<-chan []cc_messages.CCDesiredAppFingerprint, <-chan error)
+
+	FetchTaskStates(
+		logger lager.Logger,
+		cancel <-chan struct{},
+		httpClient *http.Client,
+	) (<-chan []cc_messages.CCTaskState, <-chan error)
 
 	FetchDesiredApps(
 		logger lager.Logger,
@@ -161,6 +168,61 @@ func (fetcher *CCFetcher) FetchDesiredApps(
 	return results, errc
 }
 
+func (fetcher *CCFetcher) FetchTaskStates(
+	logger lager.Logger,
+	cancel <-chan struct{},
+	httpClient *http.Client,
+) (<-chan []cc_messages.CCTaskState, <-chan error) {
+	results := make(chan []cc_messages.CCTaskState)
+	errc := make(chan error, 1)
+
+	logger = logger.Session("fetch-task-states-from-cc")
+
+	go func() {
+		defer close(results)
+		defer close(errc)
+		defer logger.Info("done-fetching-task-states")
+
+		token := initialBulkToken
+		for {
+			logger.Info("fetching-task-states")
+
+			req, err := http.NewRequest("GET", fetcher.taskStatesURL(token), nil)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			response := cc_messages.CCTaskStatesResponse{}
+
+			err = fetcher.doRequest(logger, httpClient, req, &response)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			select {
+			case results <- response.TaskStates:
+			case <-cancel:
+				return
+			}
+
+			if len(response.TaskStates) < fetcher.BatchSize {
+				return
+			}
+
+			if response.CCBulkToken == nil {
+				errc <- errors.New("token not included in response")
+				return
+			}
+
+			token = string(*response.CCBulkToken)
+		}
+	}()
+
+	return results, errc
+}
+
 func (fetcher *CCFetcher) doRequest(
 	logger lager.Logger,
 	httpClient *http.Client,
@@ -200,4 +262,8 @@ func (fetcher *CCFetcher) fingerprintURL(bulkToken string) string {
 
 func (fetcher *CCFetcher) desiredURL() string {
 	return fmt.Sprintf("%s/internal/bulk/apps", fetcher.BaseURI)
+}
+
+func (fetcher *CCFetcher) taskStatesURL(bulkToken string) string {
+	return fmt.Sprintf("%s/internal/v3/bulk/task_states?batch_size=%d&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
 }

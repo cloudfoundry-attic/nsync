@@ -148,6 +148,12 @@ var updateLRPWorkers = flag.Int(
 	"Max concurrency for updating/creating lrps",
 )
 
+var failTaskPoolSize = flag.Int(
+	"failTaskPoolSize",
+	50,
+	"Max concurrency for failing mismatched tasks",
+)
+
 const (
 	dropsondeOrigin = "nsync_bulker"
 )
@@ -183,13 +189,15 @@ func main() {
 	}
 
 	runner := bulk.NewProcessor(
+		logger,
 		initializeBBSClient(logger),
+		&bulk.CCTaskClient{},
 		*pollingInterval,
 		*domainTTL,
 		*bulkBatchSize,
 		*updateLRPWorkers,
+		*failTaskPoolSize,
 		*skipCertVerify,
-		logger,
 		&bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,
 			BatchSize: int(*bulkBatchSize),
