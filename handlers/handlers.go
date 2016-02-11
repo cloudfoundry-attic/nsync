@@ -15,12 +15,14 @@ func New(logger lager.Logger, bbsClient bbs.Client, recipebuilders map[string]re
 	stopAppHandler := NewStopAppHandler(logger, bbsClient)
 	killIndexHandler := NewKillIndexHandler(logger, bbsClient)
 	taskHandler := NewTaskHandler(logger, bbsClient, recipebuilders)
+	cancelTaskHandler := NewCancelTaskHandler(logger, bbsClient)
 
 	actions := rata.Handlers{
-		nsync.DesireAppRoute: http.HandlerFunc(desireAppHandler.DesireApp),
-		nsync.StopAppRoute:   http.HandlerFunc(stopAppHandler.StopApp),
-		nsync.KillIndexRoute: http.HandlerFunc(killIndexHandler.KillIndex),
-		nsync.TasksRoute:     http.HandlerFunc(taskHandler.DesireTask),
+		nsync.DesireAppRoute:  http.HandlerFunc(desireAppHandler.DesireApp),
+		nsync.StopAppRoute:    http.HandlerFunc(stopAppHandler.StopApp),
+		nsync.KillIndexRoute:  http.HandlerFunc(killIndexHandler.KillIndex),
+		nsync.TasksRoute:      http.HandlerFunc(taskHandler.DesireTask),
+		nsync.CancelTaskRoute: http.HandlerFunc(cancelTaskHandler.CancelTask),
 	}
 
 	handler, err := rata.NewRouter(nsync.Routes, actions)
