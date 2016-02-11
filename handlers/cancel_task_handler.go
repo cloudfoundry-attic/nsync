@@ -32,7 +32,7 @@ func (h *CancelTaskHandler) CancelTask(resp http.ResponseWriter, req *http.Reque
 	logger.Info("serving")
 	defer logger.Info("complete")
 
-	taskGuid := req.Form.Get("task_guid")
+	taskGuid := req.FormValue(":task_guid")
 
 	logger.Info("canceling-task", lager.Data{"task-guid": taskGuid})
 	err := h.bbsClient.CancelTask(taskGuid)
