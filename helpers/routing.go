@@ -40,14 +40,6 @@ func CCRouteInfoToRoutes(ccRoutes cc_messages.CCRouteInfo, ports []uint32) (mode
 		routes[tcp_routes.TCP_ROUTER] = tcpRoutingInfo[tcp_routes.TCP_ROUTER]
 	}
 
-	if len(routes) == 0 {
-		cfRoutes := cfroutes.CFRoutes{
-			{Hostnames: []string{}, Port: defaultPort},
-		}
-		httpRoutingInfo := cfRoutes.RoutingInfo()
-		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
-	}
-
 	return routes, nil
 }
 

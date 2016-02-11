@@ -106,25 +106,16 @@ var _ = Describe("Routing Helpers", func() {
 			})
 
 			Context("when http routes do not contain any routes", func() {
-				It("returns an empty struct", func() {
-
-					message := json.RawMessage([]byte("[]"))
-					routeInfo := map[string]*json.RawMessage{
-						cc_messages.CC_HTTP_ROUTES: &message,
-					}
-
-					routes, err := helpers.CCRouteInfoToRoutes(routeInfo, []uint32{8080})
+				It("returns an empty route list", func() {
+					routeInfo := map[string]*json.RawMessage{}
+					routes, err := helpers.CCRouteInfoToRoutes(routeInfo, []uint32{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(routes).To(HaveLen(1))
-					expectedCfRoutes := cfroutes.CFRoutes{
-						cfroutes.CFRoute{Hostnames: []string{}, Port: 8080},
-					}
-					test_helpers.VerifyHttpRoutes(routes, expectedCfRoutes)
+					Expect(routes).To(HaveLen(0))
 				})
 			})
 
 			Context("when does not contain a known route type", func() {
-				It("returns an empty struct", func() {
+				It("returns an empty route list", func() {
 
 					message := json.RawMessage([]byte("some random bytes"))
 					routeInfo := map[string]*json.RawMessage{
@@ -133,11 +124,7 @@ var _ = Describe("Routing Helpers", func() {
 
 					routes, err := helpers.CCRouteInfoToRoutes(routeInfo, []uint32{8080})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(routes).To(HaveLen(1))
-					expectedCfRoutes := cfroutes.CFRoutes{
-						cfroutes.CFRoute{Hostnames: []string{}, Port: 8080},
-					}
-					test_helpers.VerifyHttpRoutes(routes, expectedCfRoutes)
+					Expect(routes).To(HaveLen(0))
 				})
 			})
 		})
