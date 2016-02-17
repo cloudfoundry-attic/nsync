@@ -210,6 +210,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 				}))
 
 				Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
+
+				Expect(desiredLRP.TrustedSystemCertificatePath).To(Equal(recipebuilder.TRUSTED_SYSTEM_CERTIFICATE_PATH))
 			})
 
 			Context("when route service url is specified in RoutingInfo", func() {
@@ -864,6 +866,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			Expect(taskDefinition.Action).To(BeEquivalentTo(expectedAction))
+
+			Expect(taskDefinition.TrustedSystemCertificatePath).To(Equal(recipebuilder.TRUSTED_SYSTEM_CERTIFICATE_PATH))
 		})
 
 		Context("when the docker path is not specified", func() {
