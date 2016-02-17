@@ -89,10 +89,9 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 			downloadAction,
 			runAction,
 		)),
-		CachedDependencies:           cachedDependencies,
-		EgressRules:                  task.EgressRules,
-		LegacyDownloadUser:           "vcap",
-		TrustedSystemCertificatePath: TRUSTED_SYSTEM_CERTIFICATE_PATH,
+		CachedDependencies: cachedDependencies,
+		EgressRules:        task.EgressRules,
+		LegacyDownloadUser: "vcap",
 	}
 
 	return taskDefinition, nil
@@ -266,8 +265,6 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		EgressRules:        desiredApp.EgressRules,
 		LegacyDownloadUser: "vcap",
-
-		TrustedSystemCertificatePath: TRUSTED_SYSTEM_CERTIFICATE_PATH,
 	}, nil
 }
 
