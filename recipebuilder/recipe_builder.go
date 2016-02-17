@@ -26,6 +26,8 @@ const (
 	DefaultSSHPort = uint32(2222)
 
 	DefaultLANG = "en_US.UTF-8"
+
+	TRUSTED_SYSTEM_CERTIFICATE_PATH = "/etc/cf-system-certificates"
 )
 
 var (
