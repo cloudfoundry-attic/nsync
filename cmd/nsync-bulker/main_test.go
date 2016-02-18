@@ -407,7 +407,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Privileged:                   true,
 					Annotation:                   "1.1",
 					LegacyDownloadUser:           "vcap",
-					TrustedSystemCertificatePath: "/etc/cf-system-certificates",
+					TrustedSystemCertificatesPath: "/etc/cf-system-certificates",
 				}))
 
 				nofile = 16
@@ -472,7 +472,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Privileged:                   true,
 					Annotation:                   "2.1",
 					LegacyDownloadUser:           "vcap",
-					TrustedSystemCertificatePath: "/etc/cf-system-certificates",
+					TrustedSystemCertificatesPath: "/etc/cf-system-certificates",
 				}))
 
 				nofile = 8
@@ -533,7 +533,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Privileged:                   true,
 					Annotation:                   "3.1",
 					LegacyDownloadUser:           "vcap",
-					TrustedSystemCertificatePath: "/etc/cf-system-certificates",
+					TrustedSystemCertificatesPath: "/etc/cf-system-certificates",
 				}))
 			})
 

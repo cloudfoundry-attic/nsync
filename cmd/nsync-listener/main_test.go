@@ -187,7 +187,7 @@ var _ = Describe("Nsync Listener", func() {
 				Privileged:                   true,
 				Annotation:                   "2.1",
 				LegacyDownloadUser:           "vcap",
-				TrustedSystemCertificatePath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATE_PATH,
+				TrustedSystemCertificatesPath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH,
 			}))
 		})
 	})
@@ -320,7 +320,7 @@ var _ = Describe("Nsync Listener", func() {
 				CachedDependencies:           expectedCachedDependencies,
 				Action:                       models.WrapAction(expectedActions),
 				LegacyDownloadUser:           "vcap",
-				TrustedSystemCertificatePath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATE_PATH,
+				TrustedSystemCertificatesPath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH,
 			}))
 		})
 	})

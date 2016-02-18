@@ -27,7 +27,7 @@ const (
 
 	DefaultLANG = "en_US.UTF-8"
 
-	TRUSTED_SYSTEM_CERTIFICATE_PATH = "/etc/cf-system-certificates"
+	TRUSTED_SYSTEM_CERTIFICATES_PATH = "/etc/cf-system-certificates"
 )
 
 var (
