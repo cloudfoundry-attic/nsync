@@ -107,11 +107,11 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 func (h *DesireAppHandler) getDesiredLRP(logger lager.Logger, processGuid string) (*models.DesiredLRP, error) {
 	logger.Debug("fetching-desired-lrp")
 	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(processGuid)
+	logger.Debug("fetched-desired-lrp")
 	if err == nil {
-		logger.Error("failed-fetching-desired-lrp", err)
+		logger.Debug("desired-lrp-already-present")
 		return lrp, nil
 	}
-	logger.Debug("fetched-desired-lrp")
 
 	bbsError := models.ConvertError(err)
 	if bbsError.Type == models.Error_ResourceNotFound {

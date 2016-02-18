@@ -474,7 +474,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				}))
 
 				nofile = 8
-				emptyRouteMessage := json.RawMessage([]byte(`[{"hostnames":[],"port":8080}]`))
+				emptyRouteMessage := json.RawMessage([]byte(`[]`))
 				emptyRoutes := &models.Routes{
 					cfroutes.CF_ROUTER: &emptyRouteMessage,
 				}
