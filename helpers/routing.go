@@ -40,6 +40,12 @@ func CCRouteInfoToRoutes(ccRoutes cc_messages.CCRouteInfo, ports []uint32) (mode
 		routes[tcp_routes.TCP_ROUTER] = tcpRoutingInfo[tcp_routes.TCP_ROUTER]
 	}
 
+	if len(routes) == 0 {
+		cfRoutes := cfroutes.CFRoutes{}
+		httpRoutingInfo := cfRoutes.RoutingInfo()
+		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
+	}
+
 	return routes, nil
 }
 
@@ -71,10 +77,6 @@ func constructHttpRoutes(ccRoutes cc_messages.CCRouteInfo, defaultPort uint32) (
 	err := json.Unmarshal(*ccRoutes[cc_messages.CC_HTTP_ROUTES], &httpRoutes)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(httpRoutes) == 0 {
-		cfRoutes = append(cfRoutes, cfroutes.CFRoute{Hostnames: []string{}, Port: defaultPort})
 	}
 
 	for _, httpRoute := range httpRoutes {
