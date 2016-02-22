@@ -91,6 +91,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		Action:                action,
 		RootFs:                rootFSPath,
 		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		LogSource:                     task.LogSource,
 	}
 
 	return taskDefinition, nil

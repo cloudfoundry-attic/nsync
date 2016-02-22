@@ -180,13 +180,13 @@ var _ = Describe("Nsync Listener", func() {
 				Ports: []uint32{
 					8080, 5222,
 				},
-				Routes:                       newRoutes,
-				LogGuid:                      "the-log-guid",
-				LogSource:                    recipebuilder.LRPLogSource,
-				MetricsGuid:                  "the-log-guid",
-				Privileged:                   true,
-				Annotation:                   "2.1",
-				LegacyDownloadUser:           "vcap",
+				Routes:                        newRoutes,
+				LogGuid:                       "the-log-guid",
+				LogSource:                     recipebuilder.LRPLogSource,
+				MetricsGuid:                   "the-log-guid",
+				Privileged:                    true,
+				Annotation:                    "2.1",
+				LegacyDownloadUser:            "vcap",
 				TrustedSystemCertificatesPath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH,
 			}))
 		})
@@ -265,7 +265,8 @@ var _ = Describe("Nsync Listener", func() {
 			"rootfs": "some-stack",
 			"log_guid": "the-log-guid",
 			"completion_callback": "http://google.com",
-			"lifecycle": "buildpack"
+			"lifecycle": "buildpack",
+			"log_source": "App/TASK/my-task"
 	}`))
 
 			Expect(err).NotTo(HaveOccurred())
@@ -310,17 +311,18 @@ var _ = Describe("Nsync Listener", func() {
 			)
 
 			Expect(task.TaskDefinition).To(BeEquivalentTo(&models.TaskDefinition{
-				Privileged:                   true,
-				LogGuid:                      "the-log-guid",
-				MemoryMb:                     128,
-				DiskMb:                       512,
-				CpuWeight:                    1,
-				RootFs:                       models.PreloadedRootFS("some-stack"),
-				CompletionCallbackUrl:        "http://google.com",
-				CachedDependencies:           expectedCachedDependencies,
-				Action:                       models.WrapAction(expectedActions),
-				LegacyDownloadUser:           "vcap",
+				Privileged:                    true,
+				LogGuid:                       "the-log-guid",
+				MemoryMb:                      128,
+				DiskMb:                        512,
+				CpuWeight:                     1,
+				RootFs:                        models.PreloadedRootFS("some-stack"),
+				CompletionCallbackUrl:         "http://google.com",
+				CachedDependencies:            expectedCachedDependencies,
+				Action:                        models.WrapAction(expectedActions),
+				LegacyDownloadUser:            "vcap",
 				TrustedSystemCertificatesPath: recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH,
+				LogSource:                     "App/TASK/my-task",
 			}))
 		})
 	})

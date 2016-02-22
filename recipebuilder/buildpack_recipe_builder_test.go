@@ -601,6 +601,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				CompletionCallbackUrl: "http://api.cc.com/v1/tasks/complete",
 				Command:               "the-start-command",
 				EgressRules:           egressRules,
+				LogSource:             "App/TASK/my-task",
 			}
 		})
 
@@ -651,6 +652,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.Privileged).To(BeTrue())
 			Expect(taskDefinition.EgressRules).To(ConsistOf(egressRules))
 			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH))
+			Expect(taskDefinition.LogSource).To(Equal("App/TASK/my-task"))
 
 			expectedAction := models.Serial(&models.DownloadAction{
 				From:     newTaskReq.DropletUri,
