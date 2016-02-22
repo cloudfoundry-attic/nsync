@@ -15,6 +15,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/helpers"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry/gunk/workpool"
@@ -361,7 +362,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					updateReq.Routes = &routes
 
 					for k, v := range existingSchedulingInfo.Routes {
-						if k != cfroutes.CF_ROUTER {
+						if k != cfroutes.CF_ROUTER && k != tcp_routes.TCP_ROUTER {
 							(*updateReq.Routes)[k] = v
 						}
 					}
