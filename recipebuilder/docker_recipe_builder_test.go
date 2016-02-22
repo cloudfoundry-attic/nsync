@@ -12,6 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/nsync/test_helpers"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -51,9 +52,10 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 	Context("Build", func() {
 		var (
-			err           error
-			desiredAppReq cc_messages.DesireAppRequestFromCC
-			desiredLRP    *models.DesiredLRP
+			err            error
+			desiredAppReq  cc_messages.DesireAppRequestFromCC
+			desiredLRP     *models.DesiredLRP
+			expectedRoutes models.Routes
 		)
 
 		BeforeEach(func() {
@@ -85,6 +87,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 				EgressRules: egressRules,
 
 				ETag: "etag-updated-at",
+			}
+
+			cfRoutes := json.RawMessage([]byte(`[{"hostnames":["route1","route2"],"port":8080}]`))
+			tcpRoutes := json.RawMessage([]byte("[]"))
+			expectedRoutes = models.Routes{
+				cfroutes.CF_ROUTER:    &cfRoutes,
+				tcp_routes.TCP_ROUTER: &tcpRoutes,
 			}
 		})
 
@@ -132,9 +141,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			It("builds a valid DesiredLRP", func() {
 				Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
 				Expect(desiredLRP.Instances).To(BeEquivalentTo(23))
-				Expect(*desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
-					{Hostnames: []string{"route1", "route2"}, Port: 8080},
-				}.RoutingInfo()))
+				Expect(desiredLRP.Routes).To(Equal(&expectedRoutes))
 
 				Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
 				Expect(desiredLRP.RootFs).To(Equal("docker:///user/repo#tag"))
@@ -396,11 +403,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					cfRouteMessage := json.RawMessage(cfRoutePayload)
+					tcpRouteMessage := json.RawMessage([]byte("[]"))
 					sshRouteMessage := json.RawMessage(sshRoutePayload)
 
 					Expect(desiredLRP.Routes).To(Equal(&models.Routes{
-						cfroutes.CF_ROUTER: &cfRouteMessage,
-						routes.DIEGO_SSH:   &sshRouteMessage,
+						cfroutes.CF_ROUTER:    &cfRouteMessage,
+						tcp_routes.TCP_ROUTER: &tcpRouteMessage,
+						routes.DIEGO_SSH:      &sshRouteMessage,
 					}))
 				})
 
@@ -456,9 +465,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				runAction := parallelRunAction.Actions[0].RunAction
 
-				Expect(*desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
-					{Hostnames: []string{"route1", "route2"}, Port: 8080},
-				}.RoutingInfo()))
+				Expect(desiredLRP.Routes).To(Equal(&expectedRoutes))
 
 				Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 

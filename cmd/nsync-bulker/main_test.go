@@ -125,7 +125,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 					"routing_info": {
 						"http_routes": [
 								{ "hostname": "route-3", "route_service_url":"https://rs.example.com"}
-							]
+							],
+						"tcp_routes": [
+							  {"router_group_guid": "guid-1", "external_port":5222, "container_port":60000}
+					 	  ]
 						},
 					"droplet_uri": "source-url-1",
 					"stack": "some-stack",
@@ -335,9 +338,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 					},
 				)
 
+				tcpRouteMessage := json.RawMessage([]byte("[]"))
 				routeMessage := json.RawMessage([]byte(`[{"hostnames":["route-1","route-2","new-route"],"port":8080}]`))
 				routes := &models.Routes{
-					cfroutes.CF_ROUTER: &routeMessage,
+					cfroutes.CF_ROUTER:    &routeMessage,
+					tcp_routes.TCP_ROUTER: &tcpRouteMessage,
 				}
 
 				desiredLRPsWithoutModificationTag := func() []*models.DesiredLRP {
@@ -477,8 +482,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				nofile = 8
 				emptyRouteMessage := json.RawMessage([]byte(`[]`))
+				emptyTCPRouteMessage := json.RawMessage([]byte(`[]`))
 				emptyRoutes := &models.Routes{
-					cfroutes.CF_ROUTER: &emptyRouteMessage,
+					cfroutes.CF_ROUTER:    &emptyRouteMessage,
+					tcp_routes.TCP_ROUTER: &emptyTCPRouteMessage,
 				}
 				Eventually(desiredLRPsWithoutModificationTag).Should(ContainElement(&models.DesiredLRP{
 					ProcessGuid:        "process-guid-3",

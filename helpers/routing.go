@@ -30,6 +30,10 @@ func CCRouteInfoToRoutes(ccRoutes cc_messages.CCRouteInfo, ports []uint32) (mode
 			return nil, err
 		}
 		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
+	} else {
+		cfRoutes := cfroutes.CFRoutes{}
+		httpRoutingInfo := cfRoutes.RoutingInfo()
+		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
 	}
 
 	if ccRoutes[cc_messages.CC_TCP_ROUTES] != nil {
@@ -38,12 +42,10 @@ func CCRouteInfoToRoutes(ccRoutes cc_messages.CCRouteInfo, ports []uint32) (mode
 			return nil, err
 		}
 		routes[tcp_routes.TCP_ROUTER] = tcpRoutingInfo[tcp_routes.TCP_ROUTER]
-	}
-
-	if len(routes) == 0 {
-		cfRoutes := cfroutes.CFRoutes{}
-		httpRoutingInfo := cfRoutes.RoutingInfo()
-		routes[cfroutes.CF_ROUTER] = httpRoutingInfo[cfroutes.CF_ROUTER]
+	} else {
+		tcpRoutes := tcp_routes.TCPRoutes{}
+		tcpRoutingInfo := tcpRoutes.RoutingInfo()
+		routes[tcp_routes.TCP_ROUTER] = (*tcpRoutingInfo)[tcp_routes.TCP_ROUTER]
 	}
 
 	return routes, nil

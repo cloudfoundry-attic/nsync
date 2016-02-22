@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/diego-ssh/routes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		egressRules    []*models.SecurityGroupRule
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
+		expectedRoutes models.Routes
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
@@ -79,6 +81,13 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 			ETag: "etag-updated-at",
 		}
+
+		cfRoutes := json.RawMessage([]byte(`[{"hostnames":["route1","route2"],"port":8080}]`))
+		tcpRoutes := json.RawMessage([]byte("[]"))
+		expectedRoutes = models.Routes{
+			cfroutes.CF_ROUTER:    &cfRoutes,
+			tcp_routes.TCP_ROUTER: &tcpRoutes,
+		}
 	})
 
 	Describe("Build", func() {
@@ -128,9 +137,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			It("builds a valid DesiredLRP", func() {
 				Expect(desiredLRP.ProcessGuid).To(Equal("the-app-guid-the-app-version"))
 				Expect(desiredLRP.Instances).To(BeEquivalentTo(23))
-				Expect(*desiredLRP.Routes).To(Equal(cfroutes.CFRoutes{
-					{Hostnames: []string{"route1", "route2"}, Port: 8080},
-				}.RoutingInfo()))
+				Expect(desiredLRP.Routes).To(Equal(&expectedRoutes))
 
 				Expect(desiredLRP.Annotation).To(Equal("etag-updated-at"))
 				Expect(desiredLRP.RootFs).To(Equal(models.PreloadedRootFS("some-stack")))
@@ -403,11 +410,13 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					cfRouteMessage := json.RawMessage(cfRoutePayload)
+					tcpRouteMessage := json.RawMessage([]byte("[]"))
 					sshRouteMessage := json.RawMessage(sshRoutePayload)
 
 					Expect(desiredLRP.Routes).To(Equal(&models.Routes{
-						cfroutes.CF_ROUTER: &cfRouteMessage,
-						routes.DIEGO_SSH:   &sshRouteMessage,
+						cfroutes.CF_ROUTER:    &cfRouteMessage,
+						tcp_routes.TCP_ROUTER: &tcpRouteMessage,
+						routes.DIEGO_SSH:      &sshRouteMessage,
 					}))
 				})
 

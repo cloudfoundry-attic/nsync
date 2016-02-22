@@ -13,6 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
+	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
@@ -62,6 +63,16 @@ var _ = Describe("Processor", func() {
 			{ProcessGuid: "docker-process-guid", ETag: "new-etag"},
 			{ProcessGuid: "new-process-guid", ETag: "new-etag"},
 		}
+		tcpRouteInfo := cc_messages.CCTCPRoutes{
+			{
+				RouterGroupGuid: "router-group-guid",
+				ExternalPort:    11111,
+				ContainerPort:   9999,
+			},
+		}
+		tcpRoutesJson, err := json.Marshal(tcpRouteInfo)
+		Expect(err).NotTo(HaveOccurred())
+		staleTcpRouteMessage := json.RawMessage(tcpRoutesJson)
 
 		staleRouteMessage := json.RawMessage([]byte(`{ "some-route-key": "some-route-value" }`))
 		existingSchedulingInfos = []*models.DesiredLRPSchedulingInfo{
@@ -72,7 +83,8 @@ var _ = Describe("Processor", func() {
 				DesiredLRPKey: models.NewDesiredLRPKey("stale-process-guid", "domain", "log-guid"),
 				Annotation:    "stale-etag",
 				Routes: models.Routes{
-					"router-route-data": &staleRouteMessage,
+					"router-route-data":   &staleRouteMessage,
+					tcp_routes.TCP_ROUTER: &staleTcpRouteMessage,
 				},
 			},
 			{
@@ -481,9 +493,12 @@ var _ = Describe("Processor", func() {
 				Expect(err).NotTo(HaveOccurred())
 				cfRouteMessage := json.RawMessage(cfRoutePayload)
 
+				tcpRouteMessage := json.RawMessage([]byte(`[]`))
+
 				expectedRoutingInfo = &models.Routes{
-					"router-route-data": &opaqueRouteMessage,
-					cfroutes.CF_ROUTER:  &cfRouteMessage,
+					"router-route-data":   &opaqueRouteMessage,
+					cfroutes.CF_ROUTER:    &cfRouteMessage,
+					tcp_routes.TCP_ROUTER: &tcpRouteMessage,
 				}
 
 				for i := 0; i < expectedClientCallCount; i++ {
