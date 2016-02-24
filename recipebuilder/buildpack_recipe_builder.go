@@ -92,7 +92,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		CachedDependencies:            cachedDependencies,
 		EgressRules:                   task.EgressRules,
 		LegacyDownloadUser:            "vcap",
-		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
 	}
 
@@ -268,7 +268,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		EgressRules:        desiredApp.EgressRules,
 		LegacyDownloadUser: "vcap",
 
-		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 	}, nil
 }
 

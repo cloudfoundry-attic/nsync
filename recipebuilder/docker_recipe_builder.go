@@ -90,7 +90,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		LegacyDownloadUser:    "vcap",
 		Action:                action,
 		RootFs:                rootFSPath,
-		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
 	}
 
@@ -274,7 +274,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		EgressRules:        desiredApp.EgressRules,
 		LegacyDownloadUser: user,
 
-		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 	}, nil
 }
 

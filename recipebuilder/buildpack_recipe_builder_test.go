@@ -225,7 +225,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
 
-				Expect(desiredLRP.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH))
+				Expect(desiredLRP.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 			})
 
 			Context("when route service url is specified in RoutingInfo", func() {
@@ -651,7 +651,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.CompletionCallbackUrl).To(Equal("http://api.cc.com/v1/tasks/complete"))
 			Expect(taskDefinition.Privileged).To(BeTrue())
 			Expect(taskDefinition.EgressRules).To(ConsistOf(egressRules))
-			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TRUSTED_SYSTEM_CERTIFICATES_PATH))
+			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 			Expect(taskDefinition.LogSource).To(Equal("App/TASK/my-task"))
 
 			expectedAction := models.Serial(&models.DownloadAction{
