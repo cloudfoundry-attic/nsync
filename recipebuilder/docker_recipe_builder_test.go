@@ -221,6 +221,27 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 			})
 
+			Context("when the 'none' health check is specified", func() {
+				BeforeEach(func() {
+					desiredAppReq.HealthCheckType = cc_messages.NoneHealthCheckType
+				})
+
+				It("does not populate the monitor action", func() {
+					Expect(desiredLRP.Monitor).To(BeNil())
+				})
+
+				It("still downloads the lifecycle, since we need it for the launcher", func() {
+					downloadDestinations := []string{}
+					for _, dep := range desiredLRP.CachedDependencies {
+						if dep != nil {
+							downloadDestinations = append(downloadDestinations, dep.To)
+						}
+					}
+
+					Expect(downloadDestinations).To(ContainElement("/tmp/lifecycle"))
+				})
+			})
+
 			Context("when route service url is specified in RoutingInfo", func() {
 				BeforeEach(func() {
 					routingInfo, err := cc_messages.CCHTTPRoutes{
@@ -361,13 +382,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 						},
 						&models.RunAction{
 							User: "root",
-							Path: "/tmp/lifecycle/diego-sshd",
+							Path: "/tmp/lifecycle/launcher",
 							Args: []string{
-								"-address=0.0.0.0:2222",
-								"-hostKey=pem-host-private-key",
-								"-authorizedKey=authorized-user-key",
-								"-inheritDaemonEnv",
-								"-logLevel=fatal",
+								"app",
+								"/tmp/lifecycle/diego-sshd -address=0.0.0.0:2222 -hostKey='pem-host-private-key' -authorizedKey='authorized-user-key' -inheritDaemonEnv -logLevel=fatal",
+								"{}",
 							},
 							Env: []*models.EnvironmentVariable{
 								{Name: "foo", Value: "bar"},
