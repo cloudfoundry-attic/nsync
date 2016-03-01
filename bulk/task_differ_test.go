@@ -73,6 +73,21 @@ var _ = Describe("TaskDiffer", func() {
 			})
 		})
 
+		Context("when bbs does not know about a canceling task", func() {
+			expectedTask := cc_messages.CCTaskState{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling, CompletionCallbackUrl: "asdf"}
+
+			BeforeEach(func() {
+				ccTasks <- []cc_messages.CCTaskState{expectedTask}
+				close(ccTasks)
+			})
+
+			It("includes it in TasksToFail", func() {
+				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+				Eventually(differ.TasksToFail()).Should(Receive(ConsistOf(expectedTask)))
+			})
+		})
+
 		Context("when bbs knows about a running task", func() {
 			BeforeEach(func() {
 				bbsTasks = map[string]*models.Task{"task-guid-1": {}}

@@ -41,7 +41,7 @@ func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTa
 
 			case batchCCTasks, open := <-ccTasks:
 				if !open {
-					guids := filterTasksToCancel(tasksToCancel)
+					guids := filterTasksToCancel(logger, tasksToCancel)
 					if len(guids) > 0 {
 						t.tasksToCancel <- guids
 					}
@@ -59,10 +59,10 @@ func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTa
 							delete(tasksToCancel, ccTask.TaskGuid)
 						}
 					} else {
-						if ccTask.State == cc_messages.TaskStateRunning {
+						if ccTask.State == cc_messages.TaskStateRunning || ccTask.State == cc_messages.TaskStateCanceling {
 							batchTasksToFail = append(batchTasksToFail, ccTask)
 
-							logger.Info("found-unkown-to-diego-task", lager.Data{
+							logger.Info("found-task-to-fail", lager.Data{
 								"guid": ccTask.TaskGuid,
 							})
 						}
@@ -93,13 +93,17 @@ func cloneBbsTasks(bbsTasks map[string]*models.Task) map[string]*models.Task {
 	return clone
 }
 
-func filterTasksToCancel(tasksToCancel map[string]*models.Task) []string {
+func filterTasksToCancel(logger lager.Logger, tasksToCancel map[string]*models.Task) []string {
 	guids := make([]string, 0, len(tasksToCancel))
 	for _, bbsTask := range tasksToCancel {
 		if bbsTask.State == models.Task_Completed || bbsTask.State == models.Task_Resolving {
 			continue
 		}
 		guids = append(guids, bbsTask.TaskGuid)
+
+		logger.Info("found-task-to-cancel", lager.Data{
+			"guid": bbsTask.TaskGuid,
+		})
 	}
 	return guids
 }
