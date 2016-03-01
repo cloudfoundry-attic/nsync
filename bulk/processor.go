@@ -36,6 +36,7 @@ type Processor struct {
 	bulkBatchSize         uint
 	updateLRPWorkPoolSize int
 	failTaskPoolSize      int
+	cancelTaskPoolSize    int
 	skipCertVerify        bool
 	logger                lager.Logger
 	fetcher               Fetcher
@@ -52,6 +53,7 @@ func NewProcessor(
 	bulkBatchSize uint,
 	updateLRPWorkPoolSize int,
 	failTaskPoolSize int,
+	cancelTaskPoolSize int,
 	skipCertVerify bool,
 	fetcher Fetcher,
 	builders map[string]recipebuilder.RecipeBuilder,
@@ -65,6 +67,7 @@ func NewProcessor(
 		bulkBatchSize:         bulkBatchSize,
 		updateLRPWorkPoolSize: updateLRPWorkPoolSize,
 		failTaskPoolSize:      failTaskPoolSize,
+		cancelTaskPoolSize:    cancelTaskPoolSize,
 		skipCertVerify:        skipCertVerify,
 		logger:                logger,
 		fetcher:               fetcher,
@@ -183,6 +186,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	taskDiffer.Diff(logger, taskStates, existingTasks, cancel)
 
 	failTaskErrors := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
+	cancelTaskErrors := p.cancelTasks(logger, taskDiffer.TasksToCancel())
 
 	bumpFreshness := true
 	success := true
@@ -199,6 +203,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		updateErrors,
 		taskStateErrors,
 		failTaskErrors,
+		cancelTaskErrors,
 	)
 
 	logger.Info("processing-updates-and-creates")
@@ -471,6 +476,55 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 		}
 	}
 	logger.Info("succeeded-processing-batch", lager.Data{"num-deleted": len(deletedGuids), "deleted-guids": deletedGuids})
+}
+
+func (p *Processor) cancelTasks(logger lager.Logger, tasksCh <-chan []string) <-chan error {
+	logger = logger.Session("cancel-mismatched-tasks")
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(errc)
+
+		for {
+			var tasksToCancel []string
+
+			select {
+			case selected, open := <-tasksCh:
+				if !open {
+					return
+				}
+
+				tasksToCancel = selected
+			}
+
+			works := make([]func(), len(tasksToCancel))
+
+			for i, taskGuid := range tasksToCancel {
+				taskGuid := taskGuid
+
+				works[i] = func() {
+					err := p.bbsClient.CancelTask(taskGuid)
+					if err != nil {
+						logger.Error("failed-canceling-mismatched-task", err)
+						errc <- err
+					} else {
+						logger.Debug("succeeded-canceling-mismatched-task", lager.Data{"task_guid": taskGuid})
+					}
+				}
+			}
+
+			throttler, err := workpool.NewThrottler(p.cancelTaskPoolSize, works)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			logger.Info("processing-batch", lager.Data{"size": len(tasksToCancel)})
+			throttler.Work()
+			logger.Info("done-processing-batch", lager.Data{"size": len(tasksToCancel)})
+		}
+	}()
+	return errc
 }
 
 func (p *Processor) failTasks(logger lager.Logger,

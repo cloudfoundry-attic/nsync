@@ -154,6 +154,12 @@ var failTaskPoolSize = flag.Int(
 	"Max concurrency for failing mismatched tasks",
 )
 
+var cancelTaskPoolSize = flag.Int(
+	"cancelTaskPoolSize",
+	50,
+	"Max concurrency for canceling mismatched tasks",
+)
+
 const (
 	dropsondeOrigin = "nsync_bulker"
 )
@@ -197,6 +203,7 @@ func main() {
 		*bulkBatchSize,
 		*updateLRPWorkers,
 		*failTaskPoolSize,
+		*cancelTaskPoolSize,
 		*skipCertVerify,
 		&bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,

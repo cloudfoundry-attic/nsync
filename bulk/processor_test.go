@@ -211,6 +211,7 @@ var _ = Describe("Processor", func() {
 			10,
 			50,
 			50,
+			50,
 			false,
 			fetcher,
 			map[string]recipebuilder.RecipeBuilder{
@@ -683,6 +684,62 @@ var _ = Describe("Processor", func() {
 
 				It("does not fail the task", func() {
 					Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
+				})
+			})
+
+			Context("when bbs has a running task cc does not know about", func() {
+				BeforeEach(func() {
+					taskStatesToFetch = []cc_messages.CCTaskState{}
+					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1", State: models.Task_Running}}, nil)
+				})
+
+				It("cancels the task", func() {
+					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
+				})
+			})
+
+			Context("when bbs has a running task cc wants to cancel", func() {
+				BeforeEach(func() {
+					taskStatesToFetch = []cc_messages.CCTaskState{
+						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling},
+					}
+					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1", State: models.Task_Running}}, nil)
+				})
+
+				It("cancels the task", func() {
+					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
+				})
+			})
+
+			Context("when canceling a task fails", func() {
+				BeforeEach(func() {
+					taskStatesToFetch = []cc_messages.CCTaskState{
+						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling},
+						{TaskGuid: "task-guid-2", State: cc_messages.TaskStateCanceling},
+					}
+					bbsClient.TasksByDomainReturns([]*models.Task{
+						{TaskGuid: "task-guid-1", State: models.Task_Running},
+						{TaskGuid: "task-guid-2", State: models.Task_Running},
+					}, nil)
+
+					count := 0
+					bbsClient.CancelTaskStub = func(guid string) error {
+						if count == 0 {
+							count++
+							return errors.New("oh no!")
+						}
+						return nil
+					}
+				})
+
+				It("does not update the domain", func() {
+					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
+				})
+
+				It("sends all the other updates", func() {
+					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(2))
+					Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 				})
 			})
 		})
