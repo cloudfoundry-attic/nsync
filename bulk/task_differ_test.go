@@ -1,6 +1,7 @@
 package bulk_test
 
 import (
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager/lagertest"
@@ -12,7 +13,7 @@ import (
 var _ = Describe("TaskDiffer", func() {
 
 	var (
-		bbsTasks map[string]struct{}
+		bbsTasks map[string]*models.Task
 		ccTasks  chan []cc_messages.CCTaskState
 		cancelCh chan struct{}
 		logger   *lagertest.TestLogger
@@ -26,64 +27,198 @@ var _ = Describe("TaskDiffer", func() {
 		ccTasks = make(chan []cc_messages.CCTaskState, 1)
 	})
 
-	Context("when bbs does not know about a running task", func() {
-		expectedTask := cc_messages.CCTaskState{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"}
+	Context("tasks found in cc but not diego", func() {
+		Context("when bbs does not know about a running task", func() {
+			expectedTask := cc_messages.CCTaskState{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"}
 
-		BeforeEach(func() {
-			ccTasks <- []cc_messages.CCTaskState{expectedTask}
-			close(ccTasks)
+			BeforeEach(func() {
+				ccTasks <- []cc_messages.CCTaskState{expectedTask}
+				close(ccTasks)
+			})
+
+			It("includes it in TasksToFail", func() {
+				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+				Eventually(differ.TasksToFail()).Should(Receive(ConsistOf(expectedTask)))
+			})
 		})
 
-		It("includes it in UnknownToDiego", func() {
-			differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+		Context("when bbs does not know about a pending task", func() {
+			BeforeEach(func() {
+				ccTasks <- []cc_messages.CCTaskState{
+					{TaskGuid: "task-guid-1", State: cc_messages.TaskStatePending},
+				}
+				close(ccTasks)
+			})
 
-			Eventually(differ.UnknownToDiego()).Should(Receive(ConsistOf(expectedTask)))
+			It("is not included in TasksToFail", func() {
+				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+				Consistently(differ.TasksToFail()).Should(Not(Receive()))
+			})
+		})
+
+		Context("when bbs does not know about a completed task", func() {
+			BeforeEach(func() {
+				ccTasks <- []cc_messages.CCTaskState{
+					{TaskGuid: "task-guid-1", State: cc_messages.TaskStateSucceeded},
+				}
+				close(ccTasks)
+			})
+
+			It("is not included in TasksToFail", func() {
+				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+				Consistently(differ.TasksToFail()).Should(Not(Receive()))
+			})
+		})
+
+		Context("when bbs knows about a running task", func() {
+			BeforeEach(func() {
+				bbsTasks = map[string]*models.Task{"task-guid-1": {}}
+				ccTasks <- []cc_messages.CCTaskState{
+					{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning},
+				}
+				close(ccTasks)
+			})
+
+			It("is not included in TasksToFail", func() {
+				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+				Consistently(differ.TasksToFail()).Should(Not(Receive()))
+			})
 		})
 	})
 
-	Context("when bbs does not know about a pending task", func() {
-		BeforeEach(func() {
-			ccTasks <- []cc_messages.CCTaskState{
-				{TaskGuid: "task-guid-1", State: cc_messages.TaskStatePending},
-			}
-			close(ccTasks)
+	Context("tasks unknown or canceling to cc but running in diego", func() {
+		Context("when cc does not know about a task", func() {
+			Context("it is running in diego", func() {
+				expectedTask := &models.Task{TaskGuid: "task-guid-1", State: models.Task_Running}
+
+				BeforeEach(func() {
+					bbsTasks = map[string]*models.Task{"task-guid-1": expectedTask}
+					close(ccTasks)
+				})
+
+				It("is included in TasksToCancel", func() {
+					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+					Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
+				})
+
+			})
+
+			Context("it is pending in diego", func() {
+				expectedTask := &models.Task{TaskGuid: "task-guid-1", State: models.Task_Pending}
+
+				BeforeEach(func() {
+					bbsTasks = map[string]*models.Task{"task-guid-1": expectedTask}
+					close(ccTasks)
+				})
+
+				It("is included in TasksToCancel", func() {
+					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+					Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
+				})
+			})
+
+			Context("it is completed in diego", func() {
+				BeforeEach(func() {
+					bbsTasks = map[string]*models.Task{"task-guid-1": {TaskGuid: "task-guid-1", State: models.Task_Completed}}
+					close(ccTasks)
+				})
+
+				It("is not included in TasksToCancel", func() {
+					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
+				})
+			})
+
+			Context("it is resolving in diego", func() {
+				BeforeEach(func() {
+					bbsTasks = map[string]*models.Task{"task-guid-1": {TaskGuid: "task-guid-1", State: models.Task_Resolving}}
+					close(ccTasks)
+				})
+
+				It("is not included in TasksToCancel", func() {
+					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
+				})
+			})
 		})
 
-		It("is not included in UnknownToDiego", func() {
-			differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+		Context("when cc knows about a task", func() {
+			Context("cc state is canceling", func() {
+				BeforeEach(func() {
+					ccTasks <- []cc_messages.CCTaskState{cc_messages.CCTaskState{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling, CompletionCallbackUrl: "asdf"}}
+					close(ccTasks)
+				})
 
-			Consistently(differ.UnknownToDiego()).Should(Not(Receive()))
-		})
-	})
+				Context("it is running in diego", func() {
+					BeforeEach(func() {
+						bbsTasks = map[string]*models.Task{"task-guid-1": &models.Task{TaskGuid: "task-guid-1", State: models.Task_Running}}
+					})
 
-	Context("when bbs does not know about a completed task", func() {
-		BeforeEach(func() {
-			ccTasks <- []cc_messages.CCTaskState{
-				{TaskGuid: "task-guid-1", State: cc_messages.TaskStateSucceeded},
-			}
-			close(ccTasks)
-		})
+					It("is included in TasksToCancel", func() {
+						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
-		It("is not included in UnknownToDiego", func() {
-			differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
+					})
+				})
 
-			Consistently(differ.UnknownToDiego()).Should(Not(Receive()))
-		})
-	})
+				Context("it is pending in diego", func() {
+					BeforeEach(func() {
+						bbsTasks = map[string]*models.Task{"task-guid-1": &models.Task{TaskGuid: "task-guid-1", State: models.Task_Pending}}
+					})
 
-	Context("when bbs knows about a running task", func() {
-		BeforeEach(func() {
-			bbsTasks = map[string]struct{}{"task-guid-1": struct{}{}}
-			ccTasks <- []cc_messages.CCTaskState{
-				{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning},
-			}
-			close(ccTasks)
-		})
+					It("is included in TasksToCancel", func() {
+						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
-		It("is not included in UnknownToDiego", func() {
-			differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
+					})
+				})
 
-			Consistently(differ.UnknownToDiego()).Should(Not(Receive()))
+				Context("it is completed in diego", func() {
+					BeforeEach(func() {
+						bbsTasks = map[string]*models.Task{"task-guid-1": &models.Task{TaskGuid: "task-guid-1", State: models.Task_Completed}}
+					})
+
+					It("is not included in TasksToCancel", func() {
+						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+						Consistently(differ.TasksToCancel()).Should(Not(Receive()))
+					})
+				})
+
+				Context("it is resolving in diego", func() {
+					BeforeEach(func() {
+						bbsTasks = map[string]*models.Task{"task-guid-1": &models.Task{TaskGuid: "task-guid-1", State: models.Task_Resolving}}
+					})
+
+					It("is not included in TasksToCancel", func() {
+						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+						Consistently(differ.TasksToCancel()).Should(Not(Receive()))
+					})
+				})
+			})
+
+			Context("cc state is anything else", func() {
+				BeforeEach(func() {
+					ccTasks <- []cc_messages.CCTaskState{cc_messages.CCTaskState{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"}}
+					bbsTasks = map[string]*models.Task{"task-guid-1": &models.Task{TaskGuid: "task-guid-1", State: models.Task_Running}}
+					close(ccTasks)
+				})
+
+				It("is not included in TasksToCancel", func() {
+					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+
+					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
+				})
+			})
 		})
 	})
 
@@ -100,7 +235,7 @@ var _ = Describe("TaskDiffer", func() {
 				close(cancelCh)
 				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
-				Eventually(differ.UnknownToDiego()).Should(BeClosed())
+				Eventually(differ.TasksToFail()).Should(BeClosed())
 			})
 		})
 
@@ -109,7 +244,7 @@ var _ = Describe("TaskDiffer", func() {
 				close(cancelCh)
 				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
-				Eventually(differ.UnknownToDiego()).Should(BeClosed())
+				Eventually(differ.TasksToFail()).Should(BeClosed())
 			})
 		})
 	})

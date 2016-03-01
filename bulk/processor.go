@@ -182,7 +182,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	taskDiffer := NewTaskDiffer()
 	taskDiffer.Diff(logger, taskStates, existingTasks, cancel)
 
-	failTaskErrors := p.failTasks(logger, taskDiffer.UnknownToDiego(), httpClient)
+	failTaskErrors := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
 
 	bumpFreshness := true
 	success := true
@@ -442,16 +442,16 @@ func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLR
 	return existing, nil
 }
 
-func (p *Processor) existingTasksMap() (map[string]struct{}, error) {
+func (p *Processor) existingTasksMap() (map[string]*models.Task, error) {
 	existingTasks, err := p.bbsClient.Tasks()
 	if err != nil {
 		return nil, err
 	}
 
-	existingTasksMap := make(map[string]struct{}, len(existingTasks))
+	existingTasksMap := make(map[string]*models.Task, len(existingTasks))
 
 	for _, existingTask := range existingTasks {
-		existingTasksMap[existingTask.TaskGuid] = struct{}{}
+		existingTasksMap[existingTask.TaskGuid] = existingTask
 	}
 
 	return existingTasksMap, nil
