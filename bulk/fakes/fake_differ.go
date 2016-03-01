@@ -23,19 +23,19 @@ type FakeDiffer struct {
 	StaleStub        func() <-chan []cc_messages.CCDesiredAppFingerprint
 	staleMutex       sync.RWMutex
 	staleArgsForCall []struct{}
-	staleReturns struct {
+	staleReturns     struct {
 		result1 <-chan []cc_messages.CCDesiredAppFingerprint
 	}
 	MissingStub        func() <-chan []cc_messages.CCDesiredAppFingerprint
 	missingMutex       sync.RWMutex
 	missingArgsForCall []struct{}
-	missingReturns struct {
+	missingReturns     struct {
 		result1 <-chan []cc_messages.CCDesiredAppFingerprint
 	}
 	DeletedStub        func() <-chan []string
 	deletedMutex       sync.RWMutex
 	deletedArgsForCall []struct{}
-	deletedReturns struct {
+	deletedReturns     struct {
 		result1 <-chan []string
 	}
 }
