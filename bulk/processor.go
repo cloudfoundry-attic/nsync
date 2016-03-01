@@ -443,7 +443,7 @@ func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLR
 }
 
 func (p *Processor) existingTasksMap() (map[string]*models.Task, error) {
-	existingTasks, err := p.bbsClient.Tasks()
+	existingTasks, err := p.bbsClient.TasksByDomain(cc_messages.RunningTaskDomain)
 	if err != nil {
 		return nil, err
 	}

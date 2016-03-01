@@ -642,13 +642,43 @@ var _ = Describe("Processor", func() {
 				})
 			})
 
+			Context("when bbs does not know about a canceling task", func() {
+				BeforeEach(func() {
+					taskStatesToFetch = []cc_messages.CCTaskState{
+						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"},
+					}
+				})
+
+				It("fails the task", func() {
+					Eventually(taskClient.FailTaskCallCount).Should(Equal(1))
+					_, taskState, _ := taskClient.FailTaskArgsForCall(0)
+					Expect(taskState.TaskGuid).Should(Equal("task-guid-1"))
+					Expect(taskState.CompletionCallbackUrl).Should(Equal("asdf"))
+				})
+
+				Context("and failing the task fails", func() {
+					BeforeEach(func() {
+						taskClient.FailTaskReturns(errors.New("nope"))
+					})
+
+					It("does not update the domain", func() {
+						Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
+					})
+
+					It("sends all the other updates", func() {
+						Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
+						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
+					})
+				})
+			})
+
 			Context("when bbs knows about a running task", func() {
 				BeforeEach(func() {
 					taskStatesToFetch = []cc_messages.CCTaskState{
 						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning},
 					}
 
-					bbsClient.TasksReturns([]*models.Task{{TaskGuid: "task-guid-1"}}, nil)
+					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1"}}, nil)
 				})
 
 				It("does not fail the task", func() {
@@ -756,7 +786,7 @@ var _ = Describe("Processor", func() {
 
 	Context("when getting all tasks fails", func() {
 		BeforeEach(func() {
-			bbsClient.TasksReturns(nil, errors.New("oh no!"))
+			bbsClient.TasksByDomainReturns(nil, errors.New("oh no!"))
 		})
 
 		It("keeps calm and carries on", func() {
@@ -764,12 +794,12 @@ var _ = Describe("Processor", func() {
 		})
 
 		It("tries again after the polling interval", func() {
-			Eventually(bbsClient.TasksCallCount).Should(Equal(1))
+			Eventually(bbsClient.TasksByDomainCallCount).Should(Equal(1))
 			clock.Increment(pollingInterval / 2)
-			Consistently(bbsClient.TasksCallCount).Should(Equal(1))
+			Consistently(bbsClient.TasksByDomainCallCount).Should(Equal(1))
 
 			clock.Increment(pollingInterval)
-			Eventually(bbsClient.TasksCallCount).Should(Equal(2))
+			Eventually(bbsClient.TasksByDomainCallCount).Should(Equal(2))
 		})
 
 		It("does not call the the fetcher, or the task client for updates", func() {
