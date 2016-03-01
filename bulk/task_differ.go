@@ -32,6 +32,7 @@ func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTa
 	go func() {
 		defer func() {
 			close(t.tasksToFail)
+			close(t.tasksToCancel)
 		}()
 
 		for {

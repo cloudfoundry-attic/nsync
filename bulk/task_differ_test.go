@@ -251,6 +251,7 @@ var _ = Describe("TaskDiffer", func() {
 				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(BeClosed())
+				Eventually(differ.TasksToCancel()).Should(BeClosed())
 			})
 		})
 
@@ -260,6 +261,7 @@ var _ = Describe("TaskDiffer", func() {
 				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(BeClosed())
+				Eventually(differ.TasksToCancel()).Should(BeClosed())
 			})
 		})
 	})
