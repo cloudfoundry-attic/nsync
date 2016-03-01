@@ -142,7 +142,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	}
 
 	existingSchedulingInfoMap := organizeSchedulingInfosByProcessGuid(existing)
-	differ := NewDiffer(existingSchedulingInfoMap)
+	appDiffer := NewAppDiffer(existingSchedulingInfoMap)
 
 	cancel := make(chan struct{})
 
@@ -152,7 +152,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		httpClient,
 	)
 
-	diffErrors := differ.Diff(
+	diffErrors := appDiffer.Diff(
 		logger,
 		cancel,
 		fingerprints,
@@ -162,7 +162,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		logger.Session("fetch-missing-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
-		differ.Missing(),
+		appDiffer.Missing(),
 	)
 
 	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps, &invalidsFound)
@@ -171,7 +171,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		logger.Session("fetch-stale-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
-		differ.Stale(),
+		appDiffer.Stale(),
 	)
 
 	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap, &invalidsFound)
@@ -237,7 +237,7 @@ process_loop:
 	}
 
 	if success {
-		deleteList := <-differ.Deleted()
+		deleteList := <-appDiffer.Deleted()
 		p.deleteExcess(logger, cancel, deleteList)
 	}
 

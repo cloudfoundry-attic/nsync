@@ -6,9 +6,9 @@ import (
 	"github.com/pivotal-golang/lager"
 )
 
-//go:generate counterfeiter -o fakes/fake_differ.go . Differ
+//go:generate counterfeiter -o fakes/fake_app_differ.go . AppDiffer
 
-type Differ interface {
+type AppDiffer interface {
 	Diff(logger lager.Logger, cancel <-chan struct{}, fingerprints <-chan []cc_messages.CCDesiredAppFingerprint) <-chan error
 
 	Stale() <-chan []cc_messages.CCDesiredAppFingerprint
@@ -18,7 +18,7 @@ type Differ interface {
 	Deleted() <-chan []string
 }
 
-type differ struct {
+type appDiffer struct {
 	existingSchedulingInfos map[string]*models.DesiredLRPSchedulingInfo
 
 	stale   chan []cc_messages.CCDesiredAppFingerprint
@@ -26,8 +26,8 @@ type differ struct {
 	deleted chan []string
 }
 
-func NewDiffer(existing map[string]*models.DesiredLRPSchedulingInfo) Differ {
-	return &differ{
+func NewAppDiffer(existing map[string]*models.DesiredLRPSchedulingInfo) AppDiffer {
+	return &appDiffer{
 		existingSchedulingInfos: copySchedulingInfoMap(existing),
 
 		stale:   make(chan []cc_messages.CCDesiredAppFingerprint, 1),
@@ -36,7 +36,7 @@ func NewDiffer(existing map[string]*models.DesiredLRPSchedulingInfo) Differ {
 	}
 }
 
-func (d *differ) Diff(
+func (d *appDiffer) Diff(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
@@ -133,14 +133,14 @@ func remainingProcessGuids(remaining map[string]*models.DesiredLRPSchedulingInfo
 	return keys
 }
 
-func (d *differ) Stale() <-chan []cc_messages.CCDesiredAppFingerprint {
+func (d *appDiffer) Stale() <-chan []cc_messages.CCDesiredAppFingerprint {
 	return d.stale
 }
 
-func (d *differ) Missing() <-chan []cc_messages.CCDesiredAppFingerprint {
+func (d *appDiffer) Missing() <-chan []cc_messages.CCDesiredAppFingerprint {
 	return d.missing
 }
 
-func (d *differ) Deleted() <-chan []string {
+func (d *appDiffer) Deleted() <-chan []string {
 	return d.deleted
 }

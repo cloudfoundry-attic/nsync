@@ -26,7 +26,7 @@ var _ = Describe("Differ", func() {
 		errorsChan <-chan error
 
 		logger *lagertest.TestLogger
-		differ bulk.Differ
+		differ bulk.AppDiffer
 	)
 
 	BeforeEach(func() {
@@ -51,7 +51,7 @@ var _ = Describe("Differ", func() {
 		existingSchedulingInfoMap = map[string]*models.DesiredLRPSchedulingInfo{
 			existingSchedulingInfo.ProcessGuid: existingSchedulingInfo,
 		}
-		differ = bulk.NewDiffer(existingSchedulingInfoMap)
+		differ = bulk.NewAppDiffer(existingSchedulingInfoMap)
 
 		staleChan = differ.Stale()
 		missingChan = differ.Missing()
