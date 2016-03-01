@@ -179,7 +179,10 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		httpClient,
 	)
 
-	failTaskErrors := p.failMismatchedTasks(logger, cancel, taskStates, existingTasks, httpClient)
+	taskDiffer := NewTaskDiffer()
+	taskDiffer.Diff(logger, taskStates, existingTasks, cancel)
+
+	failTaskErrors := p.failTasks(logger, taskDiffer.UnknownToDiego(), httpClient)
 
 	bumpFreshness := true
 	success := true
@@ -470,51 +473,40 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 	logger.Info("succeeded-processing-batch", lager.Data{"num-deleted": len(deletedGuids), "deleted-guids": deletedGuids})
 }
 
-func (p *Processor) failMismatchedTasks(
-	logger lager.Logger,
-	cancel <-chan struct{},
-	taskStatesCh <-chan []cc_messages.CCTaskState,
-	existingTasks map[string]struct{},
-	httpClient *http.Client,
-) <-chan error {
-	logger = logger.Session("fail-mismatched-tasks")
+func (p *Processor) failTasks(logger lager.Logger,
+	tasksCh <-chan []cc_messages.CCTaskState,
+	httpClient *http.Client) <-chan error {
 
+	logger = logger.Session("fail-mismatched-tasks")
 	errc := make(chan error, 1)
 
 	go func() {
 		defer close(errc)
 
 		for {
-			var taskStates []cc_messages.CCTaskState
+			var tasksToFail []cc_messages.CCTaskState
 
 			select {
-			case <-cancel:
-				return
-
-			case selected, open := <-taskStatesCh:
+			case selected, open := <-tasksCh:
 				if !open {
 					return
 				}
 
-				taskStates = selected
+				tasksToFail = selected
 			}
 
-			works := make([]func(), len(taskStates))
+			works := make([]func(), len(tasksToFail))
 
-			for i, taskState := range taskStates {
+			for i, taskState := range tasksToFail {
 				taskState := taskState
 
 				works[i] = func() {
-					taskGuid := taskState.TaskGuid
-					_, exists := existingTasks[taskGuid]
-					if !exists && taskState.State == cc_messages.TaskStateRunning {
-						err := p.taskClient.FailTask(logger, &taskState, httpClient)
-						if err != nil {
-							logger.Error("failed-failing-mismatched-task", err)
-							errc <- err
-						} else {
-							logger.Debug("succeeded-failing-mismatched-task", lager.Data{"task_guid": taskGuid})
-						}
+					err := p.taskClient.FailTask(logger, &taskState, httpClient)
+					if err != nil {
+						logger.Error("failed-failing-mismatched-task", err)
+						errc <- err
+					} else {
+						logger.Debug("succeeded-failing-mismatched-task", lager.Data{"task_guid": taskState.TaskGuid})
 					}
 				}
 			}
@@ -525,12 +517,11 @@ func (p *Processor) failMismatchedTasks(
 				return
 			}
 
-			logger.Info("processing-batch", lager.Data{"size": len(taskStates)})
+			logger.Info("processing-batch", lager.Data{"size": len(tasksToFail)})
 			throttler.Work()
-			logger.Info("done-processing-batch", lager.Data{"size": len(taskStates)})
+			logger.Info("done-processing-batch", lager.Data{"size": len(tasksToFail)})
 		}
 	}()
-
 	return errc
 }
 
