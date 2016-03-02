@@ -25,6 +25,12 @@ var _ = Describe("TaskDiffer", func() {
 		cancelCh = make(chan struct{})
 		differ = bulk.NewTaskDiffer()
 		ccTasks = make(chan []cc_messages.CCTaskState, 1)
+		bbsTasks = map[string]*models.Task{}
+	})
+
+	AfterEach(func() {
+		Eventually(differ.TasksToFail()).Should(BeClosed())
+		Eventually(differ.TasksToCancel()).Should(BeClosed())
 	})
 
 	Context("tasks found in cc but not diego", func() {
