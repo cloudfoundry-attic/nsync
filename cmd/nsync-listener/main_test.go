@@ -372,7 +372,7 @@ var _ = Describe("Nsync Listener Initialization", func() {
 
 			It("exits with an error", func() {
 				Eventually(runner).Should(gexec.Exit(2))
-				Expect(runner.Buffer()).Should(gbytes.Say("unknown port"))
+				Expect(runner.Buffer()).Should(gbytes.Say("nodename nor servname provided, or not known"))
 			})
 		})
 	})
