@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
@@ -722,8 +723,11 @@ var _ = Describe("Processor", func() {
 						{TaskGuid: "task-guid-2", State: models.Task_Running},
 					}, nil)
 
+					lock := sync.Mutex{}
 					count := 0
 					bbsClient.CancelTaskStub = func(guid string) error {
+						lock.Lock()
+						defer lock.Unlock()
 						if count == 0 {
 							count++
 							return errors.New("oh no!")
