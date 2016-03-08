@@ -50,7 +50,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		Path:           "/tmp/lifecycle/launcher",
 		Args:           []string{"app", task.Command, ""},
 		Env:            task.EnvironmentVariables,
-		LogSource:      "TASK",
+		LogSource:      task.LogSource,
 		ResourceLimits: &models.ResourceLimits{},
 	}
 

@@ -59,7 +59,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		Path:           "/tmp/lifecycle/launcher",
 		Args:           []string{"app", task.Command, "{}"},
 		Env:            task.EnvironmentVariables,
-		LogSource:      "TASK",
+		LogSource:      task.LogSource,
 		ResourceLimits: &models.ResourceLimits{},
 	})
 

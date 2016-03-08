@@ -843,7 +843,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				CompletionCallbackUrl: "http://google.com",
 				Command:               "docker run fast",
 				DockerPath:            "cloudfoundry/diego-docker-app",
-				LogSource:             "App/TASK/my-task",
+				LogSource:             "APP/TASK/my-task",
 			}
 		})
 
@@ -867,7 +867,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			}))
 			Expect(taskDefinition.CompletionCallbackUrl).To(Equal("http://google.com"))
 			Expect(taskDefinition.RootFs).To(Equal("docker:///cloudfoundry/diego-docker-app"))
-			Expect(taskDefinition.LogSource).To(Equal("App/TASK/my-task"))
+			Expect(taskDefinition.LogSource).To(Equal("APP/TASK/my-task"))
 
 			expectedCacheDependencies := []*models.CachedDependency{
 				&models.CachedDependency{
@@ -890,7 +890,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				),
 				Env:            taskRequest.EnvironmentVariables,
 				ResourceLimits: &models.ResourceLimits{},
-				LogSource:      "TASK",
+				LogSource:      "APP/TASK/my-task",
 			})
 
 			Expect(taskDefinition.Action).To(BeEquivalentTo(expectedAction))

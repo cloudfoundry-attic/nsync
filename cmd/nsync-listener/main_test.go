@@ -266,7 +266,7 @@ var _ = Describe("Nsync Listener", func() {
 			"log_guid": "the-log-guid",
 			"completion_callback": "http://google.com",
 			"lifecycle": "buildpack",
-			"log_source": "App/TASK/my-task"
+			"log_source": "APP/TASK/my-task"
 	}`))
 
 			Expect(err).NotTo(HaveOccurred())
@@ -305,7 +305,7 @@ var _ = Describe("Nsync Listener", func() {
 					User:           "vcap",
 					Path:           "/tmp/lifecycle/launcher",
 					Args:           []string{"app", "the-start-command", ""},
-					LogSource:      "TASK",
+					LogSource:      "APP/TASK/my-task",
 					ResourceLimits: &models.ResourceLimits{},
 				},
 			)
@@ -322,7 +322,7 @@ var _ = Describe("Nsync Listener", func() {
 				Action:                        models.WrapAction(expectedActions),
 				LegacyDownloadUser:            "vcap",
 				TrustedSystemCertificatesPath: recipebuilder.TrustedSystemCertificatesPath,
-				LogSource:                     "App/TASK/my-task",
+				LogSource:                     "APP/TASK/my-task",
 			}))
 		})
 	})
