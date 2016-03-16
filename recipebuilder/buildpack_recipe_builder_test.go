@@ -459,9 +459,9 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 		})
 
-		Context("when there is NEITHER a docker image url NOR a droplet uri", func() {
+		Context("when there is no droplet uri", func() {
 			BeforeEach(func() {
-				desiredAppReq.DockerImageUrl = ""
+				desiredAppReq.DockerImageUrl = "user/repo:tag"
 				desiredAppReq.DropletUri = ""
 			})
 
