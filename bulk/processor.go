@@ -146,37 +146,37 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 
 	cancel := make(chan struct{})
 
-	fingerprintCh, fingerprintErrors := p.fetcher.FetchFingerprints(
+	fingerprintCh, fingerprintErrorCh := p.fetcher.FetchFingerprints(
 		logger,
 		cancel,
 		httpClient,
 	)
 
-	diffErrors := appDiffer.Diff(
+	diffErrorCh := appDiffer.Diff(
 		logger,
 		cancel,
 		fingerprintCh,
 	)
 
-	missingApps, missingAppsErrors := p.fetcher.FetchDesiredApps(
+	missingAppCh, missingAppsErrorCh := p.fetcher.FetchDesiredApps(
 		logger.Session("fetch-missing-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
 		appDiffer.Missing(),
 	)
 
-	createErrors := p.createMissingDesiredLRPs(logger, cancel, missingApps, &invalidsFound)
+	createErrorCh := p.createMissingDesiredLRPs(logger, cancel, missingAppCh, &invalidsFound)
 
-	staleApps, staleAppErrors := p.fetcher.FetchDesiredApps(
+	staleAppCh, staleAppErrorCh := p.fetcher.FetchDesiredApps(
 		logger.Session("fetch-stale-desired-lrps-from-cc"),
 		cancel,
 		httpClient,
 		appDiffer.Stale(),
 	)
 
-	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap, &invalidsFound)
+	updateErrorCh := p.updateStaleDesiredLRPs(logger, cancel, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
 
-	taskStateCh, taskStateErrors := p.fetcher.FetchTaskStates(
+	taskStateCh, taskStateErrorCh := p.fetcher.FetchTaskStates(
 		logger,
 		cancel,
 		httpClient,
@@ -185,25 +185,25 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	taskDiffer := NewTaskDiffer(existingTasks)
 	taskDiffer.Diff(logger, taskStateCh, cancel)
 
-	failTaskErrors := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
-	cancelTaskErrors := p.cancelTasks(logger, taskDiffer.TasksToCancel())
+	failTaskErrorCh := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
+	cancelTaskErrorCh := p.cancelTasks(logger, taskDiffer.TasksToCancel())
 
 	bumpFreshness := true
 	success := true
 
-	fingerprintErrors, fingerprintErrorCount := countErrors(fingerprintErrors)
-	taskStateErrors, taskStateErrorCount := countErrors(taskStateErrors)
+	fingerprintErrorCh, fingerprintErrorCount := countErrors(fingerprintErrorCh)
+	taskStateErrorCh, taskStateErrorCount := countErrors(taskStateErrorCh)
 
 	errors := mergeErrors(
-		fingerprintErrors,
-		diffErrors,
-		missingAppsErrors,
-		staleAppErrors,
-		createErrors,
-		updateErrors,
-		taskStateErrors,
-		failTaskErrors,
-		cancelTaskErrors,
+		fingerprintErrorCh,
+		diffErrorCh,
+		missingAppsErrorCh,
+		staleAppErrorCh,
+		createErrorCh,
+		updateErrorCh,
+		taskStateErrorCh,
+		failTaskErrorCh,
+		cancelTaskErrorCh,
 	)
 
 	logger.Info("processing-updates-and-creates")
