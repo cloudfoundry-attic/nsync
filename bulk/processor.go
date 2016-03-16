@@ -146,7 +146,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 
 	cancel := make(chan struct{})
 
-	fingerprints, fingerprintErrors := p.fetcher.FetchFingerprints(
+	fingerprintCh, fingerprintErrors := p.fetcher.FetchFingerprints(
 		logger,
 		cancel,
 		httpClient,
@@ -155,7 +155,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	diffErrors := appDiffer.Diff(
 		logger,
 		cancel,
-		fingerprints,
+		fingerprintCh,
 	)
 
 	missingApps, missingAppsErrors := p.fetcher.FetchDesiredApps(
@@ -176,14 +176,14 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 
 	updateErrors := p.updateStaleDesiredLRPs(logger, cancel, staleApps, existingSchedulingInfoMap, &invalidsFound)
 
-	taskStates, taskStateErrors := p.fetcher.FetchTaskStates(
+	taskStateCh, taskStateErrors := p.fetcher.FetchTaskStates(
 		logger,
 		cancel,
 		httpClient,
 	)
 
-	taskDiffer := NewTaskDiffer()
-	taskDiffer.Diff(logger, taskStates, existingTasks, cancel)
+	taskDiffer := NewTaskDiffer(existingTasks)
+	taskDiffer.Diff(logger, taskStateCh, cancel)
 
 	failTaskErrors := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
 	cancelTaskErrors := p.cancelTasks(logger, taskDiffer.TasksToCancel())

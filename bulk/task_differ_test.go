@@ -23,9 +23,12 @@ var _ = Describe("TaskDiffer", func() {
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		cancelCh = make(chan struct{})
-		differ = bulk.NewTaskDiffer()
 		ccTasks = make(chan []cc_messages.CCTaskState, 1)
 		bbsTasks = map[string]*models.Task{}
+	})
+
+	JustBeforeEach(func() {
+		differ = bulk.NewTaskDiffer(bbsTasks)
 	})
 
 	AfterEach(func() {
@@ -43,7 +46,7 @@ var _ = Describe("TaskDiffer", func() {
 			})
 
 			It("includes it in TasksToFail", func() {
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(Receive(ConsistOf(expectedTask)))
 			})
@@ -58,7 +61,7 @@ var _ = Describe("TaskDiffer", func() {
 			})
 
 			It("is not included in TasksToFail", func() {
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Consistently(differ.TasksToFail()).Should(Not(Receive()))
 			})
@@ -73,7 +76,7 @@ var _ = Describe("TaskDiffer", func() {
 			})
 
 			It("is not included in TasksToFail", func() {
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Consistently(differ.TasksToFail()).Should(Not(Receive()))
 			})
@@ -88,7 +91,7 @@ var _ = Describe("TaskDiffer", func() {
 			})
 
 			It("includes it in TasksToFail", func() {
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(Receive(ConsistOf(expectedTask)))
 			})
@@ -104,7 +107,7 @@ var _ = Describe("TaskDiffer", func() {
 			})
 
 			It("is not included in TasksToFail", func() {
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Consistently(differ.TasksToFail()).Should(Not(Receive()))
 			})
@@ -122,7 +125,7 @@ var _ = Describe("TaskDiffer", func() {
 				})
 
 				It("is included in TasksToCancel", func() {
-					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+					differ.Diff(logger, ccTasks, cancelCh)
 
 					Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
 				})
@@ -138,7 +141,7 @@ var _ = Describe("TaskDiffer", func() {
 				})
 
 				It("is included in TasksToCancel", func() {
-					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+					differ.Diff(logger, ccTasks, cancelCh)
 
 					Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
 				})
@@ -151,7 +154,7 @@ var _ = Describe("TaskDiffer", func() {
 				})
 
 				It("is not included in TasksToCancel", func() {
-					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+					differ.Diff(logger, ccTasks, cancelCh)
 
 					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
 				})
@@ -164,7 +167,7 @@ var _ = Describe("TaskDiffer", func() {
 				})
 
 				It("is not included in TasksToCancel", func() {
-					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+					differ.Diff(logger, ccTasks, cancelCh)
 
 					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
 				})
@@ -184,7 +187,7 @@ var _ = Describe("TaskDiffer", func() {
 					})
 
 					It("is included in TasksToCancel", func() {
-						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						differ.Diff(logger, ccTasks, cancelCh)
 
 						Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
 					})
@@ -196,7 +199,7 @@ var _ = Describe("TaskDiffer", func() {
 					})
 
 					It("is included in TasksToCancel", func() {
-						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						differ.Diff(logger, ccTasks, cancelCh)
 
 						Eventually(differ.TasksToCancel()).Should(Receive(ConsistOf("task-guid-1")))
 					})
@@ -208,7 +211,7 @@ var _ = Describe("TaskDiffer", func() {
 					})
 
 					It("is not included in TasksToCancel", func() {
-						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						differ.Diff(logger, ccTasks, cancelCh)
 
 						Consistently(differ.TasksToCancel()).Should(Not(Receive()))
 					})
@@ -220,7 +223,7 @@ var _ = Describe("TaskDiffer", func() {
 					})
 
 					It("is not included in TasksToCancel", func() {
-						differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+						differ.Diff(logger, ccTasks, cancelCh)
 
 						Consistently(differ.TasksToCancel()).Should(Not(Receive()))
 					})
@@ -235,7 +238,7 @@ var _ = Describe("TaskDiffer", func() {
 				})
 
 				It("is not included in TasksToCancel", func() {
-					differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+					differ.Diff(logger, ccTasks, cancelCh)
 
 					Consistently(differ.TasksToCancel()).Should(Not(Receive()))
 				})
@@ -254,7 +257,7 @@ var _ = Describe("TaskDiffer", func() {
 
 			It("closes the output channels", func() {
 				close(cancelCh)
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(BeClosed())
 				Eventually(differ.TasksToCancel()).Should(BeClosed())
@@ -264,7 +267,7 @@ var _ = Describe("TaskDiffer", func() {
 		Context("when it is not receiving tasks", func() {
 			It("closes the output channels", func() {
 				close(cancelCh)
-				differ.Diff(logger, ccTasks, bbsTasks, cancelCh)
+				differ.Diff(logger, ccTasks, cancelCh)
 
 				Eventually(differ.TasksToFail()).Should(BeClosed())
 				Eventually(differ.TasksToCancel()).Should(BeClosed())

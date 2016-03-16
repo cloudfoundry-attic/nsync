@@ -7,27 +7,29 @@ import (
 )
 
 type TaskDiffer interface {
-	Diff(lager.Logger, <-chan []cc_messages.CCTaskState, map[string]*models.Task, <-chan struct{})
+	Diff(lager.Logger, <-chan []cc_messages.CCTaskState, <-chan struct{})
 	TasksToFail() <-chan []cc_messages.CCTaskState
 	TasksToCancel() <-chan []string
 }
 
 type taskDiffer struct {
+	bbsTasks      map[string]*models.Task
 	tasksToFail   chan []cc_messages.CCTaskState
 	tasksToCancel chan []string
 }
 
-func NewTaskDiffer() TaskDiffer {
+func NewTaskDiffer(bbsTasks map[string]*models.Task) TaskDiffer {
 	return &taskDiffer{
+		bbsTasks:      bbsTasks,
 		tasksToFail:   make(chan []cc_messages.CCTaskState, 1),
 		tasksToCancel: make(chan []string, 1),
 	}
 }
 
-func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTaskState, bbsTasks map[string]*models.Task, cancelCh <-chan struct{}) {
+func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTaskState, cancelCh <-chan struct{}) {
 	logger = logger.Session("task_diff")
 
-	tasksToCancel := cloneBbsTasks(bbsTasks)
+	tasksToCancel := cloneBbsTasks(t.bbsTasks)
 
 	go func() {
 		defer func() {
@@ -53,7 +55,7 @@ func (t *taskDiffer) Diff(logger lager.Logger, ccTasks <-chan []cc_messages.CCTa
 				batchTasksToFail := []cc_messages.CCTaskState{}
 				for _, ccTask := range batchCCTasks {
 
-					_, exists := bbsTasks[ccTask.TaskGuid]
+					_, exists := t.bbsTasks[ccTask.TaskGuid]
 
 					if exists {
 						if ccTask.State != cc_messages.TaskStateCanceling {
