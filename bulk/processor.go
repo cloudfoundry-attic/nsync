@@ -144,46 +144,47 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	existingSchedulingInfoMap := organizeSchedulingInfosByProcessGuid(existing)
 	appDiffer := NewAppDiffer(existingSchedulingInfoMap)
 
-	cancel := make(chan struct{})
+	cancelCh := make(chan struct{})
 
+	// from here on out, the fetcher, differ, and processor work across channels in a pipeline
 	fingerprintCh, fingerprintErrorCh := p.fetcher.FetchFingerprints(
 		logger,
-		cancel,
+		cancelCh,
 		httpClient,
 	)
 
 	diffErrorCh := appDiffer.Diff(
 		logger,
-		cancel,
+		cancelCh,
 		fingerprintCh,
 	)
 
 	missingAppCh, missingAppsErrorCh := p.fetcher.FetchDesiredApps(
 		logger.Session("fetch-missing-desired-lrps-from-cc"),
-		cancel,
+		cancelCh,
 		httpClient,
 		appDiffer.Missing(),
 	)
 
-	createErrorCh := p.createMissingDesiredLRPs(logger, cancel, missingAppCh, &invalidsFound)
+	createErrorCh := p.createMissingDesiredLRPs(logger, cancelCh, missingAppCh, &invalidsFound)
 
 	staleAppCh, staleAppErrorCh := p.fetcher.FetchDesiredApps(
 		logger.Session("fetch-stale-desired-lrps-from-cc"),
-		cancel,
+		cancelCh,
 		httpClient,
 		appDiffer.Stale(),
 	)
 
-	updateErrorCh := p.updateStaleDesiredLRPs(logger, cancel, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
+	updateErrorCh := p.updateStaleDesiredLRPs(logger, cancelCh, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
 
 	taskStateCh, taskStateErrorCh := p.fetcher.FetchTaskStates(
 		logger,
-		cancel,
+		cancelCh,
 		httpClient,
 	)
 
 	taskDiffer := NewTaskDiffer(existingTasks)
-	taskDiffer.Diff(logger, taskStateCh, cancel)
+	taskDiffer.Diff(logger, taskStateCh, cancelCh)
 
 	failTaskErrorCh := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
 	cancelTaskErrorCh := p.cancelTasks(logger, taskDiffer.TasksToCancel())
@@ -194,6 +195,8 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	fingerprintErrorCh, fingerprintErrorCount := countErrors(fingerprintErrorCh)
 	taskStateErrorCh, taskStateErrorCount := countErrors(taskStateErrorCh)
 
+	// closes errors when all error channels have been closed.
+	// below, we rely on this behavior to break the process_loop.
 	errors := mergeErrors(
 		fingerprintErrorCh,
 		diffErrorCh,
@@ -220,7 +223,7 @@ process_loop:
 			}
 		case sig := <-signals:
 			logger.Info("exiting", lager.Data{"received-signal": sig})
-			close(cancel)
+			close(cancelCh)
 			return true
 		}
 	}
@@ -238,7 +241,7 @@ process_loop:
 
 	if success {
 		deleteList := <-appDiffer.Deleted()
-		p.deleteExcess(logger, cancel, deleteList)
+		p.deleteExcess(logger, cancelCh, deleteList)
 	}
 
 	if bumpFreshness && success {
