@@ -101,6 +101,10 @@ var _ = Describe("Task Processor", func() {
 			Expect(taskState.CompletionCallbackUrl).Should(Equal("asdf"))
 		})
 
+		It("updates the domain", func() {
+			Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+		})
+
 		Context("and failing the task fails", func() {
 			BeforeEach(func() {
 				taskClient.FailTaskReturns(errors.New("nope"))
@@ -150,6 +154,10 @@ var _ = Describe("Task Processor", func() {
 			Expect(taskState.CompletionCallbackUrl).Should(Equal("asdf"))
 		})
 
+		It("updates the domain", func() {
+			Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+		})
+
 		Context("and failing the task fails", func() {
 			BeforeEach(func() {
 				taskClient.FailTaskReturns(errors.New("nope"))
@@ -184,6 +192,10 @@ var _ = Describe("Task Processor", func() {
 		It("cancels the task", func() {
 			Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
 		})
+
+		It("updates the domain", func() {
+			Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
+		})
 	})
 
 	Context("when bbs has a running task cc wants to cancel", func() {
@@ -196,6 +208,10 @@ var _ = Describe("Task Processor", func() {
 
 		It("cancels the task", func() {
 			Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
+		})
+
+		It("updates the domain", func() {
+			Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
 		})
 	})
 
