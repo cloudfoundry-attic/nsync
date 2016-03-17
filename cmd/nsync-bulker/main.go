@@ -194,16 +194,13 @@ func main() {
 		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
 	}
 
-	runner := bulk.NewProcessor(
+	lrpRunner := bulk.NewLRPProcessor(
 		logger,
 		initializeBBSClient(logger),
-		&bulk.CCTaskClient{},
 		*pollingInterval,
 		*domainTTL,
 		*bulkBatchSize,
 		*updateLRPWorkers,
-		*failTaskPoolSize,
-		*cancelTaskPoolSize,
 		*skipCertVerify,
 		&bulk.CCFetcher{
 			BaseURI:   *ccBaseURL,
@@ -215,9 +212,28 @@ func main() {
 		clock.NewClock(),
 	)
 
+	taskRunner := bulk.NewTaskProcessor(
+		logger,
+		initializeBBSClient(logger),
+		&bulk.CCTaskClient{},
+		*pollingInterval,
+		*domainTTL,
+		*failTaskPoolSize,
+		*cancelTaskPoolSize,
+		*skipCertVerify,
+		&bulk.CCFetcher{
+			BaseURI:   *ccBaseURL,
+			BatchSize: int(*bulkBatchSize),
+			Username:  *ccUsername,
+			Password:  *ccPassword,
+		},
+		clock.NewClock(),
+	)
+
 	members := grouper.Members{
 		{"lock-maintainer", lockMaintainer},
-		{"runner", runner},
+		{"lrp-runner", lrpRunner},
+		{"task-runner", taskRunner},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {

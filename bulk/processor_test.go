@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
@@ -28,14 +27,12 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 )
 
-var _ = Describe("Processor", func() {
+var _ = Describe("LRPProcessor", func() {
 	var (
 		fingerprintsToFetch     []cc_messages.CCDesiredAppFingerprint
-		taskStatesToFetch       []cc_messages.CCTaskState
 		existingSchedulingInfos []*models.DesiredLRPSchedulingInfo
 
 		bbsClient              *fake_bbs.FakeClient
-		taskClient             *fakes.FakeTaskClient
 		fetcher                *fakes.FakeFetcher
 		buildpackRecipeBuilder *fakes.FakeRecipeBuilder
 		dockerRecipeBuilder    *fakes.FakeRecipeBuilder
@@ -155,21 +152,6 @@ var _ = Describe("Processor", func() {
 			return desired, errors
 		}
 
-		fetcher.FetchTaskStatesStub = func(
-			logger lager.Logger,
-			cancel <-chan struct{},
-			httpClient *http.Client,
-		) (<-chan []cc_messages.CCTaskState, <-chan error) {
-			results := make(chan []cc_messages.CCTaskState, 1)
-			errors := make(chan error, 1)
-
-			results <- taskStatesToFetch
-			close(results)
-			close(errors)
-
-			return results, errors
-		}
-
 		buildpackRecipeBuilder = new(fakes.FakeRecipeBuilder)
 		buildpackRecipeBuilder.BuildStub = func(ccRequest *cc_messages.DesireAppRequestFromCC) (*models.DesiredLRP, error) {
 			createRequest := models.DesiredLRP{
@@ -199,19 +181,14 @@ var _ = Describe("Processor", func() {
 			return nil
 		}
 
-		taskClient = new(fakes.FakeTaskClient)
-
 		logger = lagertest.NewTestLogger("test")
 
-		processor = bulk.NewProcessor(
+		processor = bulk.NewLRPProcessor(
 			logger,
 			bbsClient,
-			taskClient,
 			500*time.Millisecond,
 			time.Second,
 			10,
-			50,
-			50,
 			50,
 			false,
 			fetcher,
@@ -588,165 +565,6 @@ var _ = Describe("Processor", func() {
 				})
 			})
 		})
-
-		Context("tasks", func() {
-			Context("when bbs does not know about a running task", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"},
-					}
-				})
-
-				It("fails the task", func() {
-					Eventually(taskClient.FailTaskCallCount).Should(Equal(1))
-					_, taskState, _ := taskClient.FailTaskArgsForCall(0)
-					Expect(taskState.TaskGuid).Should(Equal("task-guid-1"))
-					Expect(taskState.CompletionCallbackUrl).Should(Equal("asdf"))
-				})
-
-				Context("and failing the task fails", func() {
-					BeforeEach(func() {
-						taskClient.FailTaskReturns(errors.New("nope"))
-					})
-
-					It("does not update the domain", func() {
-						Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
-					})
-
-					It("sends all the other updates", func() {
-						Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
-						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-					})
-				})
-			})
-
-			Context("when bbs does not know about a pending task", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStatePending},
-					}
-				})
-
-				It("does not fail the task", func() {
-					Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
-				})
-			})
-
-			Context("when bbs does not know about a completed task", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateSucceeded},
-					}
-				})
-
-				It("does not fail the task", func() {
-					Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
-				})
-			})
-
-			Context("when bbs does not know about a canceling task", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning, CompletionCallbackUrl: "asdf"},
-					}
-				})
-
-				It("fails the task", func() {
-					Eventually(taskClient.FailTaskCallCount).Should(Equal(1))
-					_, taskState, _ := taskClient.FailTaskArgsForCall(0)
-					Expect(taskState.TaskGuid).Should(Equal("task-guid-1"))
-					Expect(taskState.CompletionCallbackUrl).Should(Equal("asdf"))
-				})
-
-				Context("and failing the task fails", func() {
-					BeforeEach(func() {
-						taskClient.FailTaskReturns(errors.New("nope"))
-					})
-
-					It("does not update the domain", func() {
-						Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
-					})
-
-					It("sends all the other updates", func() {
-						Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
-						Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-					})
-				})
-			})
-
-			Context("when bbs knows about a running task", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateRunning},
-					}
-
-					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1"}}, nil)
-				})
-
-				It("does not fail the task", func() {
-					Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
-				})
-			})
-
-			Context("when bbs has a running task cc does not know about", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{}
-					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1", State: models.Task_Running}}, nil)
-				})
-
-				It("cancels the task", func() {
-					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
-				})
-			})
-
-			Context("when bbs has a running task cc wants to cancel", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling},
-					}
-					bbsClient.TasksByDomainReturns([]*models.Task{{TaskGuid: "task-guid-1", State: models.Task_Running}}, nil)
-				})
-
-				It("cancels the task", func() {
-					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(1))
-				})
-			})
-
-			Context("when canceling a task fails", func() {
-				BeforeEach(func() {
-					taskStatesToFetch = []cc_messages.CCTaskState{
-						{TaskGuid: "task-guid-1", State: cc_messages.TaskStateCanceling},
-						{TaskGuid: "task-guid-2", State: cc_messages.TaskStateCanceling},
-					}
-					bbsClient.TasksByDomainReturns([]*models.Task{
-						{TaskGuid: "task-guid-1", State: models.Task_Running},
-						{TaskGuid: "task-guid-2", State: models.Task_Running},
-					}, nil)
-
-					lock := sync.Mutex{}
-					count := 0
-					bbsClient.CancelTaskStub = func(guid string) error {
-						lock.Lock()
-						defer lock.Unlock()
-						if count == 0 {
-							count++
-							return errors.New("oh no!")
-						}
-						return nil
-					}
-				})
-
-				It("does not update the domain", func() {
-					Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
-				})
-
-				It("sends all the other updates", func() {
-					Eventually(bbsClient.CancelTaskCallCount).Should(Equal(2))
-					Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
-					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-				})
-			})
-		})
 	})
 
 	Context("when getting all desired LRPs fails", func() {
@@ -810,62 +628,6 @@ var _ = Describe("Processor", func() {
 			Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
 			Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 			Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(0))
-		})
-	})
-
-	Context("when fetching task states fails", func() {
-		BeforeEach(func() {
-			fetcher.FetchTaskStatesStub = func(
-				logger lager.Logger,
-				cancel <-chan struct{},
-				httpClient *http.Client,
-			) (<-chan []cc_messages.CCTaskState, <-chan error) {
-				results := make(chan []cc_messages.CCTaskState, 1)
-				errorsChan := make(chan error, 1)
-
-				close(results)
-
-				errorsChan <- errors.New("uh oh")
-				close(errorsChan)
-
-				return results, errorsChan
-			}
-		})
-
-		It("keeps calm and carries on", func() {
-			Consistently(process.Wait()).ShouldNot(Receive())
-		})
-
-		It("does not update the domain", func() {
-			Consistently(bbsClient.UpsertDomainCallCount).Should(Equal(0))
-		})
-
-		It("doesn't fail any tasks", func() {
-			Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
-		})
-	})
-
-	Context("when getting all tasks fails", func() {
-		BeforeEach(func() {
-			bbsClient.TasksByDomainReturns(nil, errors.New("oh no!"))
-		})
-
-		It("keeps calm and carries on", func() {
-			Consistently(process.Wait()).ShouldNot(Receive())
-		})
-
-		It("tries again after the polling interval", func() {
-			Eventually(bbsClient.TasksByDomainCallCount).Should(Equal(1))
-			clock.Increment(pollingInterval / 2)
-			Consistently(bbsClient.TasksByDomainCallCount).Should(Equal(1))
-
-			clock.Increment(pollingInterval)
-			Eventually(bbsClient.TasksByDomainCallCount).Should(Equal(2))
-		})
-
-		It("does not call the the fetcher, or the task client for updates", func() {
-			Consistently(fetcher.FetchTaskStatesCallCount).Should(Equal(0))
-			Consistently(taskClient.FailTaskCallCount).Should(Equal(0))
 		})
 	})
 })

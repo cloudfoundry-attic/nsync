@@ -28,47 +28,38 @@ const (
 	invalidLRPsFound        = metric.Metric("NsyncInvalidDesiredLRPsFound")
 )
 
-type Processor struct {
+type LRPProcessor struct {
 	bbsClient             bbs.Client
-	taskClient            TaskClient
 	pollingInterval       time.Duration
 	domainTTL             time.Duration
 	bulkBatchSize         uint
 	updateLRPWorkPoolSize int
-	failTaskPoolSize      int
-	cancelTaskPoolSize    int
-	skipCertVerify        bool
+	httpClient            *http.Client
 	logger                lager.Logger
 	fetcher               Fetcher
 	builders              map[string]recipebuilder.RecipeBuilder
 	clock                 clock.Clock
 }
 
-func NewProcessor(
+func NewLRPProcessor(
 	logger lager.Logger,
 	bbsClient bbs.Client,
-	taskClient TaskClient,
 	pollingInterval time.Duration,
 	domainTTL time.Duration,
 	bulkBatchSize uint,
 	updateLRPWorkPoolSize int,
-	failTaskPoolSize int,
-	cancelTaskPoolSize int,
 	skipCertVerify bool,
 	fetcher Fetcher,
 	builders map[string]recipebuilder.RecipeBuilder,
 	clock clock.Clock,
-) *Processor {
-	return &Processor{
+) *LRPProcessor {
+	return &LRPProcessor{
 		bbsClient:             bbsClient,
-		taskClient:            taskClient,
 		pollingInterval:       pollingInterval,
 		domainTTL:             domainTTL,
 		bulkBatchSize:         bulkBatchSize,
 		updateLRPWorkPoolSize: updateLRPWorkPoolSize,
-		failTaskPoolSize:      failTaskPoolSize,
-		cancelTaskPoolSize:    cancelTaskPoolSize,
-		skipCertVerify:        skipCertVerify,
+		httpClient:            initializeHttpClient(skipCertVerify),
 		logger:                logger,
 		fetcher:               fetcher,
 		builders:              builders,
@@ -76,25 +67,11 @@ func NewProcessor(
 	}
 }
 
-func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
+func (l *LRPProcessor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	close(ready)
 
-	httpClient := cf_http.NewClient()
-	httpClient.Transport = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: p.skipCertVerify,
-			MinVersion:         tls.VersionTLS10,
-		},
-	}
-
-	timer := p.clock.NewTimer(p.pollingInterval)
-	stop := p.sync(signals, httpClient)
+	timer := l.clock.NewTimer(l.pollingInterval)
+	stop := l.sync(signals)
 
 	for {
 		if stop {
@@ -105,20 +82,20 @@ func (p *Processor) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		case <-signals:
 			return nil
 		case <-timer.C():
-			stop = p.sync(signals, httpClient)
-			timer.Reset(p.pollingInterval)
+			stop = l.sync(signals)
+			timer.Reset(l.pollingInterval)
 		}
 	}
 }
 
-func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool {
-	start := p.clock.Now()
+func (l *LRPProcessor) sync(signals <-chan os.Signal) bool {
+	start := l.clock.Now()
 	invalidsFound := int32(0)
-	logger := p.logger.Session("sync")
+	logger := l.logger.Session("sync")
 	logger.Info("starting")
 
 	defer func() {
-		duration := p.clock.Now().Sub(start)
+		duration := l.clock.Now().Sub(start)
 		err := syncDesiredLRPsDuration.Send(duration)
 		if err != nil {
 			logger.Error("failed-to-send-sync-desired-lrps-duration-metric", err)
@@ -131,12 +108,7 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 
 	defer logger.Info("done")
 
-	existing, err := p.getSchedulingInfos(logger)
-	if err != nil {
-		return false
-	}
-
-	existingTasks, err := p.existingTasksMap()
+	existing, err := l.getSchedulingInfos(logger)
 	if err != nil {
 		return false
 	}
@@ -147,10 +119,10 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	cancelCh := make(chan struct{})
 
 	// from here on out, the fetcher, differ, and processor work across channels in a pipeline
-	fingerprintCh, fingerprintErrorCh := p.fetcher.FetchFingerprints(
+	fingerprintCh, fingerprintErrorCh := l.fetcher.FetchFingerprints(
 		logger,
 		cancelCh,
-		httpClient,
+		l.httpClient,
 	)
 
 	diffErrorCh := appDiffer.Diff(
@@ -159,41 +131,28 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		fingerprintCh,
 	)
 
-	missingAppCh, missingAppsErrorCh := p.fetcher.FetchDesiredApps(
+	missingAppCh, missingAppsErrorCh := l.fetcher.FetchDesiredApps(
 		logger.Session("fetch-missing-desired-lrps-from-cc"),
 		cancelCh,
-		httpClient,
+		l.httpClient,
 		appDiffer.Missing(),
 	)
 
-	createErrorCh := p.createMissingDesiredLRPs(logger, cancelCh, missingAppCh, &invalidsFound)
+	createErrorCh := l.createMissingDesiredLRPs(logger, cancelCh, missingAppCh, &invalidsFound)
 
-	staleAppCh, staleAppErrorCh := p.fetcher.FetchDesiredApps(
+	staleAppCh, staleAppErrorCh := l.fetcher.FetchDesiredApps(
 		logger.Session("fetch-stale-desired-lrps-from-cc"),
 		cancelCh,
-		httpClient,
+		l.httpClient,
 		appDiffer.Stale(),
 	)
 
-	updateErrorCh := p.updateStaleDesiredLRPs(logger, cancelCh, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
-
-	taskStateCh, taskStateErrorCh := p.fetcher.FetchTaskStates(
-		logger,
-		cancelCh,
-		httpClient,
-	)
-
-	taskDiffer := NewTaskDiffer(existingTasks)
-	taskDiffer.Diff(logger, taskStateCh, cancelCh)
-
-	failTaskErrorCh := p.failTasks(logger, taskDiffer.TasksToFail(), httpClient)
-	cancelTaskErrorCh := p.cancelTasks(logger, taskDiffer.TasksToCancel())
+	updateErrorCh := l.updateStaleDesiredLRPs(logger, cancelCh, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
 
 	bumpFreshness := true
 	success := true
 
 	fingerprintErrorCh, fingerprintErrorCount := countErrors(fingerprintErrorCh)
-	taskStateErrorCh, taskStateErrorCount := countErrors(taskStateErrorCh)
 
 	// closes errors when all error channels have been closed.
 	// below, we rely on this behavior to break the process_loop.
@@ -204,9 +163,6 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		staleAppErrorCh,
 		createErrorCh,
 		updateErrorCh,
-		taskStateErrorCh,
-		failTaskErrorCh,
-		cancelTaskErrorCh,
 	)
 
 	logger.Info("processing-updates-and-creates")
@@ -234,20 +190,15 @@ process_loop:
 		success = false
 	}
 
-	if <-taskStateErrorCount != 0 {
-		logger.Error("failed-to-fetch-all-cc-task-states", nil)
-		success = false
-	}
-
 	if success {
 		deleteList := <-appDiffer.Deleted()
-		p.deleteExcess(logger, cancelCh, deleteList)
+		l.deleteExcess(logger, cancelCh, deleteList)
 	}
 
 	if bumpFreshness && success {
 		logger.Info("bumping-freshness")
 
-		err = p.bbsClient.UpsertDomain(cc_messages.AppLRPDomain, p.domainTTL)
+		err = l.bbsClient.UpsertDomain(cc_messages.AppLRPDomain, l.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
 		}
@@ -256,7 +207,7 @@ process_loop:
 	return false
 }
 
-func (p *Processor) createMissingDesiredLRPs(
+func (l *LRPProcessor) createMissingDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	missing <-chan []cc_messages.DesireAppRequestFromCC,
@@ -288,9 +239,9 @@ func (p *Processor) createMissingDesiredLRPs(
 
 			for i, desireAppRequest := range desireAppRequests {
 				desireAppRequest := desireAppRequest
-				var builder recipebuilder.RecipeBuilder = p.builders["buildpack"]
+				var builder recipebuilder.RecipeBuilder = l.builders["buildpack"]
 				if desireAppRequest.DockerImageUrl != "" {
-					builder = p.builders["docker"]
+					builder = l.builders["docker"]
 				}
 
 				works[i] = func() {
@@ -304,7 +255,7 @@ func (p *Processor) createMissingDesiredLRPs(
 					logger.Debug("succeeded-building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 
 					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(desired))
-					err = p.bbsClient.DesireLRP(desired)
+					err = l.bbsClient.DesireLRP(desired)
 					if err != nil {
 						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
 						if models.ConvertError(err).Type == models.Error_InvalidRequest {
@@ -318,7 +269,7 @@ func (p *Processor) createMissingDesiredLRPs(
 				}
 			}
 
-			throttler, err := workpool.NewThrottler(p.updateLRPWorkPoolSize, works)
+			throttler, err := workpool.NewThrottler(l.updateLRPWorkPoolSize, works)
 			if err != nil {
 				errc <- err
 				return
@@ -333,7 +284,7 @@ func (p *Processor) createMissingDesiredLRPs(
 	return errc
 }
 
-func (p *Processor) updateStaleDesiredLRPs(
+func (l *LRPProcessor) updateStaleDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
 	stale <-chan []cc_messages.DesireAppRequestFromCC,
@@ -366,9 +317,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 
 			for i, desireAppRequest := range staleAppRequests {
 				desireAppRequest := desireAppRequest
-				var builder recipebuilder.RecipeBuilder = p.builders["buildpack"]
+				var builder recipebuilder.RecipeBuilder = l.builders["buildpack"]
 				if desireAppRequest.DockerImageUrl != "" {
-					builder = p.builders["docker"]
+					builder = l.builders["docker"]
 				}
 
 				works[i] = func() {
@@ -406,7 +357,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 					}
 
 					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, updateReq))
-					err = p.bbsClient.UpdateDesiredLRP(processGuid, updateReq)
+					err = l.bbsClient.UpdateDesiredLRP(processGuid, updateReq)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid": processGuid,
@@ -423,7 +374,7 @@ func (p *Processor) updateStaleDesiredLRPs(
 				}
 			}
 
-			throttler, err := workpool.NewThrottler(p.updateLRPWorkPoolSize, works)
+			throttler, err := workpool.NewThrottler(l.updateLRPWorkPoolSize, works)
 			if err != nil {
 				errc <- err
 				return
@@ -438,9 +389,9 @@ func (p *Processor) updateStaleDesiredLRPs(
 	return errc
 }
 
-func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLRPSchedulingInfo, error) {
+func (l *LRPProcessor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLRPSchedulingInfo, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := p.bbsClient.DesiredLRPSchedulingInfos(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
+	existing, err := l.bbsClient.DesiredLRPSchedulingInfos(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
 	if err != nil {
 		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
@@ -450,28 +401,13 @@ func (p *Processor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLR
 	return existing, nil
 }
 
-func (p *Processor) existingTasksMap() (map[string]*models.Task, error) {
-	existingTasks, err := p.bbsClient.TasksByDomain(cc_messages.RunningTaskDomain)
-	if err != nil {
-		return nil, err
-	}
-
-	existingTasksMap := make(map[string]*models.Task, len(existingTasks))
-
-	for _, existingTask := range existingTasks {
-		existingTasksMap[existingTask.TaskGuid] = existingTask
-	}
-
-	return existingTasksMap, nil
-}
-
-func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
+func (l *LRPProcessor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, excess []string) {
 	logger = logger.Session("delete-excess")
 
 	logger.Info("processing-batch", lager.Data{"num-to-delete": len(excess), "guids-to-delete": excess})
 	deletedGuids := make([]string, 0, len(excess))
 	for _, deleteGuid := range excess {
-		err := p.bbsClient.RemoveDesiredLRP(deleteGuid)
+		err := l.bbsClient.RemoveDesiredLRP(deleteGuid)
 		if err != nil {
 			logger.Error("failed-processing-batch", err, lager.Data{"delete-request": deleteGuid})
 		} else {
@@ -479,107 +415,6 @@ func (p *Processor) deleteExcess(logger lager.Logger, cancel <-chan struct{}, ex
 		}
 	}
 	logger.Info("succeeded-processing-batch", lager.Data{"num-deleted": len(deletedGuids), "deleted-guids": deletedGuids})
-}
-
-func (p *Processor) cancelTasks(logger lager.Logger, tasksCh <-chan []string) <-chan error {
-	logger = logger.Session("cancel-mismatched-tasks")
-	errc := make(chan error, 1)
-
-	go func() {
-		defer close(errc)
-
-		for {
-			var tasksToCancel []string
-
-			select {
-			case selected, open := <-tasksCh:
-				if !open {
-					return
-				}
-
-				tasksToCancel = selected
-			}
-
-			works := make([]func(), len(tasksToCancel))
-
-			for i, taskGuid := range tasksToCancel {
-				taskGuid := taskGuid
-
-				works[i] = func() {
-					err := p.bbsClient.CancelTask(taskGuid)
-					if err != nil {
-						logger.Error("failed-canceling-mismatched-task", err)
-						errc <- err
-					} else {
-						logger.Debug("succeeded-canceling-mismatched-task", lager.Data{"task_guid": taskGuid})
-					}
-				}
-			}
-
-			throttler, err := workpool.NewThrottler(p.cancelTaskPoolSize, works)
-			if err != nil {
-				errc <- err
-				return
-			}
-
-			logger.Info("processing-batch", lager.Data{"size": len(tasksToCancel)})
-			throttler.Work()
-			logger.Info("done-processing-batch", lager.Data{"size": len(tasksToCancel)})
-		}
-	}()
-	return errc
-}
-
-func (p *Processor) failTasks(logger lager.Logger,
-	tasksCh <-chan []cc_messages.CCTaskState,
-	httpClient *http.Client) <-chan error {
-
-	logger = logger.Session("fail-mismatched-tasks")
-	errc := make(chan error, 1)
-
-	go func() {
-		defer close(errc)
-
-		for {
-			var tasksToFail []cc_messages.CCTaskState
-
-			select {
-			case selected, open := <-tasksCh:
-				if !open {
-					return
-				}
-
-				tasksToFail = selected
-			}
-
-			works := make([]func(), len(tasksToFail))
-
-			for i, taskState := range tasksToFail {
-				taskState := taskState
-
-				works[i] = func() {
-					err := p.taskClient.FailTask(logger, &taskState, httpClient)
-					if err != nil {
-						logger.Error("failed-failing-mismatched-task", err)
-						errc <- err
-					} else {
-						logger.Debug("succeeded-failing-mismatched-task", lager.Data{"task_guid": taskState.TaskGuid})
-					}
-				}
-			}
-
-			throttler, err := workpool.NewThrottler(p.failTaskPoolSize, works)
-			if err != nil {
-				errc <- err
-				return
-			}
-
-			logger.Info("processing-batch", lager.Data{"size": len(tasksToFail)})
-			throttler.Work()
-			logger.Info("done-processing-batch", lager.Data{"size": len(tasksToFail)})
-		}
-	}()
-	return errc
 }
 
 func countErrors(source <-chan error) (<-chan error, <-chan int) {
@@ -677,4 +512,21 @@ func desireAppRequestDebugData(desireAppRequest *cc_messages.DesireAppRequestFro
 		"allow-ssh":    desireAppRequest.AllowSSH,
 		"etag":         desireAppRequest.ETag,
 	}
+}
+
+func initializeHttpClient(skipCertVerify bool) *http.Client {
+	httpClient := cf_http.NewClient()
+	httpClient.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: skipCertVerify,
+			MinVersion:         tls.VersionTLS10,
+		},
+	}
+	return httpClient
 }
