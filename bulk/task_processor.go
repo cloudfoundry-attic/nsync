@@ -103,12 +103,14 @@ func (t *TaskProcessor) sync(signals <-chan os.Signal) bool {
 		cancelTaskErrorCh,
 	)
 
+	bumpFreshness := true
 	logger.Info("processing-updates-and-creates")
 process_loop:
 	for {
 		select {
 		case err, open := <-errors:
 			if err != nil {
+				bumpFreshness = false
 				logger.Error("not-bumping-freshness-because-of", err)
 			}
 			if !open {
@@ -124,6 +126,11 @@ process_loop:
 
 	if <-taskStateErrorCount != 0 {
 		logger.Error("failed-to-fetch-all-cc-task-states", nil)
+	}
+
+	if bumpFreshness {
+		t.bbsClient.UpsertDomain(cc_messages.RunningTaskDomain, t.domainTTL)
+		logger.Info("bumpin-freshness")
 	}
 
 	return false
