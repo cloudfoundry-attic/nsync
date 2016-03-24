@@ -282,6 +282,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/remove",
 						ghttp.VerifyProtoRepresenting(expectedLRPDeleteRequest),
 					)
+
+					fakeCC.RouteToHandler("GET", "/internal/v3/bulk/task_states",
+						ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
+					)
+
+					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+						ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
+					)
 				})
 
 				It("it (adds), (updates), and (removes extra) LRPs", func() {
@@ -344,6 +352,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
 							ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
+							ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
+						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/domains/upsert",
+							ghttp.RespondWith(200, `{}`),
+						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+							ghttp.RespondWith(200, `{}`),
+						)
 					})
 
 					It("completes the tasks and sets the state to failed", func() {
@@ -384,6 +404,18 @@ var _ = Describe("Syncing desired state with CC", func() {
 						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
 							ghttp.RespondWith(200, data, http.Header{bbs.ContentTypeHeader: []string{bbs.ProtoContentType}}),
 						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
+							ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
+						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/domains/upsert",
+							ghttp.RespondWith(200, `{}`),
+						)
+
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+							ghttp.RespondWith(200, `{}`),
+						)
 					})
 
 					It("cancels the tasks in the BBS", func() {
@@ -402,11 +434,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				var (
 					foundTaskDomain          bool
-					domainUpsertRequestCount = 0
+					domainUpsertRequestCount int
 					waitGroup                sync.WaitGroup
 				)
 
 				BeforeEach(func() {
+					domainUpsertRequestCount = 0
+
 					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
 						ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
 					)
@@ -454,6 +488,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 						),
 					)
 
+					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+						ghttp.RespondWith(200, `{}`),
+					)
+
 					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
 						ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 					)
@@ -499,11 +537,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 						waitGroup.Wait()
 
-						numReceivedRequests := domainUpsertRequestCount
-
-						Consistently(func() int {
-							return domainUpsertRequestCount
-						}).Should(Equal(numReceivedRequests))
+						expectedNumberOfUpsertsBeforeCCDies := 2
+						Eventually(func() int { return domainUpsertRequestCount }).Should(Equal(expectedNumberOfUpsertsBeforeCCDies))
+						Consistently(func() int { return domainUpsertRequestCount }).Should(Equal(expectedNumberOfUpsertsBeforeCCDies))
 					})
 				})
 			})
@@ -513,6 +549,26 @@ var _ = Describe("Syncing desired state with CC", func() {
 	Context("when the bulker loses the lock", func() {
 		BeforeEach(func() {
 			heartbeatInterval = 1 * time.Second
+
+			fakeCC.RouteToHandler("GET", "/internal/v3/bulk/task_states",
+				ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
+			)
+
+			fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+				ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
+			)
+
+			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
+				ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
+			)
+
+			fakeBBS.RouteToHandler("POST", "/v1/domains/upsert",
+				ghttp.RespondWith(200, `{}`),
+			)
+
+			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+				ghttp.RespondWith(200, `{}`),
+			)
 		})
 
 		JustBeforeEach(func() {
