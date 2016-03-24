@@ -91,7 +91,7 @@ func (l *LRPProcessor) Run(signals <-chan os.Signal, ready chan<- struct{}) erro
 func (l *LRPProcessor) sync(signals <-chan os.Signal) bool {
 	start := l.clock.Now()
 	invalidsFound := int32(0)
-	logger := l.logger.Session("sync")
+	logger := l.logger.Session("sync-lrps")
 	logger.Info("starting")
 
 	defer func() {
