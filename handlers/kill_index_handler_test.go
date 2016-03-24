@@ -68,7 +68,7 @@ var _ = Describe("KillIndexHandler", func() {
 			fakeBBS.ActualLRPGroupByProcessGuidAndIndexReturns(nil, errors.New("oh no"))
 		})
 
-		It("responds with a ServiceUnavailabe error", func() {
+		It("responds with a ServiceUnavailable error", func() {
 			Expect(responseRecorder.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 	})
@@ -139,5 +139,4 @@ var _ = Describe("KillIndexHandler", func() {
 			Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 		})
 	})
-
 })

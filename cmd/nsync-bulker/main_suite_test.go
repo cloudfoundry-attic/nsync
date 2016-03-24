@@ -57,7 +57,6 @@ var _ = BeforeEach(func() {
 	consulRunner.WaitUntilReady()
 
 	fakeBBS = ghttp.NewServer()
-	fakeBBS.AllowUnhandledRequests = true
 })
 
 var _ = AfterEach(func() {

@@ -402,11 +402,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				var (
 					foundTaskDomain          bool
-					domainUpsertRequestCount = 0
+					domainUpsertRequestCount int
 					waitGroup                sync.WaitGroup
 				)
 
 				BeforeEach(func() {
+					domainUpsertRequestCount = 0
+
 					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
 						ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
 					)
