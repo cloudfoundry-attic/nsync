@@ -105,7 +105,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 }
 
 func (h *DesireAppHandler) getDesiredLRP(logger lager.Logger, processGuid string) (*models.DesiredLRP, error) {
-	logger.Debug("fetching-desired-lrp")
+	logger = logger.Session("fetching-desired-lrp")
 	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(processGuid)
 	logger.Debug("fetched-desired-lrp")
 	if err == nil {
@@ -119,6 +119,7 @@ func (h *DesireAppHandler) getDesiredLRP(logger lager.Logger, processGuid string
 		return nil, nil
 	}
 
+	logger.Error("failed-fetching-desired-lrp", err)
 	return nil, err
 }
 
