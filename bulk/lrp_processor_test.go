@@ -496,7 +496,7 @@ var _ = Describe("LRPProcessor", func() {
 					})
 
 					It("propagates the error", func() {
-						Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`sync.not-bumping-freshness-because-of","log_level":2,"data":{"error":"our-specific-test-error"`))
+						Eventually(logger.TestSink.Buffer).Should(gbytes.Say(`sync-lrps.not-bumping-freshness-because-of","log_level":2,"data":{"error":"our-specific-test-error"`))
 					})
 				})
 			})
