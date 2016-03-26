@@ -433,12 +433,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Describe("domains", func() {
 				var (
-					foundTaskDomain          bool
+					foundTaskDomain          chan bool
 					domainUpsertRequestCount int
 					waitGroup                sync.WaitGroup
 				)
 
 				BeforeEach(func() {
+					foundTaskDomain = make(chan bool, 2)
 					domainUpsertRequestCount = 0
 
 					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
@@ -514,7 +515,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 								Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal protobuf")
 
 								if protoMessage.Domain == cc_messages.RunningTaskDomain {
-									foundTaskDomain = true
+									close(foundTaskDomain)
 								}
 							},
 						),
@@ -523,13 +524,13 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 				Context("when cc is available", func() {
 					It("updates the domains", func() {
-						Eventually(func() bool { return foundTaskDomain }, 2*domainTTL).Should(BeTrue())
+						Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
 					})
 				})
 
 				Context("when cc stops being available", func() {
 					It("stops updating the domains", func() {
-						Eventually(func() bool { return foundTaskDomain }, 2*domainTTL).Should(BeTrue())
+						Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
 
 						logger.Debug("stopping-fake-cc")
 						fakeCC.HTTPTestServer.Close()
@@ -617,12 +618,14 @@ var _ = Describe("Syncing desired state with CC", func() {
 				expectedLRPDomainRequest  *models.UpsertDomainRequest
 				expectedTaskDomainRequest *models.UpsertDomainRequest
 
-				foundLRPDomain  bool
-				foundTaskDomain bool
-				foundRequests   bool
+				foundLRPDomain  chan bool
+				foundTaskDomain chan bool
 			)
 
 			BeforeEach(func() {
+				foundLRPDomain = make(chan bool, 2)
+				foundTaskDomain = make(chan bool, 2)
+
 				expectedLRPDomainRequest = &models.UpsertDomainRequest{
 					Domain: "cf-app",
 					Ttl:    uint32(domainTTL.Seconds()),
@@ -663,15 +666,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 							Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal protobuf")
 
 							if protoMessage.Domain == cc_messages.AppLRPDomain {
-								foundLRPDomain = true
+								close(foundLRPDomain)
 							}
 
 							if protoMessage.Domain == cc_messages.RunningTaskDomain {
-								foundTaskDomain = true
-							}
-
-							if foundLRPDomain && foundTaskDomain {
-								foundRequests = true
+								close(foundTaskDomain)
 							}
 						},
 					),
@@ -682,9 +681,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 			})
 
 			It("is updated", func() {
-				Eventually(func() bool {
-					return foundRequests
-				}, 2*domainTTL).Should(Equal(true))
+				Eventually(foundLRPDomain, 2*domainTTL).Should(BeClosed())
+				Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
 			})
 		})
 	})
