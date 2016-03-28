@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -434,7 +435,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Describe("domains", func() {
 				var (
 					foundTaskDomain          chan bool
-					domainUpsertRequestCount int
+					domainUpsertRequestCount int32
 					waitGroup                sync.WaitGroup
 				)
 
@@ -503,7 +504,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							func(w http.ResponseWriter, req *http.Request) {
 								waitGroup.Add(1)
 								defer waitGroup.Done()
-								domainUpsertRequestCount++
+								atomic.AddInt32(&domainUpsertRequestCount, 1)
 
 								body, err := ioutil.ReadAll(req.Body)
 								Expect(err).ShouldNot(HaveOccurred())
@@ -539,8 +540,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 						waitGroup.Wait()
 
 						expectedNumberOfUpsertsBeforeCCDies := 2
-						Eventually(func() int { return domainUpsertRequestCount }).Should(Equal(expectedNumberOfUpsertsBeforeCCDies))
-						Consistently(func() int { return domainUpsertRequestCount }).Should(Equal(expectedNumberOfUpsertsBeforeCCDies))
+						Eventually(func() int32 { return atomic.LoadInt32(&domainUpsertRequestCount) }).Should(BeNumerically("==", expectedNumberOfUpsertsBeforeCCDies))
+						Consistently(func() int32 { return atomic.LoadInt32(&domainUpsertRequestCount) }).Should(BeNumerically("==", expectedNumberOfUpsertsBeforeCCDies))
 					})
 				})
 			})
