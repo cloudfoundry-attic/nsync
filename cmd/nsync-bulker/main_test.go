@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os/exec"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -434,14 +432,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 			Describe("domains", func() {
 				var (
-					foundTaskDomain          chan bool
-					domainUpsertRequestCount int32
-					waitGroup                sync.WaitGroup
+					foundTaskDomain chan bool
 				)
 
 				BeforeEach(func() {
 					foundTaskDomain = make(chan bool, 2)
-					domainUpsertRequestCount = 0
 
 					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp_scheduling_infos/list",
 						ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
@@ -502,10 +497,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 						ghttp.CombineHandlers(
 							ghttp.VerifyContentType("application/x-protobuf"),
 							func(w http.ResponseWriter, req *http.Request) {
-								waitGroup.Add(1)
-								defer waitGroup.Done()
-								atomic.AddInt32(&domainUpsertRequestCount, 1)
-
 								body, err := ioutil.ReadAll(req.Body)
 								Expect(err).ShouldNot(HaveOccurred())
 								defer req.Body.Close()
@@ -523,26 +514,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 					)
 				})
 
-				Context("when cc is available", func() {
-					It("updates the domains", func() {
-						Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
-					})
-				})
-
-				Context("when cc stops being available", func() {
-					It("stops updating the domains", func() {
-						Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
-
-						logger.Debug("stopping-fake-cc")
-						fakeCC.HTTPTestServer.Close()
-						logger.Debug("finished-stopping-fake-cc")
-
-						waitGroup.Wait()
-
-						expectedNumberOfUpsertsBeforeCCDies := 2
-						Eventually(func() int32 { return atomic.LoadInt32(&domainUpsertRequestCount) }).Should(BeNumerically("==", expectedNumberOfUpsertsBeforeCCDies))
-						Consistently(func() int32 { return atomic.LoadInt32(&domainUpsertRequestCount) }).Should(BeNumerically("==", expectedNumberOfUpsertsBeforeCCDies))
-					})
+				It("updates the domains", func() {
+					Eventually(foundTaskDomain, 2*domainTTL).Should(BeClosed())
 				})
 			})
 		})
