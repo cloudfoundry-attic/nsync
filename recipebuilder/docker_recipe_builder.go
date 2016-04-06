@@ -180,7 +180,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
+		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts),
 		LogSource: AppLogSource,
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
@@ -216,7 +216,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts[0]),
+			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},

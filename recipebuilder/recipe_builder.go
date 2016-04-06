@@ -77,8 +77,10 @@ func cpuWeight(memoryMB int) uint32 {
 	return uint32(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
 }
 
-func createLrpEnv(env []*models.EnvironmentVariable, exposedPort uint32) []*models.EnvironmentVariable {
-	env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPort)})
+func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32) []*models.EnvironmentVariable {
+	if len(exposedPorts) > 0 {
+		env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPorts[0])})
+	}
 	return env
 }
 

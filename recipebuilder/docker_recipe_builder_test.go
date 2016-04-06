@@ -133,6 +133,20 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 		})
 
+		Context("when ports is an empty array", func() {
+			BeforeEach(func() {
+				desiredAppReq.Ports = []uint32{}
+			})
+
+			It("does not include a PORT environment variable", func() {
+				varNames := []string{}
+				for _, envVar := range desiredLRP.EnvironmentVariables {
+					varNames = append(varNames, envVar.Name)
+				}
+				Expect(varNames).NotTo(ContainElement("PORT"))
+			})
+		})
+
 		Context("when everything is correct", func() {
 			It("does not error", func() {
 				Expect(err).NotTo(HaveOccurred())
