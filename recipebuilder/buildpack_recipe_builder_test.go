@@ -73,6 +73,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			NumInstances:    23,
 			RoutingInfo:     routingInfo,
 			LogGuid:         "the-log-id",
+			LogSource:       "MYSOURCE",
 
 			HealthCheckType:             cc_messages.PortHealthCheckType,
 			HealthCheckTimeoutInSeconds: 123456,
@@ -193,7 +194,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					"the-execution-metadata",
 				}))
 
-				Expect(runAction.LogSource).To(Equal("APP"))
+				Expect(runAction.LogSource).To(Equal("MYSOURCE"))
 
 				numFiles := uint64(32)
 				Expect(runAction.ResourceLimits).To(Equal(&models.ResourceLimits{
@@ -351,7 +352,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
 							},
-							LogSource: "APP",
+							LogSource: "MYSOURCE",
 						},
 						&models.RunAction{
 							User: "vcap",
@@ -572,6 +573,18 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					},
 					30*time.Second,
 				)))
+			})
+		})
+
+		Context("when log source is empty", func() {
+			BeforeEach(func() {
+				desiredAppReq.LogSource = ""
+			})
+
+			It("uses APP", func() {
+				parallelRunAction := desiredLRP.Action.CodependentAction
+				runAction := parallelRunAction.Actions[0].RunAction
+				Expect(runAction.LogSource).To(Equal("APP"))
 			})
 		})
 	})

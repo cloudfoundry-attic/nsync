@@ -113,3 +113,11 @@ func getDesiredAppPorts(ports []uint32) []uint32 {
 	}
 	return desiredAppPorts
 }
+
+func getAppLogSource(logSource string) string {
+	if logSource == "" {
+		return AppLogSource
+	} else {
+		return logSource
+	}
+}

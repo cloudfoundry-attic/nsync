@@ -173,7 +173,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			desiredApp.ExecutionMetadata,
 		),
 		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts),
-		LogSource: AppLogSource,
+		LogSource: getAppLogSource(desiredApp.LogSource),
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
 		},
