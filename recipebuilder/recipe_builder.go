@@ -27,6 +27,8 @@ const (
 	DefaultLANG = "en_US.UTF-8"
 
 	TrustedSystemCertificatesPath = "/etc/cf-system-certificates"
+
+	DucatiNetworkIDKey = "ducati.network-id"
 )
 
 var (
@@ -41,6 +43,7 @@ type Config struct {
 	Lifecycles    map[string]string
 	FileServerURL string
 	KeyFactory    keys.SSHKeyFactory
+	NetworkID     string
 }
 
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder

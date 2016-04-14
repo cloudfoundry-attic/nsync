@@ -95,6 +95,12 @@ var bbsMaxIdleConnsPerHost = flag.Int(
 	"Controls the maximum number of idle (keep-alive) connctions per host. If zero, golang's default will be used",
 )
 
+var networkID = flag.String(
+	"networkID",
+	"",
+	"Sets the network ID on all DesiredLRPs",
+)
+
 const (
 	dropsondeOrigin = "nsync_listener"
 )
@@ -116,6 +122,7 @@ func main() {
 		Lifecycles:    lifecycles,
 		FileServerURL: *fileServerURL,
 		KeyFactory:    keys.RSAKeyPairFactory,
+		NetworkID:     *networkID,
 	}
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
 		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),

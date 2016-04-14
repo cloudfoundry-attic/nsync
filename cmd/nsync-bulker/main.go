@@ -160,6 +160,12 @@ var cancelTaskPoolSize = flag.Int(
 	"Max concurrency for canceling mismatched tasks",
 )
 
+var networkID = flag.String(
+	"networkID",
+	"",
+	"Sets the network ID on all DesiredLRPs",
+)
+
 const (
 	dropsondeOrigin = "nsync_bulker"
 )
@@ -188,6 +194,7 @@ func main() {
 		Lifecycles:    lifecycles,
 		FileServerURL: *fileServerURL,
 		KeyFactory:    keys.RSAKeyPairFactory,
+		NetworkID:     *networkID,
 	}
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
 		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),

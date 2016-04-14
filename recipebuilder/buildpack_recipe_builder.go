@@ -233,6 +233,14 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	setupAction := models.Serial(setup...)
 	actionAction := models.Codependent(actions...)
 
+	properties := map[string]string{
+		"app-guid": desiredApp.LogGuid,
+	}
+
+	if b.config.NetworkID != "" {
+		properties[DucatiNetworkIDKey] = b.config.NetworkID
+	}
+
 	return &models.DesiredLRP{
 		Privileged: true,
 
@@ -269,6 +277,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
+
+		Properties: properties,
 	}, nil
 }
 
