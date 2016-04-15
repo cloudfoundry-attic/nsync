@@ -240,14 +240,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 	actionAction := models.Codependent(actions...)
 
-	properties := map[string]string{
-		"app-guid": desiredApp.LogGuid,
-	}
-
-	if b.config.NetworkID != "" {
-		properties[DucatiNetworkIDKey] = b.config.NetworkID
-	}
-
 	return &models.DesiredLRP{
 		Privileged: privilegedContainer,
 
@@ -284,7 +276,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 
-		Properties: properties,
+		Network: networkConfig(b.config.NetworkID, desiredApp.LogGuid),
 	}, nil
 }
 

@@ -27,8 +27,6 @@ const (
 	DefaultLANG = "en_US.UTF-8"
 
 	TrustedSystemCertificatesPath = "/etc/cf-system-certificates"
-
-	DucatiNetworkIDKey = "ducati.network-id"
 )
 
 var (
@@ -64,6 +62,20 @@ func (err Error) Error() string {
 
 func lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
 	return urljoiner.Join(fileServerURL, "/v1/static", lifecyclePath)
+}
+
+func networkConfig(networkID string, appGuid string) *models.Network {
+	properties := map[string]string{
+		"app-guid": appGuid,
+	}
+
+	if networkID != "" {
+		properties["ducati.network-id"] = networkID
+	}
+
+	return &models.Network{
+		Properties: properties,
+	}
 }
 
 func cpuWeight(memoryMB int) uint32 {
