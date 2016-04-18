@@ -41,7 +41,6 @@ type Config struct {
 	Lifecycles    map[string]string
 	FileServerURL string
 	KeyFactory    keys.SSHKeyFactory
-	NetworkID     string
 }
 
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder
@@ -64,13 +63,9 @@ func lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
 	return urljoiner.Join(fileServerURL, "/v1/static", lifecyclePath)
 }
 
-func networkConfig(networkID string, appGuid string) *models.Network {
+func networkConfig(appId string) *models.Network {
 	properties := map[string]string{
-		"app-guid": appGuid,
-	}
-
-	if networkID != "" {
-		properties["ducati.network-id"] = networkID
+		"app-id": appId,
 	}
 
 	return &models.Network{

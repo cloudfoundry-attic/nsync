@@ -270,7 +270,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 
-		Network: networkConfig(b.config.NetworkID, desiredApp.LogGuid),
+		Network: networkConfig(desiredApp.LogGuid),
 	}, nil
 }
 

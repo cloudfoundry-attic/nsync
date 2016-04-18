@@ -121,24 +121,6 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 		})
 
-		Context("when the network id is set", func() {
-			BeforeEach(func() {
-				config := recipebuilder.Config{
-					Lifecycles:    lifecycles,
-					FileServerURL: "http://file-server.com",
-					KeyFactory:    fakeKeyFactory,
-					NetworkID:     "some-network-id",
-				}
-				builder = recipebuilder.NewBuildpackRecipeBuilder(logger, config)
-				desiredLRP, err = builder.Build(&desiredAppReq)
-			})
-
-			It("it sets the network id on the desired LRP", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("ducati.network-id", "some-network-id"))
-			})
-		})
-
 		Context("when everything is correct", func() {
 			It("does not error", func() {
 				Expect(err).NotTo(HaveOccurred())
@@ -164,8 +146,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-				Expect(desiredLRP.Network.Properties).NotTo(HaveKey("ducati.network-id"))
-				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app-guid", "the-log-id"))
+				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app-id", "the-log-id"))
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{

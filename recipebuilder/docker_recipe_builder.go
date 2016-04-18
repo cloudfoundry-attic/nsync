@@ -276,7 +276,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 
-		Network: networkConfig(b.config.NetworkID, desiredApp.LogGuid),
+		Network: networkConfig(desiredApp.LogGuid),
 	}, nil
 }
 
