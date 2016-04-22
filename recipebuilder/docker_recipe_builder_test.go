@@ -46,7 +46,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 			},
 		}
 		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
-		config := recipebuilder.Config{lifecycles, "http://file-server.com", fakeKeyFactory}
+		config := recipebuilder.Config{
+			Lifecycles:    lifecycles,
+			FileServerURL: "http://file-server.com",
+			KeyFactory:    fakeKeyFactory,
+		}
 		builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
 	})
 
@@ -172,6 +176,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.EnvironmentVariables).NotTo(ConsistOf(&models.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
+
+				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app_id", "the-log-id"))
 
 				expectedCachedDependencies := []*models.CachedDependency{}
 				expectedCachedDependencies = append(expectedCachedDependencies, &models.CachedDependency{

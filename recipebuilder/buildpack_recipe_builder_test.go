@@ -49,7 +49,11 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		}
 
 		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
-		config := recipebuilder.Config{lifecycles, "http://file-server.com", fakeKeyFactory}
+		config := recipebuilder.Config{
+			Lifecycles:    lifecycles,
+			FileServerURL: "http://file-server.com",
+			KeyFactory:    fakeKeyFactory,
+		}
 		builder = recipebuilder.NewBuildpackRecipeBuilder(logger, config)
 
 		routingInfo, err := cc_messages.CCHTTPRoutes{
@@ -141,6 +145,8 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(desiredLRP.EnvironmentVariables).To(ConsistOf(&models.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
+
+				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app_id", "the-log-id"))
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{

@@ -269,6 +269,8 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
+
+		Network: networkConfig(desiredApp.LogGuid),
 	}, nil
 }
 
