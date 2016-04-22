@@ -65,7 +65,7 @@ func lifecycleDownloadURL(lifecyclePath string, fileServerURL string) string {
 
 func networkConfig(appId string) *models.Network {
 	properties := map[string]string{
-		"app-id": appId,
+		"app_id": appId,
 	}
 
 	return &models.Network{

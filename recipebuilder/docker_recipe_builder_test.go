@@ -177,7 +177,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app-id", "the-log-id"))
+				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app_id", "the-log-id"))
 
 				expectedCachedDependencies := []*models.CachedDependency{}
 				expectedCachedDependencies = append(expectedCachedDependencies, &models.CachedDependency{

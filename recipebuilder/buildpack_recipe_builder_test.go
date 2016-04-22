@@ -146,7 +146,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 
-				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app-id", "the-log-id"))
+				Expect(desiredLRP.Network.Properties).To(HaveKeyWithValue("app_id", "the-log-id"))
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{
