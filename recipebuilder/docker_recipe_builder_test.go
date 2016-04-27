@@ -25,6 +25,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		builder        *recipebuilder.DockerRecipeBuilder
 		lifecycles     map[string]string
 		egressRules    []*models.SecurityGroupRule
+		networkInfo    *models.Network
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
 	)
@@ -45,6 +46,14 @@ var _ = Describe("Docker Recipe Builder", func() {
 				PortRange:    &models.PortRange{Start: 80, End: 443},
 			},
 		}
+
+		networkInfo = &models.Network{
+			Properties: map[string]string{
+				"app_id":   "some-app-guid",
+				"some_key": "some-value",
+			},
+		}
+
 		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
 		config := recipebuilder.Config{
 			Lifecycles:    lifecycles,
@@ -91,6 +100,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				HealthCheckTimeoutInSeconds: 123456,
 
 				EgressRules: egressRules,
+				Network:     networkInfo,
 
 				ETag: "etag-updated-at",
 			}
@@ -177,6 +187,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.EnvironmentVariables).To(BeEmpty())
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
+
+				Expect(desiredLRP.Network).To(Equal(networkInfo))
 
 				expectedCachedDependencies := []*models.CachedDependency{}
 				expectedCachedDependencies = append(expectedCachedDependencies, &models.CachedDependency{

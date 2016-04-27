@@ -266,6 +266,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
 
 		EgressRules:        desiredApp.EgressRules,
+		Network:            desiredApp.Network,
 		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,

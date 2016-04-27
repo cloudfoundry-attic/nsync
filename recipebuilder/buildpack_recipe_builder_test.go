@@ -25,6 +25,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		desiredAppReq  cc_messages.DesireAppRequestFromCC
 		lifecycles     map[string]string
 		egressRules    []*models.SecurityGroupRule
+		networkInfo    *models.Network
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
 		expectedRoutes models.Routes
@@ -45,6 +46,13 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Protocol:     "TCP",
 				Destinations: []string{"0.0.0.0/0"},
 				PortRange:    &models.PortRange{Start: 80, End: 443},
+			},
+		}
+
+		networkInfo = &models.Network{
+			Properties: map[string]string{
+				"app_id":   "some-app-guid",
+				"some_key": "some-value",
 			},
 		}
 
@@ -83,6 +91,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			HealthCheckTimeoutInSeconds: 123456,
 
 			EgressRules: egressRules,
+			Network:     networkInfo,
 
 			ETag: "etag-updated-at",
 		}
@@ -147,6 +156,8 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				))
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
+
+				Expect(desiredLRP.Network).To(Equal(networkInfo))
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{
