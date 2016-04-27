@@ -46,7 +46,12 @@ var _ = Describe("Docker Recipe Builder", func() {
 			},
 		}
 		fakeKeyFactory = &fake_keys.FakeSSHKeyFactory{}
-		config := recipebuilder.Config{lifecycles, "http://file-server.com", fakeKeyFactory}
+		config := recipebuilder.Config{
+			Lifecycles:    lifecycles,
+			FileServerURL: "http://file-server.com",
+			KeyFactory:    fakeKeyFactory,
+		}
+
 		builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
 	})
 
@@ -169,7 +174,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 				Expect(desiredLRP.LogSource).To(Equal("CELL"))
 
-				Expect(desiredLRP.EnvironmentVariables).NotTo(ConsistOf(&models.EnvironmentVariable{"LANG", recipebuilder.DefaultLANG}))
+				Expect(desiredLRP.EnvironmentVariables).To(BeEmpty())
 
 				Expect(desiredLRP.MetricsGuid).To(Equal("the-log-id"))
 

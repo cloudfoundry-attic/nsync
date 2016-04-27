@@ -129,7 +129,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	rootFSPath := models.PreloadedRootFS(desiredApp.Stack)
 
 	var containerEnvVars []*models.EnvironmentVariable
-	containerEnvVars = append(containerEnvVars, &models.EnvironmentVariable{"LANG", DefaultLANG})
+	containerEnvVars = append(containerEnvVars, &models.EnvironmentVariable{Name: "LANG", Value: DefaultLANG})
 
 	numFiles := DefaultFileDescriptorLimit
 	if desiredApp.FileDescriptors != 0 {
