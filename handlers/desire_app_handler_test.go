@@ -53,6 +53,17 @@ var _ = Describe("DesireAppHandler", func() {
 		}.CCRouteInfo()
 		Expect(err).NotTo(HaveOccurred())
 
+		testVolume := cc_messages.VolumeMount{
+			DriverID: "testdriver",
+			GroupID: "testGroup",
+			InstanceIDs: 	[]string{"instance1"},
+			ContainerPath: 	"/Volumes/myvol",
+			Mode: 		models.BindMountMode_RW,
+			Config:     	[]byte("config stuff"),
+			SizeMB: 	1024,
+			Tags: 		map[string][]string{},
+		}
+
 		desireAppRequest = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:  "some-guid",
 			DropletUri:   "http://the-droplet.uri.com",
@@ -69,6 +80,7 @@ var _ = Describe("DesireAppHandler", func() {
 			RoutingInfo:     routingInfo,
 			LogGuid:         "some-log-guid",
 			ETag:            "last-modified-etag",
+			VolumeMounts: 	 []*cc_messages.VolumeMount{&testVolume},
 		}
 
 		metricSender = fake.NewFakeMetricSender()
