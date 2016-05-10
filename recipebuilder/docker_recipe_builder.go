@@ -276,6 +276,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		LegacyDownloadUser: user,
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
+		VolumeMounts:                  desiredApp.VolumeMounts,
 	}, nil
 }
 

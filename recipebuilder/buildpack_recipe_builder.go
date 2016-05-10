@@ -270,6 +270,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
+		VolumeMounts:                  desiredApp.VolumeMounts,
 	}, nil
 }
 

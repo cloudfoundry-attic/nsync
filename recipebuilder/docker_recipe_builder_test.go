@@ -847,6 +847,34 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(runAction.LogSource).To(Equal("APP"))
 			})
 		})
+
+		Describe("volume mounts", func() {
+			Context("when none are provided", func() {
+				It("is empty", func() {
+					Expect(len(desiredLRP.VolumeMounts)).To(Equal(0))
+				})
+			})
+
+			Context("when some are provided", func() {
+				var testVolume models.VolumeMount
+
+				BeforeEach(func() {
+					testVolume = models.VolumeMount{
+						Driver:        "testdriver",
+						VolumeId:      "volumeId",
+						ContainerPath: "/Volumes/myvol",
+						Mode:          models.BindMountMode_RW,
+						Config:        []byte("config stuff"),
+					}
+					desiredAppReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+				})
+
+				It("desires the mounts", func() {
+					Expect(desiredLRP.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+				})
+			})
+		})
+
 	})
 
 	Context("BuildTask", func() {
