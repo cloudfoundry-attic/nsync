@@ -94,6 +94,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
+		VolumeMounts:                  task.VolumeMounts,
 	}
 
 	return taskDefinition, nil

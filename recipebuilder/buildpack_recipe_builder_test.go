@@ -788,5 +788,32 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(err).To(Equal(recipebuilder.ErrNoLifecycleDefined))
 			})
 		})
+
+		Describe("volume mounts", func() {
+			Context("when none are provided", func() {
+				It("is empty", func() {
+					Expect(len(taskDefinition.VolumeMounts)).To(Equal(0))
+				})
+			})
+
+			Context("when some are provided", func() {
+				var testVolume models.VolumeMount
+
+				BeforeEach(func() {
+					testVolume = models.VolumeMount{
+						Driver:        "testdriver",
+						VolumeId:      "volumeId",
+						ContainerPath: "/Volumes/myvol",
+						Mode:          models.BindMountMode_RW,
+						Config:        []byte("config stuff"),
+					}
+					newTaskReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+				})
+
+				It("desires the mounts", func() {
+					Expect(taskDefinition.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+				})
+			})
+		})
 	})
 })

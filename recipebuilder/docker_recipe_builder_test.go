@@ -879,13 +879,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 	Context("BuildTask", func() {
 		var (
-			taskRequest    *cc_messages.TaskRequestFromCC
+			newTaskReq     *cc_messages.TaskRequestFromCC
 			taskDefinition *models.TaskDefinition
 			err            error
 		)
 
 		BeforeEach(func() {
-			taskRequest = &cc_messages.TaskRequestFromCC{
+			newTaskReq = &cc_messages.TaskRequestFromCC{
 				LogGuid:     "the-log-guid",
 				DiskMb:      128,
 				MemoryMb:    512,
@@ -901,7 +901,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		})
 
 		JustBeforeEach(func() {
-			taskDefinition, err = builder.BuildTask(taskRequest)
+			taskDefinition, err = builder.BuildTask(newTaskReq)
 		})
 
 		It("does not error", func() {
@@ -941,7 +941,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 					"docker run fast",
 					"{}",
 				),
-				Env:            taskRequest.EnvironmentVariables,
+				Env:            newTaskReq.EnvironmentVariables,
 				ResourceLimits: &models.ResourceLimits{},
 				LogSource:      "APP/TASK/my-task",
 			})
@@ -953,7 +953,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		Context("when the docker path is not specified", func() {
 			BeforeEach(func() {
-				taskRequest.DockerPath = ""
+				newTaskReq.DockerPath = ""
 			})
 
 			It("returns an error", func() {
@@ -963,7 +963,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		Context("with an invalid docker path url", func() {
 			BeforeEach(func() {
-				taskRequest.DockerPath = "docker://jim/jim"
+				newTaskReq.DockerPath = "docker://jim/jim"
 			})
 
 			It("returns an error", func() {
@@ -973,11 +973,37 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 		Context("when a droplet uri is specified", func() {
 			BeforeEach(func() {
-				taskRequest.DropletUri = "https://utako.utako.com"
+				newTaskReq.DropletUri = "https://utako.utako.com"
 			})
 
 			It("returns an error", func() {
 				Expect(err).To(Equal(recipebuilder.ErrMultipleAppSources))
+			})
+		})
+		Describe("volume mounts", func() {
+			Context("when none are provided", func() {
+				It("is empty", func() {
+					Expect(len(taskDefinition.VolumeMounts)).To(Equal(0))
+				})
+			})
+
+			Context("when some are provided", func() {
+				var testVolume models.VolumeMount
+
+				BeforeEach(func() {
+					testVolume = models.VolumeMount{
+						Driver:        "testdriver",
+						VolumeId:      "volumeId",
+						ContainerPath: "/Volumes/myvol",
+						Mode:          models.BindMountMode_RW,
+						Config:        []byte("config stuff"),
+					}
+					newTaskReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+				})
+
+				It("desires the mounts", func() {
+					Expect(taskDefinition.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+				})
 			})
 		})
 	})
