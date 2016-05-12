@@ -35,7 +35,7 @@ func (h *CancelTaskHandler) CancelTask(resp http.ResponseWriter, req *http.Reque
 	taskGuid := req.FormValue(":task_guid")
 
 	logger.Info("canceling-task", lager.Data{"task-guid": taskGuid})
-	err := h.bbsClient.CancelTask(taskGuid)
+	err := h.bbsClient.CancelTask(logger, taskGuid)
 	if err != nil {
 		logger.Error("cancel-task-failed", err)
 		if err == models.ErrResourceNotFound {

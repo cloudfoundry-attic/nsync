@@ -39,7 +39,7 @@ func (h *StopAppHandler) StopApp(resp http.ResponseWriter, req *http.Request) {
 	defer logger.Info("complete")
 
 	logger.Debug("removing-desired-lrp")
-	err := h.bbsClient.RemoveDesiredLRP(processGuid)
+	err := h.bbsClient.RemoveDesiredLRP(logger, processGuid)
 	if err != nil {
 		logger.Error("failed-to-remove-desired-lrp", err)
 

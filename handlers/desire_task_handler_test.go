@@ -114,7 +114,7 @@ var _ = Describe("DesireTaskHandler", func() {
 			Expect(buildpackBuilder.BuildTaskArgsForCall(0)).To(Equal(&taskRequest))
 			Expect(fakeBBSClient.DesireTaskCallCount()).To(Equal(1))
 
-			guid, domain, taskDefinition := fakeBBSClient.DesireTaskArgsForCall(0)
+			_, guid, domain, taskDefinition := fakeBBSClient.DesireTaskArgsForCall(0)
 			Expect(guid).To(Equal("the-task-guid"))
 			Expect(domain).To(Equal("cf-tasks"))
 			Expect(taskDefinition).To(Equal(newlyDesiredTask))

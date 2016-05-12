@@ -61,7 +61,7 @@ func (h *TaskHandler) DesireTask(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	logger.Info("desiring-task", lager.Data{"task-guid": task.TaskGuid})
-	err = h.bbsClient.DesireTask(task.TaskGuid, cc_messages.RunningTaskDomain, desiredTask)
+	err = h.bbsClient.DesireTask(logger, task.TaskGuid, cc_messages.RunningTaskDomain, desiredTask)
 	if err != nil {
 		logger.Error("desire-task-failed", err)
 		resp.WriteHeader(http.StatusBadRequest)

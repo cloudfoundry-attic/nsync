@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
 	"github.com/cloudfoundry-incubator/nsync/handlers"
+	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
@@ -39,7 +40,7 @@ var _ = Describe("KillIndexHandler", func() {
 			":index":        []string{"1"},
 		}
 
-		fakeBBS.ActualLRPGroupByProcessGuidAndIndexStub = func(processGuid string, index int) (*models.ActualLRPGroup, error) {
+		fakeBBS.ActualLRPGroupByProcessGuidAndIndexStub = func(logger lager.Logger, processGuid string, index int) (*models.ActualLRPGroup, error) {
 			return &models.ActualLRPGroup{
 				Instance: model_helpers.NewValidActualLRP(processGuid, int32(index)),
 			}, nil
@@ -54,7 +55,7 @@ var _ = Describe("KillIndexHandler", func() {
 	It("invokes the bbs to retire", func() {
 		Expect(fakeBBS.RetireActualLRPCallCount()).To(Equal(1))
 
-		actualLRPKey := fakeBBS.RetireActualLRPArgsForCall(0)
+		_, actualLRPKey := fakeBBS.RetireActualLRPArgsForCall(0)
 		Expect(actualLRPKey.ProcessGuid).To(Equal("process-guid-0"))
 		Expect(actualLRPKey.Index).To(BeEquivalentTo(1))
 	})

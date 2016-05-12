@@ -59,7 +59,7 @@ var _ = Describe("Task Processor", func() {
 		clock = fakeclock.NewFakeClock(time.Now())
 		logger = lagertest.NewTestLogger("test")
 
-		bbsClient.UpsertDomainStub = func(string, time.Duration) error {
+		bbsClient.UpsertDomainStub = func(lager.Logger, string, time.Duration) error {
 			clock.Increment(syncDuration)
 			return nil
 		}
@@ -228,7 +228,7 @@ var _ = Describe("Task Processor", func() {
 
 			lock := sync.Mutex{}
 			count := 0
-			bbsClient.CancelTaskStub = func(guid string) error {
+			bbsClient.CancelTaskStub = func(logger lager.Logger, guid string) error {
 				lock.Lock()
 				defer lock.Unlock()
 				if count == 0 {

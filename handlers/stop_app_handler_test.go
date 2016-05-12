@@ -45,7 +45,8 @@ var _ = Describe("StopAppHandler", func() {
 
 	It("invokes the bbs to delete the app", func() {
 		Expect(fakeBBS.RemoveDesiredLRPCallCount()).To(Equal(1))
-		Expect(fakeBBS.RemoveDesiredLRPArgsForCall(0)).To(Equal("process-guid"))
+		_, desiredLRP := fakeBBS.RemoveDesiredLRPArgsForCall(0)
+		Expect(desiredLRP).To(Equal("process-guid"))
 	})
 
 	It("responds with 202 Accepted", func() {

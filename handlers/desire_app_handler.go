@@ -106,7 +106,7 @@ func (h *DesireAppHandler) DesireApp(resp http.ResponseWriter, req *http.Request
 
 func (h *DesireAppHandler) getDesiredLRP(logger lager.Logger, processGuid string) (*models.DesiredLRP, error) {
 	logger = logger.Session("fetching-desired-lrp")
-	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(processGuid)
+	lrp, err := h.bbsClient.DesiredLRPByProcessGuid(logger, processGuid)
 	logger.Debug("fetched-desired-lrp")
 	if err == nil {
 		logger.Debug("desired-lrp-already-present")
@@ -139,7 +139,7 @@ func (h *DesireAppHandler) createDesiredApp(
 	}
 
 	logger.Debug("creating-desired-lrp", lager.Data{"routes": sanitizeRoutes(desiredLRP.Routes)})
-	err = h.bbsClient.DesireLRP(desiredLRP)
+	err = h.bbsClient.DesireLRP(logger, desiredLRP)
 	if err != nil {
 		logger.Error("failed-to-create-lrp", err)
 		return err
@@ -189,7 +189,7 @@ func (h *DesireAppHandler) updateDesiredApp(
 	}
 
 	logger.Debug("updating-desired-lrp", lager.Data{"routes": sanitizeRoutes(existingLRP.Routes)})
-	err = h.bbsClient.UpdateDesiredLRP(desireAppMessage.ProcessGuid, updateRequest)
+	err = h.bbsClient.UpdateDesiredLRP(logger, desireAppMessage.ProcessGuid, updateRequest)
 	if err != nil {
 		logger.Error("failed-to-update-lrp", err)
 		return err

@@ -176,7 +176,7 @@ var _ = Describe("LRPProcessor", func() {
 		bbsClient = new(fake_bbs.FakeClient)
 		bbsClient.DesiredLRPSchedulingInfosReturns(existingSchedulingInfos, nil)
 
-		bbsClient.UpsertDomainStub = func(string, time.Duration) error {
+		bbsClient.UpsertDomainStub = func(lager.Logger, string, time.Duration) error {
 			clock.Increment(syncDuration)
 			return nil
 		}
@@ -224,7 +224,8 @@ var _ = Describe("LRPProcessor", func() {
 					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 					Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 
-					Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+					_, desiredLRP := bbsClient.RemoveDesiredLRPArgsForCall(0)
+					Expect(desiredLRP).To(Equal("excess-process-guid"))
 				})
 			})
 
@@ -249,7 +250,8 @@ var _ = Describe("LRPProcessor", func() {
 				It("creates a desired LRP for the missing app", func() {
 					Eventually(bbsClient.DesireLRPCallCount).Should(Equal(1))
 					Consistently(bbsClient.DesireLRPCallCount).Should(Equal(1))
-					Expect(bbsClient.DesireLRPArgsForCall(0).ProcessGuid).To(Equal("new-process-guid"))
+					_, desiredLRP := bbsClient.DesireLRPArgsForCall(0)
+					Expect(desiredLRP.ProcessGuid).To(Equal("new-process-guid"))
 				})
 
 				Context("when fetching desire app requests from the CC fails", func() {
@@ -288,7 +290,8 @@ var _ = Describe("LRPProcessor", func() {
 
 							Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 							Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-							Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+							_, desiredLRP := bbsClient.RemoveDesiredLRPArgsForCall(0)
+							Expect(desiredLRP).To(Equal("excess-process-guid"))
 						})
 					})
 				})
@@ -310,13 +313,14 @@ var _ = Describe("LRPProcessor", func() {
 						It("continues to send the deletes and updates", func() {
 							Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 							Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-							Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+							_, desiredLRP := bbsClient.RemoveDesiredLRPArgsForCall(0)
+							Expect(desiredLRP).To(Equal("excess-process-guid"))
 
 							Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 							Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-							updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
-							updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
+							_, updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
+							_, updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
 							Expect([]string{updatedGuid1, updatedGuid2}).To(ConsistOf("stale-process-guid", "docker-process-guid"))
 						})
 					})
@@ -339,13 +343,14 @@ var _ = Describe("LRPProcessor", func() {
 						It("continues to send the deletes and updates", func() {
 							Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 							Consistently(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
-							Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+							_, desiredLRP := bbsClient.RemoveDesiredLRPArgsForCall(0)
+							Expect(desiredLRP).To(Equal("excess-process-guid"))
 
 							Eventually(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 							Consistently(bbsClient.UpdateDesiredLRPCallCount).Should(Equal(2))
 
-							updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
-							updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
+							_, updatedGuid1, _ := bbsClient.UpdateDesiredLRPArgsForCall(0)
+							_, updatedGuid2, _ := bbsClient.UpdateDesiredLRPArgsForCall(1)
 							Expect([]string{updatedGuid1, updatedGuid2}).To(ConsistOf("stale-process-guid", "docker-process-guid"))
 						})
 					})
@@ -358,14 +363,16 @@ var _ = Describe("LRPProcessor", func() {
 					Eventually(bbsClient.RemoveDesiredLRPCallCount).Should(Equal(1))
 					Eventually(bbsClient.UpsertDomainCallCount).Should(Equal(1))
 
-					Expect(bbsClient.DesireLRPArgsForCall(0)).To(BeEquivalentTo(&models.DesiredLRP{
+					_, desiredLRP := bbsClient.DesireLRPArgsForCall(0)
+					Expect(desiredLRP).To(BeEquivalentTo(&models.DesiredLRP{
 						ProcessGuid: "new-process-guid",
 						Annotation:  "new-etag",
 					}))
 
-					Expect(bbsClient.RemoveDesiredLRPArgsForCall(0)).To(Equal("excess-process-guid"))
+					_, removedDesiredLRP := bbsClient.RemoveDesiredLRPArgsForCall(0)
+					Expect(removedDesiredLRP).To(Equal("excess-process-guid"))
 
-					d, ttl := bbsClient.UpsertDomainArgsForCall(0)
+					_, d, ttl := bbsClient.UpsertDomainArgsForCall(0)
 					Expect(d).To(Equal("cf-apps"))
 					Expect(ttl).To(Equal(1 * time.Second))
 				})
@@ -439,7 +446,7 @@ var _ = Describe("LRPProcessor", func() {
 					}
 
 					for i := 0; i < expectedClientCallCount; i++ {
-						processGuid, updateReq := bbsClient.UpdateDesiredLRPArgsForCall(i)
+						_, processGuid, updateReq := bbsClient.UpdateDesiredLRPArgsForCall(i)
 						processGuids = append(processGuids, processGuid)
 						updateReqs = append(updateReqs, updateReq)
 					}

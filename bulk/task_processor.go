@@ -129,7 +129,7 @@ process_loop:
 	}
 
 	if bumpFreshness {
-		t.bbsClient.UpsertDomain(cc_messages.RunningTaskDomain, t.domainTTL)
+		t.bbsClient.UpsertDomain(logger, cc_messages.RunningTaskDomain, t.domainTTL)
 		logger.Info("bumpin-freshness")
 	}
 
@@ -137,7 +137,8 @@ process_loop:
 }
 
 func (t *TaskProcessor) existingTasksMap() (map[string]*models.Task, error) {
-	existingTasks, err := t.bbsClient.TasksByDomain(cc_messages.RunningTaskDomain)
+	logger := t.logger.Session("exiting-task-map")
+	existingTasks, err := t.bbsClient.TasksByDomain(logger, cc_messages.RunningTaskDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +230,7 @@ func (t *TaskProcessor) cancelTasks(logger lager.Logger, tasksCh <-chan []string
 				taskGuid := taskGuid
 
 				works[i] = func() {
-					err := t.bbsClient.CancelTask(taskGuid)
+					err := t.bbsClient.CancelTask(logger, taskGuid)
 					if err != nil {
 						logger.Error("failed-canceling-mismatched-task", err)
 						errc <- err

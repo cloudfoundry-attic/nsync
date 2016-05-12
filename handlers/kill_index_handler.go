@@ -76,7 +76,7 @@ func (h *KillIndexHandler) KillIndex(resp http.ResponseWriter, req *http.Request
 
 func (h *KillIndexHandler) killActualLRPByProcessGuidAndIndex(logger lager.Logger, processGuid string, index int) error {
 	logger.Debug("fetching-actual-lrp-group")
-	actualLRPGroup, err := h.bbsClient.ActualLRPGroupByProcessGuidAndIndex(processGuid, index)
+	actualLRPGroup, err := h.bbsClient.ActualLRPGroupByProcessGuidAndIndex(logger, processGuid, index)
 	if err != nil {
 		logger.Error("failed-fetching-actual-lrp-group", err)
 		return err
@@ -86,7 +86,7 @@ func (h *KillIndexHandler) killActualLRPByProcessGuidAndIndex(logger lager.Logge
 	actualLRP, _ := actualLRPGroup.Resolve()
 
 	logger.Debug("retiring-actual-lrp")
-	err = h.bbsClient.RetireActualLRP(&actualLRP.ActualLRPKey)
+	err = h.bbsClient.RetireActualLRP(logger, &actualLRP.ActualLRPKey)
 	if err != nil {
 		logger.Error("failed-to-retire-actual-lrp", err)
 		return err

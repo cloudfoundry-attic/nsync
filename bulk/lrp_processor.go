@@ -198,7 +198,7 @@ process_loop:
 	if bumpFreshness && success {
 		logger.Info("bumping-freshness")
 
-		err = l.bbsClient.UpsertDomain(cc_messages.AppLRPDomain, l.domainTTL)
+		err = l.bbsClient.UpsertDomain(logger, cc_messages.AppLRPDomain, l.domainTTL)
 		if err != nil {
 			logger.Error("failed-to-upsert-domain", err)
 		}
@@ -255,7 +255,7 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 					logger.Debug("succeeded-building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
 
 					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(desired))
-					err = l.bbsClient.DesireLRP(desired)
+					err = l.bbsClient.DesireLRP(logger, desired)
 					if err != nil {
 						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
 						if models.ConvertError(err).Type == models.Error_InvalidRequest {
@@ -357,7 +357,7 @@ func (l *LRPProcessor) updateStaleDesiredLRPs(
 					}
 
 					logger.Debug("updating-stale-lrp", updateDesiredRequestDebugData(processGuid, updateReq))
-					err = l.bbsClient.UpdateDesiredLRP(processGuid, updateReq)
+					err = l.bbsClient.UpdateDesiredLRP(logger, processGuid, updateReq)
 					if err != nil {
 						logger.Error("failed-updating-stale-lrp", err, lager.Data{
 							"process-guid": processGuid,
@@ -391,7 +391,7 @@ func (l *LRPProcessor) updateStaleDesiredLRPs(
 
 func (l *LRPProcessor) getSchedulingInfos(logger lager.Logger) ([]*models.DesiredLRPSchedulingInfo, error) {
 	logger.Info("getting-desired-lrps-from-bbs")
-	existing, err := l.bbsClient.DesiredLRPSchedulingInfos(models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
+	existing, err := l.bbsClient.DesiredLRPSchedulingInfos(logger, models.DesiredLRPFilter{Domain: cc_messages.AppLRPDomain})
 	if err != nil {
 		logger.Error("failed-getting-desired-lrps-from-bbs", err)
 		return nil, err
@@ -407,7 +407,7 @@ func (l *LRPProcessor) deleteExcess(logger lager.Logger, cancel <-chan struct{},
 	logger.Info("processing-batch", lager.Data{"num-to-delete": len(excess), "guids-to-delete": excess})
 	deletedGuids := make([]string, 0, len(excess))
 	for _, deleteGuid := range excess {
-		err := l.bbsClient.RemoveDesiredLRP(deleteGuid)
+		err := l.bbsClient.RemoveDesiredLRP(logger, deleteGuid)
 		if err != nil {
 			logger.Error("failed-processing-batch", err, lager.Data{"delete-request": deleteGuid})
 		} else {

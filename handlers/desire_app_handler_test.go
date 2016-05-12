@@ -19,6 +19,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
+	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 
 	. "github.com/onsi/ginkgo"
@@ -127,7 +128,8 @@ var _ = Describe("DesireAppHandler", func() {
 			Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
 
 			Expect(fakeBBS.DesiredLRPByProcessGuidCallCount()).To(Equal(1))
-			Expect(fakeBBS.DesireLRPArgsForCall(0)).To(Equal(newlyDesiredLRP))
+			_, desiredLRP := fakeBBS.DesireLRPArgsForCall(0)
+			Expect(desiredLRP).To(Equal(newlyDesiredLRP))
 
 			Expect(buildpackBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 		})
@@ -152,7 +154,7 @@ var _ = Describe("DesireAppHandler", func() {
 
 		Context("when the bbs fails with a Conflict error", func() {
 			BeforeEach(func() {
-				fakeBBS.DesireLRPStub = func(_ *models.DesiredLRP) error {
+				fakeBBS.DesireLRPStub = func(_ lager.Logger, _ *models.DesiredLRP) error {
 					fakeBBS.DesiredLRPByProcessGuidReturns(&models.DesiredLRP{
 						ProcessGuid: "some-guid",
 					}, nil)
@@ -224,7 +226,8 @@ var _ = Describe("DesireAppHandler", func() {
 				Expect(fakeBBS.DesireLRPCallCount()).To(Equal(1))
 
 				Expect(fakeBBS.DesiredLRPByProcessGuidCallCount()).To(Equal(1))
-				Expect(fakeBBS.DesireLRPArgsForCall(0)).To(Equal(newlyDesiredDockerLRP))
+				_, desiredLRP := fakeBBS.DesireLRPArgsForCall(0)
+				Expect(desiredLRP).To(Equal(newlyDesiredDockerLRP))
 
 				Expect(dockerBuilder.BuildArgsForCall(0)).To(Equal(&desireAppRequest))
 			})
@@ -278,7 +281,7 @@ var _ = Describe("DesireAppHandler", func() {
 		opaqueRoutingDataCheck := func(expectedRoutes cfroutes.CFRoutes) {
 			Eventually(fakeBBS.UpdateDesiredLRPCallCount).Should(Equal(1))
 
-			processGuid, updateRequest := fakeBBS.UpdateDesiredLRPArgsForCall(0)
+			_, processGuid, updateRequest := fakeBBS.UpdateDesiredLRPArgsForCall(0)
 			Expect(processGuid).To(Equal("some-guid"))
 			Expect(*updateRequest.Instances).To(BeEquivalentTo(2))
 			Expect(*updateRequest.Annotation).To(Equal("last-modified-etag"))
