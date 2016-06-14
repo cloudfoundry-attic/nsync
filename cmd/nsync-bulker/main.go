@@ -28,6 +28,12 @@ import (
 	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 )
 
+var privilegedContainers = flag.Bool(
+	"privilegedContainers",
+	false,
+	"Whether or not to use privileged containers for  buildpack based LRPs and tasks. Containers with a docker-image-based rootfs will continue to always be unprivileged and cannot be changed.",
+)
+
 var bbsAddress = flag.String(
 	"bbsAddress",
 	"",
@@ -185,9 +191,10 @@ func main() {
 	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval, *lockTTL)
 
 	recipeBuilderConfig := recipebuilder.Config{
-		Lifecycles:    lifecycles,
-		FileServerURL: *fileServerURL,
-		KeyFactory:    keys.RSAKeyPairFactory,
+		Lifecycles:           lifecycles,
+		FileServerURL:        *fileServerURL,
+		KeyFactory:           keys.RSAKeyPairFactory,
+		PrivilegedContainers: false,
 	}
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
 		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),

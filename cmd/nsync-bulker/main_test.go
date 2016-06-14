@@ -58,6 +58,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				"-lockRetryInterval", "1s",
 				"-consulCluster", consulRunner.ConsulCluster(),
 				"-bbsAddress", fakeBBS.URL(),
+				"-privilegedContainers", "false",
 			),
 		})
 

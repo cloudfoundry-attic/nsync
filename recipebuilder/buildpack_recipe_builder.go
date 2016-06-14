@@ -77,7 +77,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 	rootFSPath := models.PreloadedRootFS(task.RootFs)
 
 	taskDefinition := &models.TaskDefinition{
-		Privileged:            true,
+		Privileged:            b.config.PrivilegedContainers,
 		LogGuid:               task.LogGuid,
 		MemoryMb:              int32(task.MemoryMb),
 		DiskMb:                int32(task.DiskMb),
@@ -235,7 +235,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	actionAction := models.Codependent(actions...)
 
 	return &models.DesiredLRP{
-		Privileged: true,
+		Privileged: b.config.PrivilegedContainers,
 
 		Domain: cc_messages.AppLRPDomain,
 

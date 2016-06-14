@@ -38,9 +38,10 @@ var (
 )
 
 type Config struct {
-	Lifecycles    map[string]string
-	FileServerURL string
-	KeyFactory    keys.SSHKeyFactory
+	Lifecycles           map[string]string
+	FileServerURL        string
+	KeyFactory           keys.SSHKeyFactory
+	PrivilegedContainers bool
 }
 
 //go:generate counterfeiter -o ../bulk/fakes/fake_recipe_builder.go . RecipeBuilder

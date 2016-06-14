@@ -145,7 +145,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(desiredLRP.MemoryMb).To(BeEquivalentTo(128))
 				Expect(desiredLRP.DiskMb).To(BeEquivalentTo(512))
 				Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
-				Expect(desiredLRP.Privileged).To(BeTrue())
+				Expect(desiredLRP.Privileged).To(BeFalse())
 				Expect(desiredLRP.StartTimeout).To(BeEquivalentTo(123456))
 
 				Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
@@ -725,7 +725,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.EnvironmentVariables).To(Equal(newTaskReq.EnvironmentVariables))
 			Expect(taskDefinition.RootFs).To(Equal(models.PreloadedRootFS("some-stack")))
 			Expect(taskDefinition.CompletionCallbackUrl).To(Equal("http://api.cc.com/v1/tasks/complete"))
-			Expect(taskDefinition.Privileged).To(BeTrue())
+			Expect(taskDefinition.Privileged).To(BeFalse())
 			Expect(taskDefinition.EgressRules).To(ConsistOf(egressRules))
 			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 			Expect(taskDefinition.LogSource).To(Equal("APP/TASK/my-task"))
