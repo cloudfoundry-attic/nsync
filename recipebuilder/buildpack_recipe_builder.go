@@ -43,7 +43,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		To:                ".",
 		CacheKey:          "",
 		User:              "vcap",
-		ChecksumAlgorithm: "md5",
+		ChecksumAlgorithm: "sha1",
 		ChecksumValue:     task.DropletMD5,
 	}
 	logger.Info("downloadAction", lager.Data{"action": downloadAction})
@@ -166,7 +166,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		To:                ".",
 		CacheKey:          fmt.Sprintf("droplets-%s", lrpGuid),
 		User:              "vcap",
-		ChecksumAlgorithm: "md5",
+		ChecksumAlgorithm: "sha1",
 		ChecksumValue:     desiredApp.DropletMD5,
 	})
 
