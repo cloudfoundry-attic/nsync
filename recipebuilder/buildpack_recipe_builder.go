@@ -81,6 +81,12 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 
 	rootFSPath := models.PreloadedRootFS(task.RootFs)
 
+	placementTags := []string{}
+
+	if task.IsolationSegment != "" {
+		placementTags = []string{task.IsolationSegment}
+	}
+
 	taskDefinition := &models.TaskDefinition{
 		Privileged:            b.config.PrivilegedContainers,
 		LogGuid:               task.LogGuid,
@@ -100,6 +106,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
 		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
+		PlacementTags:                 placementTags,
 	}
 
 	return taskDefinition, nil
@@ -245,6 +252,12 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	setupAction := models.Serial(setup...)
 	actionAction := models.Codependent(actions...)
 
+	placementTags := []string{}
+
+	if desiredApp.IsolationSegment != "" {
+		placementTags = []string{desiredApp.IsolationSegment}
+	}
+
 	return &models.DesiredLRP{
 		Privileged: b.config.PrivilegedContainers,
 
@@ -283,6 +296,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
+		PlacementTags:                 placementTags,
 	}, nil
 }
 

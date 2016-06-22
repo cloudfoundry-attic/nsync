@@ -212,6 +212,8 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				)
 				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
 
+				Expect(desiredLRP.PlacementTags).To(BeEmpty())
+
 				expectedCacheDependencies := []*models.CachedDependency{
 					&models.CachedDependency{
 						From:     "http://file-server.com/v1/static/some-lifecycle.tgz",
@@ -528,6 +530,16 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					})
 				})
 			})
+
+			Context("when an IsolationSegment is specified", func() {
+				BeforeEach(func() {
+					desiredAppReq.IsolationSegment = "foo"
+				})
+
+				It("includes the the correct segment in the desiredLRP", func() {
+					Expect(desiredLRP.PlacementTags).To(ContainElement("foo"))
+				})
+			})
 		})
 
 		Context("when there is a docker image url AND a droplet uri", func() {
@@ -791,6 +803,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.EgressRules).To(ConsistOf(egressRules))
 			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 			Expect(taskDefinition.LogSource).To(Equal("APP/TASK/my-task"))
+			Expect(taskDefinition.PlacementTags).To(BeEmpty())
 
 			expectedAction := models.Serial(&models.DownloadAction{
 				From:              newTaskReq.DropletUri,
@@ -840,6 +853,16 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 			It("returns an error", func() {
 				Expect(err).To(Equal(recipebuilder.ErrMultipleAppSources))
+			})
+		})
+
+		Context("when the isolation segment is specified", func() {
+			BeforeEach(func() {
+				newTaskReq.IsolationSegment = "foo"
+			})
+
+			It("includes the correct isolation segment in the placement tags", func() {
+				Expect(taskDefinition.PlacementTags).To(ContainElement("foo"))
 			})
 		})
 
