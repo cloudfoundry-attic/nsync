@@ -39,11 +39,14 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 	}
 
 	downloadAction := &models.DownloadAction{
-		From:     task.DropletUri,
-		To:       ".",
-		CacheKey: "",
-		User:     "vcap",
+		From:              task.DropletUri,
+		To:                ".",
+		CacheKey:          "",
+		User:              "vcap",
+		ChecksumAlgorithm: "md5",
+		ChecksumValue:     task.DropletMD5,
 	}
+	logger.Info("downloadAction", lager.Data{"action": downloadAction})
 
 	runAction := &models.RunAction{
 		User:           "vcap",
@@ -159,10 +162,12 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	}
 
 	setup = append(setup, &models.DownloadAction{
-		From:     desiredApp.DropletUri,
-		To:       ".",
-		CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
-		User:     "vcap",
+		From:              desiredApp.DropletUri,
+		To:                ".",
+		CacheKey:          fmt.Sprintf("droplets-%s", lrpGuid),
+		User:              "vcap",
+		ChecksumAlgorithm: "md5",
+		ChecksumValue:     desiredApp.DropletMD5,
 	})
 
 	actions = append(actions, &models.RunAction{
@@ -264,7 +269,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),
 
-		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
+		StartTimeoutMs: int64(desiredApp.HealthCheckTimeoutInSeconds * 1000),
 
 		EgressRules:        desiredApp.EgressRules,
 		Network:            desiredApp.Network,

@@ -270,7 +270,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),
 
-		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
+		StartTimeoutMs: int64(desiredApp.HealthCheckTimeoutInSeconds * 1000),
 
 		EgressRules:        desiredApp.EgressRules,
 		Network:            desiredApp.Network,

@@ -73,6 +73,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
 			DropletUri:        "http://the-droplet.uri.com",
+			DropletMD5:        "some-md5-hash",
 			Stack:             "some-stack",
 			StartCommand:      "the-start-command with-arguments",
 			ExecutionMetadata: "the-execution-metadata",
@@ -146,7 +147,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(desiredLRP.DiskMb).To(BeEquivalentTo(512))
 				Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 				Expect(desiredLRP.Privileged).To(BeFalse())
-				Expect(desiredLRP.StartTimeout).To(BeEquivalentTo(123456))
+				Expect(desiredLRP.StartTimeoutMs).To(BeEquivalentTo(123456000))
 
 				Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 				Expect(desiredLRP.LogSource).To(Equal("CELL"))
@@ -161,10 +162,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{
-						From:     "http://the-droplet.uri.com",
-						To:       ".",
-						CacheKey: "droplets-the-app-guid-the-app-version",
-						User:     "vcap",
+						From:              "http://the-droplet.uri.com",
+						To:                ".",
+						CacheKey:          "droplets-the-app-guid-the-app-version",
+						User:              "vcap",
+						ChecksumAlgorithm: "md5",
+						ChecksumValue:     "some-md5-hash",
 					},
 				)
 				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
@@ -673,6 +676,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					{Name: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
 				},
 				DropletUri:            "http://the-droplet.uri.com",
+				DropletMD5:            "some-md5-hash",
 				RootFs:                "some-stack",
 				CompletionCallbackUrl: "http://api.cc.com/v1/tasks/complete",
 				Command:               "the-start-command",
@@ -731,10 +735,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.LogSource).To(Equal("APP/TASK/my-task"))
 
 			expectedAction := models.Serial(&models.DownloadAction{
-				From:     newTaskReq.DropletUri,
-				To:       ".",
-				CacheKey: "",
-				User:     "vcap",
+				From:              newTaskReq.DropletUri,
+				To:                ".",
+				CacheKey:          "",
+				User:              "vcap",
+				ChecksumAlgorithm: "md5",
+				ChecksumValue:     "some-md5-hash",
 			},
 				&models.RunAction{
 					User:           "vcap",
