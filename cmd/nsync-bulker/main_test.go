@@ -241,7 +241,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						ghttp.RespondWith(200, `{}`),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 						ghttp.CombineHandlers(
 							ghttp.VerifyContentType("application/x-protobuf"),
 							func(w http.ResponseWriter, req *http.Request) {
@@ -287,7 +287,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 						ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 					)
 				})
@@ -295,7 +295,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				It("it (adds), (updates), and (removes extra) LRPs", func() {
 					Eventually(func() bool {
 						for _, r := range fakeBBS.ReceivedRequests() {
-							if r.URL.Path == "/v1/desired_lrp/desire" {
+							if r.URL.Path == "/v1/desired_lrp/desire.r1" {
 								return true
 							}
 						}
@@ -349,7 +349,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							),
 						)
 
-						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 							ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 						)
 
@@ -361,7 +361,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ghttp.RespondWith(200, `{}`),
 						)
 
-						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 							ghttp.RespondWith(200, `{}`),
 						)
 					})
@@ -401,7 +401,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						data, err := taskResponse.Marshal()
 						Expect(err).ToNot(HaveOccurred())
 
-						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+						fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 							ghttp.RespondWith(200, data, http.Header{bbs.ContentTypeHeader: []string{bbs.ProtoContentType}}),
 						)
 
@@ -413,7 +413,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ghttp.RespondWith(200, `{}`),
 						)
 
-						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 							ghttp.RespondWith(200, `{}`),
 						)
 					})
@@ -458,7 +458,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					data, err := taskResponse.Marshal()
 					Expect(err).ToNot(HaveOccurred())
 
-					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 						ghttp.RespondWith(200, data, http.Header{bbs.ContentTypeHeader: []string{bbs.ProtoContentType}}),
 					)
 
@@ -486,11 +486,11 @@ var _ = Describe("Syncing desired state with CC", func() {
 						),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 						ghttp.RespondWith(200, `{}`),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+					fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 						ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 					)
 
@@ -530,7 +530,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
 			)
 
-			fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+			fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 				ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 			)
 
@@ -542,7 +542,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				ghttp.RespondWith(200, `{}`),
 			)
 
-			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 				ghttp.RespondWith(200, `{}`),
 			)
 		})
@@ -615,7 +615,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
 				)
 
-				fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r1",
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/list.r2",
 					ghttp.RespondWith(200, `{"error": {},"tasks": []}`),
 				)
 
@@ -623,7 +623,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
 				)
 
-				fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+				fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 					ghttp.RespondWith(200, `{}`),
 				)
 

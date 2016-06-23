@@ -492,7 +492,7 @@ func createDesiredReqDebugData(createDesiredRequest *models.DesiredLRP) lager.Da
 		"metric-guid":  createDesiredRequest.MetricsGuid,
 		"root-fs":      createDesiredRequest.RootFs,
 		"instances":    createDesiredRequest.Instances,
-		"timeout":      createDesiredRequest.StartTimeout,
+		"timeout":      createDesiredRequest.StartTimeoutMs,
 		"disk":         createDesiredRequest.DiskMb,
 		"memory":       createDesiredRequest.MemoryMb,
 		"cpu":          createDesiredRequest.CpuWeight,

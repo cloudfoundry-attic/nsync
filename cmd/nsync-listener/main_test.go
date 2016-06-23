@@ -92,7 +92,7 @@ var _ = Describe("Nsync Listener", func() {
 				ghttp.RespondWith(200, ``),
 			)
 
-			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire",
+			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
 				ghttp.CombineHandlers(
 					ghttp.VerifyContentType("application/x-protobuf"),
 					func(w http.ResponseWriter, req *http.Request) {
@@ -197,7 +197,7 @@ var _ = Describe("Nsync Listener", func() {
 		It("forwards the desire request to the BBS", func() {
 			desiredTheTask := false
 
-			fakeBBS.RouteToHandler("POST", "/v1/tasks/desire",
+			fakeBBS.RouteToHandler("POST", "/v1/tasks/desire.r1",
 				ghttp.CombineHandlers(
 					ghttp.VerifyContentType("application/x-protobuf"),
 					func(w http.ResponseWriter, req *http.Request) {

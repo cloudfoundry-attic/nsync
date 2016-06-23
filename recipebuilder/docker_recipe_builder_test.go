@@ -179,7 +179,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(desiredLRP.DiskMb).To(BeEquivalentTo(512))
 				Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 				Expect(desiredLRP.Privileged).To(BeFalse())
-				Expect(desiredLRP.StartTimeout).To(BeEquivalentTo(123456))
+				Expect(desiredLRP.StartTimeoutMs).To(BeEquivalentTo(123456000))
 
 				Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 				Expect(desiredLRP.LogSource).To(Equal("CELL"))
