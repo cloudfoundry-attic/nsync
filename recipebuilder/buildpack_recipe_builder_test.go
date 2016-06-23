@@ -73,6 +73,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		desiredAppReq = cc_messages.DesireAppRequestFromCC{
 			ProcessGuid:       "the-app-guid-the-app-version",
 			DropletUri:        "http://the-droplet.uri.com",
+			DropletHash:       "some-hash",
 			Stack:             "some-stack",
 			StartCommand:      "the-start-command with-arguments",
 			ExecutionMetadata: "the-execution-metadata",
@@ -111,6 +112,25 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			desiredLRP, err = builder.Build(&desiredAppReq)
 		})
 
+		Describe("when no droplet hash is set", func() {
+			BeforeEach(func() {
+				desiredAppReq.DropletHash = ""
+			})
+
+			It("does not populate ChecksumAlgorithm and ChecksumValue", func() {
+				expectedSetup := models.Serial(
+					&models.DownloadAction{
+						From:     "http://the-droplet.uri.com",
+						To:       ".",
+						CacheKey: "droplets-the-app-guid-the-app-version",
+						User:     "vcap",
+					},
+				)
+				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
+
+			})
+		})
+
 		Context("when ports is an empty array", func() {
 			BeforeEach(func() {
 				desiredAppReq.Ports = []uint32{}
@@ -146,7 +166,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(desiredLRP.DiskMb).To(BeEquivalentTo(512))
 				Expect(desiredLRP.Ports).To(Equal([]uint32{8080}))
 				Expect(desiredLRP.Privileged).To(BeFalse())
-				Expect(desiredLRP.StartTimeout).To(BeEquivalentTo(123456))
+				Expect(desiredLRP.StartTimeoutMs).To(BeEquivalentTo(123456000))
 
 				Expect(desiredLRP.LogGuid).To(Equal("the-log-id"))
 				Expect(desiredLRP.LogSource).To(Equal("CELL"))
@@ -161,10 +181,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				expectedSetup := models.Serial(
 					&models.DownloadAction{
-						From:     "http://the-droplet.uri.com",
-						To:       ".",
-						CacheKey: "droplets-the-app-guid-the-app-version",
-						User:     "vcap",
+						From:              "http://the-droplet.uri.com",
+						To:                ".",
+						CacheKey:          "droplets-the-app-guid-the-app-version",
+						User:              "vcap",
+						ChecksumAlgorithm: "sha1",
+						ChecksumValue:     "some-hash",
 					},
 				)
 				Expect(desiredLRP.Setup.GetValue()).To(Equal(expectedSetup))
@@ -673,6 +695,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					{Name: "VCAP_APPLICATION", Value: "{\"application_name\":\"my-app\"}"},
 				},
 				DropletUri:            "http://the-droplet.uri.com",
+				DropletHash:           "some-hash",
 				RootFs:                "some-stack",
 				CompletionCallbackUrl: "http://api.cc.com/v1/tasks/complete",
 				Command:               "the-start-command",
@@ -683,6 +706,31 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 		JustBeforeEach(func() {
 			taskDefinition, err = builder.BuildTask(&newTaskReq)
+		})
+
+		Describe("when no droplet hash is set", func() {
+			BeforeEach(func() {
+				newTaskReq.DropletHash = ""
+			})
+
+			It("does not populate ChecksumAlgorithm and ChecksumValue", func() {
+				expectedAction := models.Serial(&models.DownloadAction{
+					From:     newTaskReq.DropletUri,
+					To:       ".",
+					CacheKey: "",
+					User:     "vcap",
+				},
+					&models.RunAction{
+						User:           "vcap",
+						Path:           "/tmp/lifecycle/launcher",
+						Args:           []string{"app", "the-start-command", ""},
+						Env:            newTaskReq.EnvironmentVariables,
+						LogSource:      "APP/TASK/my-task",
+						ResourceLimits: &models.ResourceLimits{},
+					},
+				)
+				Expect(taskDefinition.Action.GetValue()).To(Equal(expectedAction))
+			})
 		})
 
 		Describe("CPU weight calculation", func() {
@@ -731,10 +779,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Expect(taskDefinition.LogSource).To(Equal("APP/TASK/my-task"))
 
 			expectedAction := models.Serial(&models.DownloadAction{
-				From:     newTaskReq.DropletUri,
-				To:       ".",
-				CacheKey: "",
-				User:     "vcap",
+				From:              newTaskReq.DropletUri,
+				To:                ".",
+				CacheKey:          "",
+				User:              "vcap",
+				ChecksumAlgorithm: "sha1",
+				ChecksumValue:     "some-hash",
 			},
 				&models.RunAction{
 					User:           "vcap",

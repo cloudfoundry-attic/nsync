@@ -45,6 +45,13 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		User:     "vcap",
 	}
 
+	if task.DropletHash != "" {
+		downloadAction.ChecksumAlgorithm = "sha1"
+		downloadAction.ChecksumValue = task.DropletHash
+	}
+
+	logger.Info("downloadAction", lager.Data{"action": downloadAction})
+
 	runAction := &models.RunAction{
 		User:           "vcap",
 		Path:           "/tmp/lifecycle/launcher",
@@ -158,13 +165,19 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		monitor = models.Timeout(getParallelAction(desiredAppPorts, "vcap"), 30*time.Second)
 	}
 
-	setup = append(setup, &models.DownloadAction{
+	downloadAction := &models.DownloadAction{
 		From:     desiredApp.DropletUri,
 		To:       ".",
 		CacheKey: fmt.Sprintf("droplets-%s", lrpGuid),
 		User:     "vcap",
-	})
+	}
 
+	if desiredApp.DropletHash != "" {
+		downloadAction.ChecksumAlgorithm = "sha1"
+		downloadAction.ChecksumValue = desiredApp.DropletHash
+	}
+
+	setup = append(setup, downloadAction)
 	actions = append(actions, &models.RunAction{
 		User: "vcap",
 		Path: "/tmp/lifecycle/launcher",
@@ -264,7 +277,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		Action:               models.WrapAction(actionAction),
 		Monitor:              models.WrapAction(monitor),
 
-		StartTimeout: uint32(desiredApp.HealthCheckTimeoutInSeconds),
+		StartTimeoutMs: int64(desiredApp.HealthCheckTimeoutInSeconds * 1000),
 
 		EgressRules:        desiredApp.EgressRules,
 		Network:            desiredApp.Network,
