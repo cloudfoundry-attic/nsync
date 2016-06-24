@@ -118,14 +118,22 @@ func main() {
 
 	initializeDropsonde(logger)
 
-	recipeBuilderConfig := recipebuilder.Config{
-		Lifecycles:    lifecycles,
-		FileServerURL: *fileServerURL,
-		KeyFactory:    keys.RSAKeyPairFactory,
+	buildpackRecipeBuilderConfig := recipebuilder.Config{
+		Lifecycles:           lifecycles,
+		FileServerURL:        *fileServerURL,
+		KeyFactory:           keys.RSAKeyPairFactory,
+		PrivilegedContainers: *privilegedContainers,
 	}
+	dockerRecipeBuilderConfig := recipebuilder.Config{
+		Lifecycles:           lifecycles,
+		FileServerURL:        *fileServerURL,
+		KeyFactory:           keys.RSAKeyPairFactory,
+		PrivilegedContainers: false,
+	}
+
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
-		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),
-		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
+		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, buildpackRecipeBuilderConfig),
+		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, dockerRecipeBuilderConfig),
 	}
 
 	handler := handlers.New(logger, initializeBBSClient(logger), recipeBuilders)

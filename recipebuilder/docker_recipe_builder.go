@@ -82,7 +82,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		LogGuid:               task.LogGuid,
 		MemoryMb:              int32(task.MemoryMb),
 		DiskMb:                int32(task.DiskMb),
-		Privileged:            false,
+		Privileged:            b.config.PrivilegedContainers,
 		EnvironmentVariables:  task.EnvironmentVariables,
 		EgressRules:           task.EgressRules,
 		CompletionCallbackUrl: task.CompletionCallbackUrl,

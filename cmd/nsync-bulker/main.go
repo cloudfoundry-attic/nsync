@@ -190,15 +190,23 @@ func main() {
 	}
 	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval, *lockTTL)
 
-	recipeBuilderConfig := recipebuilder.Config{
+	dockerRecipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:           lifecycles,
 		FileServerURL:        *fileServerURL,
 		KeyFactory:           keys.RSAKeyPairFactory,
 		PrivilegedContainers: false,
 	}
+
+	buildpackRecipeBuilderConfig := recipebuilder.Config{
+		Lifecycles:           lifecycles,
+		FileServerURL:        *fileServerURL,
+		KeyFactory:           keys.RSAKeyPairFactory,
+		PrivilegedContainers: *privilegedContainers,
+	}
+
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
-		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, recipeBuilderConfig),
-		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, recipeBuilderConfig),
+		"buildpack": recipebuilder.NewBuildpackRecipeBuilder(logger, buildpackRecipeBuilderConfig),
+		"docker":    recipebuilder.NewDockerRecipeBuilder(logger, dockerRecipeBuilderConfig),
 	}
 
 	lrpRunner := bulk.NewLRPProcessor(
