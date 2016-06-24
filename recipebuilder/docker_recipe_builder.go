@@ -132,7 +132,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		return nil, err
 	}
 
-	var privilegedContainer bool
 	var containerEnvVars []*models.EnvironmentVariable
 
 	numFiles := DefaultFileDescriptorLimit
@@ -242,7 +241,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	actionAction := models.Codependent(actions...)
 
 	return &models.DesiredLRP{
-		Privileged: privilegedContainer,
+		Privileged: false,
 
 		Domain: cc_messages.AppLRPDomain,
 

@@ -29,6 +29,12 @@ import (
 	"github.com/cloudfoundry/dropsonde"
 )
 
+var privilegedContainers = flag.Bool(
+	"privilegedContainers",
+	false,
+	"Whether or not to use privileged containers for  buildpack based LRPs and tasks. Containers with a docker-image-based rootfs will continue to always be unprivileged and cannot be changed.",
+)
+
 var bbsAddress = flag.String(
 	"bbsAddress",
 	"",
