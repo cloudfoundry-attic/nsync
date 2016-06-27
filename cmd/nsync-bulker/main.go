@@ -191,10 +191,9 @@ func main() {
 	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), *lockRetryInterval, *lockTTL)
 
 	dockerRecipeBuilderConfig := recipebuilder.Config{
-		Lifecycles:           lifecycles,
-		FileServerURL:        *fileServerURL,
-		KeyFactory:           keys.RSAKeyPairFactory,
-		PrivilegedContainers: false,
+		Lifecycles:    lifecycles,
+		FileServerURL: *fileServerURL,
+		KeyFactory:    keys.RSAKeyPairFactory,
 	}
 
 	buildpackRecipeBuilderConfig := recipebuilder.Config{

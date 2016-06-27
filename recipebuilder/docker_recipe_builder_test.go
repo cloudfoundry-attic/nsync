@@ -64,7 +64,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
 	})
 
-	Context("Build", func() {
+	Context("Build LRPs", func() {
 		var (
 			err            error
 			desiredAppReq  cc_messages.DesireAppRequestFromCC
@@ -848,6 +848,23 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 		})
 
+		Context("When the recipeBuilder Config has Privileged set to true", func() {
+			BeforeEach(func() {
+				config := recipebuilder.Config{
+					Lifecycles:           lifecycles,
+					FileServerURL:        "http://file-server.com",
+					KeyFactory:           fakeKeyFactory,
+					PrivilegedContainers: true,
+				}
+				builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
+			})
+
+			It("sets Priviledged to false", func() {
+				Expect(desiredLRP.Privileged).To(BeFalse())
+			})
+
+		})
+
 		Describe("volume mounts", func() {
 			Context("when none are provided", func() {
 				It("is empty", func() {
@@ -951,6 +968,22 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
 		})
 
+		Context("When the recipeBuilder Config has Privileged set to true", func() {
+			BeforeEach(func() {
+				config := recipebuilder.Config{
+					Lifecycles:           lifecycles,
+					FileServerURL:        "http://file-server.com",
+					KeyFactory:           fakeKeyFactory,
+					PrivilegedContainers: true,
+				}
+				builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
+			})
+
+			It("sets Priviledged to false", func() {
+				Expect(taskDefinition.Privileged).To(BeFalse())
+			})
+
+		})
 		Context("when the docker path is not specified", func() {
 			BeforeEach(func() {
 				newTaskReq.DockerPath = ""

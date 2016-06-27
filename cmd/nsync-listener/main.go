@@ -125,10 +125,9 @@ func main() {
 		PrivilegedContainers: *privilegedContainers,
 	}
 	dockerRecipeBuilderConfig := recipebuilder.Config{
-		Lifecycles:           lifecycles,
-		FileServerURL:        *fileServerURL,
-		KeyFactory:           keys.RSAKeyPairFactory,
-		PrivilegedContainers: false,
+		Lifecycles:    lifecycles,
+		FileServerURL: *fileServerURL,
+		KeyFactory:    keys.RSAKeyPairFactory,
 	}
 
 	recipeBuilders := map[string]recipebuilder.RecipeBuilder{
