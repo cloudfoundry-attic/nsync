@@ -34,9 +34,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		domainTTL time.Duration
 
-		bulkerLockName    = "nsync_bulker_lock"
-		pollingInterval   time.Duration
-		heartbeatInterval time.Duration
+		bulkerLockName  = "nsync_bulker_lock"
+		pollingInterval time.Duration
 
 		logger lager.Logger
 	)
@@ -76,7 +75,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		pollingInterval = 500 * time.Millisecond
 		domainTTL = 1 * time.Second
-		heartbeatInterval = 30 * time.Second
 
 		desiredAppResponses := map[string]string{
 			"process-guid-1": `{
@@ -367,11 +365,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					})
 
 					It("completes the tasks and sets the state to failed", func() {
-						var request *http.Request
 						Eventually(func() *http.Request {
 							for _, r := range fakeCC.ReceivedRequests() {
 								if r.URL.Path == "/internal/v3/tasks/task-guid-1/completed" {
-									request = r
 									return r
 								}
 							}
@@ -524,8 +520,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 	Context("when the bulker loses the lock", func() {
 		BeforeEach(func() {
-			heartbeatInterval = 1 * time.Second
-
 			fakeCC.RouteToHandler("GET", "/internal/v3/bulk/task_states",
 				ghttp.RespondWith(200, `{"token": {},"task_states": []}`),
 			)
@@ -567,8 +561,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 		var nsyncLockClaimerProcess ifrit.Process
 
 		BeforeEach(func() {
-			heartbeatInterval = 1 * time.Second
-
 			nsyncLockClaimer := locket.NewLock(logger, consulRunner.NewClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.LockTTL)
 			nsyncLockClaimerProcess = ifrit.Invoke(nsyncLockClaimer)
 		})
@@ -590,9 +582,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		Context("when the lock becomes available", func() {
 			var (
-				expectedLRPDomainRequest  *models.UpsertDomainRequest
-				expectedTaskDomainRequest *models.UpsertDomainRequest
-
 				foundLRPDomain  chan bool
 				foundTaskDomain chan bool
 			)
@@ -600,16 +589,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 			BeforeEach(func() {
 				foundLRPDomain = make(chan bool, 2)
 				foundTaskDomain = make(chan bool, 2)
-
-				expectedLRPDomainRequest = &models.UpsertDomainRequest{
-					Domain: "cf-app",
-					Ttl:    uint32(domainTTL.Seconds()),
-				}
-
-				expectedTaskDomainRequest = &models.UpsertDomainRequest{
-					Domain: "cf-tasks",
-					Ttl:    uint32(domainTTL.Seconds()),
-				}
 
 				fakeCC.RouteToHandler("GET", "/internal/v3/bulk/task_states",
 					ghttp.RespondWith(200, `{"token": {},"task_states": []}`),

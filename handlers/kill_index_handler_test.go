@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"code.cloudfoundry.org/nsync/handlers"
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
-	"github.com/cloudfoundry-incubator/nsync/handlers"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 

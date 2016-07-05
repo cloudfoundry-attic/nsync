@@ -4,8 +4,8 @@ package fakes
 import (
 	"sync"
 
+	"code.cloudfoundry.org/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 

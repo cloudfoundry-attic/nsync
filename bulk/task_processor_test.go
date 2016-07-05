@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/nsync/bulk"
+	"code.cloudfoundry.org/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

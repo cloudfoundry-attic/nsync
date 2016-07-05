@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry-incubator/nsync/bulk"
+	"code.cloudfoundry.org/nsync/bulk"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

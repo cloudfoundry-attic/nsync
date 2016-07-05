@@ -23,9 +23,9 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
-	"github.com/cloudfoundry-incubator/nsync"
-	"github.com/cloudfoundry-incubator/nsync/bulk"
-	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
+	"code.cloudfoundry.org/nsync"
+	"code.cloudfoundry.org/nsync/bulk"
+	"code.cloudfoundry.org/nsync/recipebuilder"
 )
 
 var privilegedContainers = flag.Bool(

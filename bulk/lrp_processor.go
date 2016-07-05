@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"code.cloudfoundry.org/nsync/helpers"
+	"code.cloudfoundry.org/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/cf_http"
-	"github.com/cloudfoundry-incubator/nsync/helpers"
-	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"

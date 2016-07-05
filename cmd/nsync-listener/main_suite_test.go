@@ -32,7 +32,7 @@ func TestListener(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	listener, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-listener", "-race")
+	listener, err := gexec.Build("code.cloudfoundry.org/nsync/cmd/nsync-listener", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	payload, err := json.Marshal(map[string]string{

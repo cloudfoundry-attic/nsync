@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/nsync"
+	"code.cloudfoundry.org/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/cloudfoundry-incubator/nsync"
-	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )

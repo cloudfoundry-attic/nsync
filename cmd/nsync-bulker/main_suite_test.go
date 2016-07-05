@@ -28,7 +28,7 @@ func TestBulker(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	bulker, err := gexec.Build("github.com/cloudfoundry-incubator/nsync/cmd/nsync-bulker", "-race")
+	bulker, err := gexec.Build("code.cloudfoundry.org/nsync/cmd/nsync-bulker", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	payload, err := json.Marshal(map[string]string{

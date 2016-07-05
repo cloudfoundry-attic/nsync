@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"code.cloudfoundry.org/nsync/bulk/fakes"
+	"code.cloudfoundry.org/nsync/handlers"
+	"code.cloudfoundry.org/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/nsync/bulk/fakes"
-	"github.com/cloudfoundry-incubator/nsync/handlers"
-	"github.com/cloudfoundry-incubator/nsync/recipebuilder"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/pivotal-golang/lager/lagertest"
 
