@@ -6,8 +6,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 )
 
 //go:generate counterfeiter -o fakes/fake_task_client.go . TaskClient

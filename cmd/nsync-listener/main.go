@@ -8,18 +8,18 @@ import (
 	"os"
 	"time"
 
+	"code.cloudfoundry.org/bbs"
+	"code.cloudfoundry.org/cfhttp"
+	"code.cloudfoundry.org/cflager"
+	"code.cloudfoundry.org/clock"
+	"code.cloudfoundry.org/consuladapter"
+	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/diego-ssh/keys"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/locket"
 	"code.cloudfoundry.org/nsync/handlers"
-	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/cloudfoundry-incubator/cf-debug-server"
-	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
-	"github.com/cloudfoundry-incubator/cf_http"
-	"github.com/cloudfoundry-incubator/consuladapter"
-	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/locket"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
+	"code.cloudfoundry.org/runtimeschema/cc_messages/flags"
 	"github.com/hashicorp/consul/api"
-	"github.com/pivotal-golang/clock"
-	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -106,15 +106,15 @@ const (
 )
 
 func main() {
-	cf_debug_server.AddFlags(flag.CommandLine)
-	cf_lager.AddFlags(flag.CommandLine)
+	debugserver.AddFlags(flag.CommandLine)
+	cflager.AddFlags(flag.CommandLine)
 
 	lifecycles := flags.LifecycleMap{}
 	flag.Var(&lifecycles, "lifecycle", "app lifecycle binary bundle mapping (lifecycle[/stack]:bundle-filepath-in-fileserver)")
 	flag.Parse()
 
-	cf_http.Initialize(*communicationTimeout)
-	logger, reconfigurableSink := cf_lager.New("nsync-listener")
+	cfhttp.Initialize(*communicationTimeout)
+	logger, reconfigurableSink := cflager.New("nsync-listener")
 
 	initializeDropsonde(logger)
 
@@ -159,9 +159,9 @@ func main() {
 		{"registration-runner", registrationRunner},
 	}
 
-	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
+	if dbgAddr := debugserver.DebugAddress(flag.CommandLine); dbgAddr != "" {
 		members = append(grouper.Members{
-			{"debug-server", cf_debug_server.Runner(dbgAddr, reconfigurableSink)},
+			{"debug-server", debugserver.Runner(dbgAddr, reconfigurableSink)},
 		}, members...)
 	}
 

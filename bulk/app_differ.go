@@ -1,9 +1,9 @@
 package bulk
 
 import (
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 )
 
 //go:generate counterfeiter -o fakes/fake_app_differ.go . AppDiffer

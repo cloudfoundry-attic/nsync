@@ -5,13 +5,13 @@ import (
 	"net/url"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nsync/bulk"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	"github.com/pivotal-golang/lager/lagertest"
 )
 
 var _ = Describe("Fetcher", func() {

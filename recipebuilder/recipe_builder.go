@@ -3,9 +3,9 @@ package recipebuilder
 import (
 	"fmt"
 
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/diego-ssh/keys"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 

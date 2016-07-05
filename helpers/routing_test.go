@@ -5,9 +5,9 @@ import (
 
 	"code.cloudfoundry.org/nsync/helpers"
 	"code.cloudfoundry.org/nsync/test_helpers"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -5,17 +5,17 @@ import (
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/diego-ssh/keys"
+	"code.cloudfoundry.org/diego-ssh/keys/fake_keys"
+	"code.cloudfoundry.org/diego-ssh/routes"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/diego-ssh/keys"
-	"github.com/cloudfoundry-incubator/diego-ssh/keys/fake_keys"
-	"github.com/cloudfoundry-incubator/diego-ssh/routes"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/lager/lagertest"
 )
 
 var _ = Describe("Buildpack Recipe Builder", func() {

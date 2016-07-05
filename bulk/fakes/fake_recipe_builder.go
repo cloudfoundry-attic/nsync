@@ -4,9 +4,9 @@ package fakes
 import (
 	"sync"
 
+	"code.cloudfoundry.org/bbs/models"
 	"code.cloudfoundry.org/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 )
 
 type FakeRecipeBuilder struct {

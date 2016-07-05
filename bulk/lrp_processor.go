@@ -9,18 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
+	"code.cloudfoundry.org/bbs"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/cfhttp"
+	"code.cloudfoundry.org/clock"
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/nsync/helpers"
 	"code.cloudfoundry.org/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/cf_http"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/metric"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry/gunk/workpool"
-	"github.com/pivotal-golang/clock"
-	"github.com/pivotal-golang/lager"
 )
 
 const (
@@ -515,7 +515,7 @@ func desireAppRequestDebugData(desireAppRequest *cc_messages.DesireAppRequestFro
 }
 
 func initializeHttpClient(skipCertVerify bool) *http.Client {
-	httpClient := cf_http.NewClient()
+	httpClient := cfhttp.NewClient()
 	httpClient.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{

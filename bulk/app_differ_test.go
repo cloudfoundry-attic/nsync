@@ -1,10 +1,10 @@
 package bulk_test
 
 import (
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nsync/bulk"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/pivotal-golang/lager/lagertest"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

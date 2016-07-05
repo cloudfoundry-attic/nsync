@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"code.cloudfoundry.org/bbs/fake_bbs"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nsync/bulk/fakes"
 	"code.cloudfoundry.org/nsync/handlers"
 	"code.cloudfoundry.org/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/pivotal-golang/lager/lagertest"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

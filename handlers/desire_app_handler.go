@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"code.cloudfoundry.org/bbs"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/nsync/helpers"
 	"code.cloudfoundry.org/nsync/recipebuilder"
-	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/cloudfoundry-incubator/bbs/models"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/metric"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/pivotal-golang/lager"
 )
 
 const (

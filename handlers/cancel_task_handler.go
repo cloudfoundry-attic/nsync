@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/bbs"
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager"
 )
 
 type CancelTaskHandler struct {

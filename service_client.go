@@ -3,10 +3,10 @@ package nsync
 import (
 	"time"
 
-	"github.com/cloudfoundry-incubator/consuladapter"
-	"github.com/cloudfoundry-incubator/locket"
-	"github.com/pivotal-golang/clock"
-	"github.com/pivotal-golang/lager"
+	"code.cloudfoundry.org/clock"
+	"code.cloudfoundry.org/consuladapter"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/locket"
 	"github.com/tedsuo/ifrit"
 )
 
