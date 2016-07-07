@@ -50,8 +50,6 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		downloadAction.ChecksumValue = task.DropletHash
 	}
 
-	logger.Info("downloadAction", lager.Data{"action": downloadAction})
-
 	runAction := &models.RunAction{
 		User:           "vcap",
 		Path:           "/tmp/lifecycle/launcher",
