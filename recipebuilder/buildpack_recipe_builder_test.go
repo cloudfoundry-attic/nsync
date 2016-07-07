@@ -398,14 +398,14 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							Path: "/tmp/lifecycle/diego-sshd",
 							Args: []string{
 								"-address=0.0.0.0:2222",
-								"-hostKey=pem-host-private-key",
-								"-authorizedKey=authorized-user-key",
 								"-inheritDaemonEnv",
 								"-logLevel=fatal",
 							},
 							Env: []*models.EnvironmentVariable{
 								{Name: "foo", Value: "bar"},
 								{Name: "PORT", Value: "8080"},
+								{Name: "SSHD_HOSTKEY", Value: "pem-host-private-key"},
+								{Name: "SSHD_AUTHKEY", Value: "authorized-user-key"},
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
