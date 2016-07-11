@@ -209,18 +209,18 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			buildLogger.Error("new-user-key-pair-failed", err)
 			return nil, err
 		}
-		envVars := createLrpEnv(desiredApp.Environment, desiredAppPorts)
-		envVars = append(envVars, &models.EnvironmentVariable{Name: "SSHD_HOSTKEY", Value: hostKeyPair.PEMEncodedPrivateKey()})
-		envVars = append(envVars, &models.EnvironmentVariable{Name: "SSHD_AUTHKEY", Value: userKeyPair.AuthorizedKey()})
+
 		actions = append(actions, &models.RunAction{
 			User: "vcap",
 			Path: "/tmp/lifecycle/diego-sshd",
 			Args: []string{
 				"-address=" + fmt.Sprintf("0.0.0.0:%d", DefaultSSHPort),
+				"-hostKey=" + hostKeyPair.PEMEncodedPrivateKey(),
+				"-authorizedKey=" + userKeyPair.AuthorizedKey(),
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: envVars,
+			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
