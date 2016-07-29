@@ -99,7 +99,7 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
-		VolumeMounts:                  task.VolumeMounts,
+		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
 	}
 
 	return taskDefinition, nil
@@ -282,8 +282,31 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
-		VolumeMounts:                  desiredApp.VolumeMounts,
+		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
 	}, nil
+}
+
+func convertVolumeMounts(mounts []*cc_messages.VolumeMount) []*models.VolumeMount {
+	var bbsMounts []*models.VolumeMount
+	for _, mount := range mounts {
+		bbsMount := &models.VolumeMount{
+			Driver:       mount.Driver,
+			ContainerDir: mount.ContainerDir,
+			Mode:         mount.Mode,
+		}
+
+		// switch mount.DeviceType {
+		// case "shared":
+		bbsMount.Shared = &models.SharedDevice{
+			VolumeId:    mount.Device["volume_id"],
+			MountConfig: mount.Device["mount_config"],
+		}
+		// other device types pending...
+		// }
+		bbsMounts = append(bbsMounts, bbsMount)
+	}
+
+	return bbsMounts
 }
 
 func (b BuildpackRecipeBuilder) ExtractExposedPorts(desiredApp *cc_messages.DesireAppRequestFromCC) ([]uint32, error) {
