@@ -477,17 +477,18 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			Context("and it is setting the CPU weight", func() {
 				Context("when the memory limit is below the minimum value", func() {
 					BeforeEach(func() {
-						desiredAppReq.MemoryMB = recipebuilder.MinCpuProxy - 9999
+						desiredAppReq.MemoryMB = recipebuilder.MinCpuProxy - 1
 					})
 
-					It("returns 1", func() {
-						Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(1))
+					It("returns 100*MIN / MAX", func() {
+						expectedWeight := (100 * recipebuilder.MinCpuProxy) / recipebuilder.MaxCpuProxy
+						Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(expectedWeight))
 					})
 				})
 
 				Context("when the memory limit is above the maximum value", func() {
 					BeforeEach(func() {
-						desiredAppReq.MemoryMB = recipebuilder.MaxCpuProxy + 9999
+						desiredAppReq.MemoryMB = recipebuilder.MaxCpuProxy + 1
 					})
 
 					It("returns 100", func() {
@@ -500,8 +501,9 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 						desiredAppReq.MemoryMB = (recipebuilder.MinCpuProxy + recipebuilder.MaxCpuProxy) / 2
 					})
 
-					It("returns 50", func() {
-						Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(50))
+					It("returns 100*M / MAX", func() {
+						expectedWeight := (100 * desiredAppReq.MemoryMB) / recipebuilder.MaxCpuProxy
+						Expect(desiredLRP.CpuWeight).To(BeEquivalentTo(expectedWeight))
 					})
 				})
 			})

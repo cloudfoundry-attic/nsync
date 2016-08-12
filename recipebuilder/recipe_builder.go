@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MinCpuProxy = 256
+	MinCpuProxy = 128
 	MaxCpuProxy = 8192
 
 	DefaultFileDescriptorLimit = uint64(1024)
@@ -72,10 +72,10 @@ func cpuWeight(memoryMB int) uint32 {
 	}
 
 	if cpuProxy < MinCpuProxy {
-		return 1
+		cpuProxy = MinCpuProxy
 	}
 
-	return uint32(99.0*(cpuProxy-MinCpuProxy)/(MaxCpuProxy-MinCpuProxy) + 1)
+	return uint32((100 * cpuProxy) / MaxCpuProxy)
 }
 
 func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32) []*models.EnvironmentVariable {
