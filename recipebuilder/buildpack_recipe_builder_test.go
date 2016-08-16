@@ -29,6 +29,9 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
 		expectedRoutes models.Routes
+
+		desiredCCVolumeMounts   []*cc_messages.VolumeMount
+		expectedBBSVolumeMounts []*models.VolumeMount
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
@@ -102,6 +105,24 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 		expectedRoutes = models.Routes{
 			cfroutes.CF_ROUTER:    &cfRoutes,
 			tcp_routes.TCP_ROUTER: &tcpRoutes,
+		}
+
+		desiredCCVolumeMounts = []*cc_messages.VolumeMount{{
+			Driver:       "testdriver",
+			ContainerDir: "/Volumes/myvol",
+			Mode:         "rw",
+			DeviceType:   "shared",
+			Device:       map[string]string{"volume_id": "volumeId", "mount_config": `{"key": "value"}`},
+		}}
+
+		expectedBBSVolumeMounts = []*models.VolumeMount{{
+			Driver:       "testdriver",
+			ContainerDir: "/Volumes/myvol",
+			Mode:         "rw",
+			Shared: &models.SharedDevice{
+				VolumeId:    "volumeId",
+				MountConfig: `{"key": "value"}`,
+			}},
 		}
 	})
 
@@ -637,21 +658,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 
 			Context("when some are provided", func() {
-				var testVolume models.VolumeMount
-
 				BeforeEach(func() {
-					testVolume = models.VolumeMount{
-						Driver:        "testdriver",
-						VolumeId:      "volumeId",
-						ContainerPath: "/Volumes/myvol",
-						Mode:          models.BindMountMode_RW,
-						Config:        []byte("config stuff"),
-					}
-					desiredAppReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+					desiredAppReq.VolumeMounts = desiredCCVolumeMounts
 				})
 
 				It("desires the mounts", func() {
-					Expect(desiredLRP.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+					Expect(desiredLRP.VolumeMounts).To(Equal(expectedBBSVolumeMounts))
 				})
 			})
 		})
@@ -849,21 +861,12 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 			})
 
 			Context("when some are provided", func() {
-				var testVolume models.VolumeMount
-
 				BeforeEach(func() {
-					testVolume = models.VolumeMount{
-						Driver:        "testdriver",
-						VolumeId:      "volumeId",
-						ContainerPath: "/Volumes/myvol",
-						Mode:          models.BindMountMode_RW,
-						Config:        []byte("config stuff"),
-					}
-					newTaskReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+					newTaskReq.VolumeMounts = desiredCCVolumeMounts
 				})
 
 				It("desires the mounts", func() {
-					Expect(taskDefinition.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+					Expect(taskDefinition.VolumeMounts).To(Equal(expectedBBSVolumeMounts))
 				})
 			})
 		})

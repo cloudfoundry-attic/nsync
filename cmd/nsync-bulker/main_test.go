@@ -239,7 +239,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						ghttp.RespondWith(200, `{}`),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 						ghttp.CombineHandlers(
 							ghttp.VerifyContentType("application/x-protobuf"),
 							func(w http.ResponseWriter, req *http.Request) {
@@ -293,7 +293,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				It("it (adds), (updates), and (removes extra) LRPs", func() {
 					Eventually(func() bool {
 						for _, r := range fakeBBS.ReceivedRequests() {
-							if r.URL.Path == "/v1/desired_lrp/desire.r1" {
+							if r.URL.Path == "/v1/desired_lrp/desire.r2" {
 								return true
 							}
 						}
@@ -359,7 +359,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ghttp.RespondWith(200, `{}`),
 						)
 
-						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 							ghttp.RespondWith(200, `{}`),
 						)
 					})
@@ -409,7 +409,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							ghttp.RespondWith(200, `{}`),
 						)
 
-						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+						fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 							ghttp.RespondWith(200, `{}`),
 						)
 					})
@@ -482,7 +482,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 						),
 					)
 
-					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+					fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 						ghttp.RespondWith(200, `{}`),
 					)
 
@@ -536,7 +536,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				ghttp.RespondWith(200, `{}`),
 			)
 
-			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+			fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 				ghttp.RespondWith(200, `{}`),
 			)
 		})
@@ -602,7 +602,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					ghttp.RespondWith(200, `{"error":{},"desired_lrp_scheduling_infos":	[]}`),
 				)
 
-				fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r1",
+				fakeBBS.RouteToHandler("POST", "/v1/desired_lrp/desire.r2",
 					ghttp.RespondWith(200, `{}`),
 				)
 

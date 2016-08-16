@@ -92,7 +92,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		RootFs:                rootFSPath,
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
-		VolumeMounts:                  task.VolumeMounts,
+		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
 	}
 
 	return taskDefinition, nil
@@ -276,7 +276,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		LegacyDownloadUser: user,
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
-		VolumeMounts:                  desiredApp.VolumeMounts,
+		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
 	}, nil
 }
 

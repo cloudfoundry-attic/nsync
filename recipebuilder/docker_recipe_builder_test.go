@@ -28,6 +28,9 @@ var _ = Describe("Docker Recipe Builder", func() {
 		networkInfo    *models.Network
 		fakeKeyFactory *fake_keys.FakeSSHKeyFactory
 		logger         *lagertest.TestLogger
+
+		desiredCCVolumeMounts   []*cc_messages.VolumeMount
+		expectedBBSVolumeMounts []*models.VolumeMount
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
@@ -62,6 +65,24 @@ var _ = Describe("Docker Recipe Builder", func() {
 		}
 
 		builder = recipebuilder.NewDockerRecipeBuilder(logger, config)
+
+		desiredCCVolumeMounts = []*cc_messages.VolumeMount{{
+			Driver:       "testdriver",
+			ContainerDir: "/Volumes/myvol",
+			Mode:         "rw",
+			DeviceType:   "shared",
+			Device:       map[string]string{"volume_id": "volumeId", "mount_config": `{"key": "value"}`},
+		}}
+
+		expectedBBSVolumeMounts = []*models.VolumeMount{{
+			Driver:       "testdriver",
+			ContainerDir: "/Volumes/myvol",
+			Mode:         "rw",
+			Shared: &models.SharedDevice{
+				VolumeId:    "volumeId",
+				MountConfig: `{"key": "value"}`,
+			}},
+		}
 	})
 
 	Context("Build LRPs", func() {
@@ -875,21 +896,12 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			Context("when some are provided", func() {
-				var testVolume models.VolumeMount
-
 				BeforeEach(func() {
-					testVolume = models.VolumeMount{
-						Driver:        "testdriver",
-						VolumeId:      "volumeId",
-						ContainerPath: "/Volumes/myvol",
-						Mode:          models.BindMountMode_RW,
-						Config:        []byte("config stuff"),
-					}
-					desiredAppReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+					desiredAppReq.VolumeMounts = desiredCCVolumeMounts
 				})
 
 				It("desires the mounts", func() {
-					Expect(desiredLRP.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+					Expect(desiredLRP.VolumeMounts).To(Equal(expectedBBSVolumeMounts))
 				})
 			})
 		})
@@ -1015,6 +1027,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 				Expect(err).To(Equal(recipebuilder.ErrMultipleAppSources))
 			})
 		})
+
 		Describe("volume mounts", func() {
 			Context("when none are provided", func() {
 				It("is empty", func() {
@@ -1023,21 +1036,13 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 
 			Context("when some are provided", func() {
-				var testVolume models.VolumeMount
-
 				BeforeEach(func() {
-					testVolume = models.VolumeMount{
-						Driver:        "testdriver",
-						VolumeId:      "volumeId",
-						ContainerPath: "/Volumes/myvol",
-						Mode:          models.BindMountMode_RW,
-						Config:        []byte("config stuff"),
-					}
-					newTaskReq.VolumeMounts = []*models.VolumeMount{&testVolume}
+					newTaskReq.VolumeMounts = desiredCCVolumeMounts
 				})
 
 				It("desires the mounts", func() {
-					Expect(taskDefinition.VolumeMounts).To(Equal([]*models.VolumeMount{&testVolume}))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(taskDefinition.VolumeMounts).To(Equal(expectedBBSVolumeMounts))
 				})
 			})
 		})
