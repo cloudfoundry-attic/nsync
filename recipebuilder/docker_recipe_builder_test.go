@@ -71,7 +71,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			ContainerDir: "/Volumes/myvol",
 			Mode:         "rw",
 			DeviceType:   "shared",
-			Device:       map[string]string{"volume_id": "volumeId", "mount_config": `{"key": "value"}`},
+			Device:       cc_messages.SharedDevice{VolumeId: "volumeId", MountConfig: map[string]interface{}{"key": "value"}},
 		}}
 
 		expectedBBSVolumeMounts = []*models.VolumeMount{{
@@ -80,7 +80,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Mode:         "rw",
 			Shared: &models.SharedDevice{
 				VolumeId:    "volumeId",
-				MountConfig: `{"key": "value"}`,
+				MountConfig: `{"key":"value"}`,
 			}},
 		}
 	})

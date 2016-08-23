@@ -297,9 +297,13 @@ func convertVolumeMounts(mounts []*cc_messages.VolumeMount) []*models.VolumeMoun
 
 		// switch mount.DeviceType {
 		// case "shared":
+		mountConfig := []byte("")
+		if len(mount.Device.MountConfig) > 0 {
+			mountConfig, _ = json.Marshal(mount.Device.MountConfig)
+		}
 		bbsMount.Shared = &models.SharedDevice{
-			VolumeId:    mount.Device["volume_id"],
-			MountConfig: mount.Device["mount_config"],
+			VolumeId:    mount.Device.VolumeId,
+			MountConfig: string(mountConfig),
 		}
 		// other device types pending...
 		// }
