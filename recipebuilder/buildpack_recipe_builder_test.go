@@ -35,6 +35,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 	)
 
 	defaultNofile := recipebuilder.DefaultFileDescriptorLimit
+	defaultHealthCheckNproc := recipebuilder.DefaultHealthCheckProcessLimit
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
@@ -238,6 +239,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 									LogSource: "HEALTH",
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
+										Nproc:  &defaultHealthCheckNproc,
 									},
 									SuppressLogOutput: true,
 								},
@@ -257,8 +259,10 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				Expect(runAction.LogSource).To(Equal("MYSOURCE"))
 
 				numFiles := uint64(32)
+				numProcesses := uint64(1024)
 				Expect(runAction.ResourceLimits).To(Equal(&models.ResourceLimits{
 					Nofile: &numFiles,
+					Nproc:  &numProcesses,
 				}))
 
 				Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
@@ -327,6 +331,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 										LogSource: "HEALTH",
 										ResourceLimits: &models.ResourceLimits{
 											Nofile: &defaultNofile,
+											Nproc:  &defaultHealthCheckNproc,
 										},
 										SuppressLogOutput: true,
 									},
@@ -395,6 +400,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				It("runs the ssh daemon in the container", func() {
 					expectedNumFiles := uint64(32)
+					expectedNumProcesses := uint64(1024)
 
 					expectedAction := models.Codependent(
 						&models.RunAction{
@@ -411,6 +417,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
+								Nproc:  &expectedNumProcesses,
 							},
 							LogSource: "MYSOURCE",
 						},
@@ -430,6 +437,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
+								Nproc:  &expectedNumProcesses,
 							},
 						},
 					)
@@ -603,6 +611,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 									LogSource: "HEALTH",
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
+										Nproc:  &defaultHealthCheckNproc,
 									},
 									SuppressLogOutput: true,
 								},
@@ -615,6 +624,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 									LogSource: "HEALTH",
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
+										Nproc:  &defaultHealthCheckNproc,
 									},
 									SuppressLogOutput: true,
 								},
@@ -627,6 +637,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 									LogSource: "HEALTH",
 									ResourceLimits: &models.ResourceLimits{
 										Nofile: &defaultNofile,
+										Nproc:  &defaultHealthCheckNproc,
 									},
 									SuppressLogOutput: true,
 								},

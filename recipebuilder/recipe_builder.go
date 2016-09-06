@@ -13,7 +13,9 @@ const (
 	MinCpuProxy = 128
 	MaxCpuProxy = 8192
 
-	DefaultFileDescriptorLimit = uint64(1024)
+	DefaultFileDescriptorLimit     = uint64(1024)
+	DefaultProcessLimit            = uint64(1024)
+	DefaultHealthCheckProcessLimit = uint64(10)
 
 	LRPLogSource    = "CELL"
 	AppLogSource    = "APP"
@@ -87,6 +89,7 @@ func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32) []*m
 
 func getParallelAction(ports []uint32, user string) *models.ParallelAction {
 	fileDescriptorLimit := DefaultFileDescriptorLimit
+	healthCheckProcessLimit := DefaultHealthCheckProcessLimit
 	parallelAction := &models.ParallelAction{}
 	for _, port := range ports {
 		parallelAction.Actions = append(parallelAction.Actions,
@@ -98,6 +101,7 @@ func getParallelAction(ports []uint32, user string) *models.ParallelAction {
 					LogSource: HealthLogSource,
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
+						Nproc:  &healthCheckProcessLimit,
 					},
 					SuppressLogOutput: true,
 				},

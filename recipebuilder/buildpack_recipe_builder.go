@@ -137,6 +137,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 	var containerEnvVars []*models.EnvironmentVariable
 	containerEnvVars = append(containerEnvVars, &models.EnvironmentVariable{Name: "LANG", Value: DefaultLANG})
 
+	numProcesses := DefaultProcessLimit
 	numFiles := DefaultFileDescriptorLimit
 	if desiredApp.FileDescriptors != 0 {
 		numFiles = desiredApp.FileDescriptors
@@ -188,6 +189,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 		LogSource: getAppLogSource(desiredApp.LogSource),
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
+			Nproc:  &numProcesses,
 		},
 	})
 
@@ -223,6 +225,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
+				Nproc:  &numProcesses,
 			},
 		})
 
