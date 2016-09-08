@@ -135,7 +135,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 	var containerEnvVars []*models.EnvironmentVariable
 
 	numFiles := DefaultFileDescriptorLimit
-	numProcesses := DefaultProcessLimit
 	if desiredApp.FileDescriptors != 0 {
 		numFiles = desiredApp.FileDescriptors
 	}
@@ -185,7 +184,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		LogSource: getAppLogSource(desiredApp.LogSource),
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
-			Nproc:  &numProcesses,
 		},
 	})
 
@@ -221,7 +219,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
-				Nproc:  &numProcesses,
 			},
 		})
 
