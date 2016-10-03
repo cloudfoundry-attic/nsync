@@ -18,9 +18,9 @@ import (
 	"code.cloudfoundry.org/nsync/recipebuilder"
 	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/runtimeschema/metric"
+	"code.cloudfoundry.org/workpool"
 	"github.com/cloudfoundry-incubator/routing-info/cfroutes"
 	"github.com/cloudfoundry-incubator/routing-info/tcp_routes"
-	"github.com/cloudfoundry/gunk/workpool"
 )
 
 const (
