@@ -21,7 +21,7 @@ type BulkerConfig struct {
 	CCBulkBatchSize            uint          `json:"cc_bulk_batch_size"`
 	CCPassword                 string        `json:"cc_basic_auth_password"`
 	CCPollingInterval          time.Duration `json:"cc_polling_interval_in_seconds"`
-	CCTimeout                  time.Duration `json:"cc_fetch_timeout_in_seconds"`
+	CommunicationTimeout       time.Duration `json:"communication_timeout_in_seconds"`
 	CCUsername                 string        `json:"cc_basic_auth_username"`
 	ConsulCluster              string        `json:"consul_cluster"`
 	DomainTTL                  time.Duration `json:"domain_ttl"`
@@ -31,7 +31,22 @@ type BulkerConfig struct {
 	SkipCertVerify             bool          `json:"skip_cert_verify"`
 }
 
-func New(configPath string) (BulkerConfig, error) {
+type ListenerConfig struct {
+	BBSAddress                string        `json:"bbs_api_url"`
+	BBSCACert                 string        `json:"bbs_ca_cert"`
+	BBSClientCert             string        `json:"bbs_client_cert"`
+	BBSClientKey              string        `json:"bbs_client_key"`
+	BBSClientSessionCacheSize int           `json:"bbs_client_cache_size"`
+	BBSMaxIdleConnsPerHost    int           `json:"bbs_max_idle_conns_per_host"`
+	CommunicationTimeout      time.Duration `json:"communication_timeout_in_seconds"`
+	ConsulCluster             string        `json:"consul_cluster"`
+	DropsondePort             int           `json:"dropsonde_port"`
+	FileServerURL             string        `json:"file_server_url"`
+	ListenAddress             string        `json:"nsync_listen_addr"`
+	PrivilegedContainers      bool          `json:"diego_privileged_containers"`
+}
+
+func NewBulkerConfig(configPath string) (BulkerConfig, error) {
 	configFile, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return BulkerConfig{}, err
@@ -45,20 +60,44 @@ func New(configPath string) (BulkerConfig, error) {
 		BBSUpdateLRPWorkers:       50,
 		CCBulkBatchSize:           500,
 		CCPollingInterval:         30,
-		CCTimeout:                 30,
+		CommunicationTimeout:      30,
 		DomainTTL:                 2,
 		DropsondePort:             3457,
 		PrivilegedContainers:      false,
 		SkipCertVerify:            false,
 	}
+
 	err = json.Unmarshal(configFile, &bulkerConfig)
 	if err != nil {
 		return BulkerConfig{}, err
 	}
 
 	bulkerConfig.CCPollingInterval = bulkerConfig.CCPollingInterval * time.Second
-	bulkerConfig.CCTimeout = bulkerConfig.CCTimeout * time.Second
+	bulkerConfig.CommunicationTimeout = bulkerConfig.CommunicationTimeout * time.Second
 	bulkerConfig.DomainTTL = bulkerConfig.DomainTTL * time.Minute
 
 	return bulkerConfig, nil
+}
+
+func NewListenerConfig(configPath string) (ListenerConfig, error) {
+	configFile, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return ListenerConfig{}, err
+	}
+
+	listenerConfig := ListenerConfig{
+		BBSClientSessionCacheSize: 0,
+		BBSMaxIdleConnsPerHost:    0,
+		CommunicationTimeout:      30,
+		DropsondePort:             3457,
+		PrivilegedContainers:      false,
+	}
+	err = json.Unmarshal(configFile, &listenerConfig)
+	if err != nil {
+		return ListenerConfig{}, err
+	}
+
+	listenerConfig.CommunicationTimeout = listenerConfig.CommunicationTimeout * time.Second
+
+	return listenerConfig, nil
 }
