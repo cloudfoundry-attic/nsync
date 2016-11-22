@@ -37,6 +37,11 @@ var _ = Describe("Config", func() {
 			Expect(bulkerConfig.BBSCancelTaskPoolSize).To(Equal(1234))
 			Expect(bulkerConfig.CCBulkBatchSize).To(Equal(uint(117)))
 			Expect(bulkerConfig.CCPollingInterval).To(Equal(120 * time.Second))
+			Expect(bulkerConfig.Lifecycles).To(Equal([]string{
+				"buildpack/cflinuxfs2:/path/to/bundle",
+				"buildpack/cflinuxfs2:/path/to/another/bundle",
+				"buildpack/somethingelse:/path/to/third/bundle",
+			}))
 			Expect(bulkerConfig.SkipCertVerify).To(BeTrue())
 		})
 	})
@@ -67,6 +72,11 @@ var _ = Describe("Config", func() {
 			Expect(listenerConfig.ConsulCluster).To(Equal("https://consul.com"))
 			Expect(listenerConfig.DropsondePort).To(Equal(666))
 			Expect(listenerConfig.FileServerURL).To(Equal("https://fileserver.com"))
+			Expect(listenerConfig.Lifecycles).To(Equal([]string{
+				"buildpack/cflinuxfs2:/path/to/bundle",
+				"buildpack/cflinuxfs2:/path/to/another/bundle",
+				"buildpack/somethingelse:/path/to/third/bundle",
+			}))
 			Expect(listenerConfig.ListenAddress).To(Equal("https://nsync.com/listen"))
 			Expect(listenerConfig.PrivilegedContainers).To(Equal(true))
 		})

@@ -21,12 +21,13 @@ type BulkerConfig struct {
 	CCBulkBatchSize            uint          `json:"cc_bulk_batch_size"`
 	CCPassword                 string        `json:"cc_basic_auth_password"`
 	CCPollingInterval          time.Duration `json:"cc_polling_interval_in_seconds"`
-	CommunicationTimeout       time.Duration `json:"communication_timeout_in_seconds"`
 	CCUsername                 string        `json:"cc_basic_auth_username"`
+	CommunicationTimeout       time.Duration `json:"communication_timeout_in_seconds"`
 	ConsulCluster              string        `json:"consul_cluster"`
 	DomainTTL                  time.Duration `json:"domain_ttl"`
 	DropsondePort              int           `json:"dropsonde_port"`
 	FileServerUrl              string        `json:"file_server_url"`
+	Lifecycles                 []string      `json:"lifecycle_bundles"`
 	PrivilegedContainers       bool          `json:"diego_privileged_containers"`
 	SkipCertVerify             bool          `json:"skip_cert_verify"`
 }
@@ -42,6 +43,7 @@ type ListenerConfig struct {
 	ConsulCluster             string        `json:"consul_cluster"`
 	DropsondePort             int           `json:"dropsonde_port"`
 	FileServerURL             string        `json:"file_server_url"`
+	Lifecycles                []string      `json:"lifecycle_bundles"`
 	ListenAddress             string        `json:"nsync_listen_addr"`
 	PrivilegedContainers      bool          `json:"diego_privileged_containers"`
 }
