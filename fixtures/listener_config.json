@@ -7,13 +7,19 @@
   "bbs_max_idle_conns_per_host": 10,
   "communication_timeout_in_seconds": 256,
   "consul_cluster": "https://consul.com",
+  "debug_server_config": {
+    "debug_address": "https://debugger.com"
+  },
   "diego_privileged_containers": true,
   "dropsonde_port": 666,
   "file_server_url": "https://fileserver.com",
+  "lager_config": {
+    "log_level": "debug"
+  },
   "lifecycle_bundles": [
-	  "buildpack/cflinuxfs2:/path/to/bundle",
-		"buildpack/cflinuxfs2:/path/to/another/bundle",
-		"buildpack/somethingelse:/path/to/third/bundle"
+    "buildpack/cflinuxfs2:/path/to/bundle",
+    "buildpack/cflinuxfs2:/path/to/another/bundle",
+    "buildpack/somethingelse:/path/to/third/bundle"
   ],
   "nsync_listen_addr": "https://nsync.com/listen"
 }
