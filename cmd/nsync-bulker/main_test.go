@@ -35,10 +35,10 @@ var _ = Describe("Syncing desired state with CC", func() {
 
 		process ifrit.Process
 
-		domainTTL time.Duration
+		domainTTL config.Duration
 
 		bulkerLockName  = "nsync_bulker_lock"
-		pollingInterval time.Duration
+		pollingInterval config.Duration
 
 		logger lager.Logger
 	)
@@ -64,8 +64,8 @@ var _ = Describe("Syncing desired state with CC", func() {
 	BeforeEach(func() {
 		fakeCC = ghttp.NewServer()
 
-		pollingInterval = 500 * time.Millisecond
-		domainTTL = 1 * time.Second
+		pollingInterval = config.Duration(500 * time.Millisecond)
+		domainTTL = config.Duration(1 * time.Second)
 
 		var err error
 		bulkerConfigFile, err = ioutil.TempFile("", "bulker_config")
@@ -76,7 +76,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		bulkerConfig.CCBulkBatchSize = 10
 		bulkerConfig.Lifecycles = []string{"buildpack/some-stack:some-health-check.tar.gz", "docker:the/docker/lifecycle/path.tgz"}
 		bulkerConfig.FileServerUrl = "http://file-server.com"
-		bulkerConfig.LockRetryInterval = 1 * time.Second
+		bulkerConfig.LockRetryInterval = config.Duration(1 * time.Second)
 		bulkerConfig.ConsulCluster = consulRunner.ConsulCluster()
 		bulkerConfig.BBSAddress = fakeBBS.URL()
 		bulkerConfig.DomainTTL = domainTTL
@@ -650,7 +650,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 				)
 
 				ginkgomon.Kill(nsyncLockClaimerProcess)
-				time.Sleep(pollingInterval + 10*time.Millisecond)
+				time.Sleep(time.Duration(pollingInterval) + 10*time.Millisecond)
 			})
 
 			It("is updated", func() {

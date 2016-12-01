@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"time"
 
 	"code.cloudfoundry.org/bbs"
 	"code.cloudfoundry.org/cfhttp"
@@ -55,7 +56,7 @@ func main() {
 	reconfigurableSink := newReconfigurableSink(listenerConfig.LagerConfig.LogLevel)
 	logger.RegisterSink(reconfigurableSink)
 	initializeDropsonde(logger, listenerConfig)
-	cfhttp.Initialize(listenerConfig.CommunicationTimeout)
+	cfhttp.Initialize(time.Duration(listenerConfig.CommunicationTimeout))
 
 	buildpackRecipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:           lifecycles,

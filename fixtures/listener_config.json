@@ -5,7 +5,7 @@
   "bbs_client_key": "/path/to/key",
   "bbs_client_cache_size": 1234,
   "bbs_max_idle_conns_per_host": 10,
-  "communication_timeout_in_seconds": 256,
+  "communication_timeout": "256s",
   "consul_cluster": "https://consul.com",
   "debug_server_config": {
     "debug_address": "https://debugger.com"

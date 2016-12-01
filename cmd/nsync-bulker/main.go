@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"time"
 
 	"code.cloudfoundry.org/bbs"
 	"code.cloudfoundry.org/cfhttp"
@@ -53,14 +54,14 @@ func main() {
 	reconfigurableSink := newReconfigurableSink(bulkerConfig.LagerConfig.LogLevel)
 	logger.RegisterSink(reconfigurableSink)
 	initializeDropsonde(logger, bulkerConfig)
-	cfhttp.Initialize(bulkerConfig.CommunicationTimeout)
+	cfhttp.Initialize(time.Duration(bulkerConfig.CommunicationTimeout))
 
 	serviceClient := initializeServiceClient(logger, bulkerConfig)
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		logger.Fatal("Couldn't generate uuid", err)
 	}
-	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), bulkerConfig.LockRetryInterval, bulkerConfig.LockTTL)
+	lockMaintainer := serviceClient.NewNsyncBulkerLockRunner(logger, uuid.String(), time.Duration(bulkerConfig.LockRetryInterval), time.Duration(bulkerConfig.LockTTL))
 
 	dockerRecipeBuilderConfig := recipebuilder.Config{
 		Lifecycles:    lifecycles,
@@ -83,8 +84,8 @@ func main() {
 	lrpRunner := bulk.NewLRPProcessor(
 		logger,
 		initializeBBSClient(logger, bulkerConfig),
-		bulkerConfig.CCPollingInterval,
-		bulkerConfig.DomainTTL,
+		time.Duration(bulkerConfig.CCPollingInterval),
+		time.Duration(bulkerConfig.DomainTTL),
 		bulkerConfig.CCBulkBatchSize,
 		bulkerConfig.BBSUpdateLRPWorkers,
 		bulkerConfig.SkipCertVerify,
@@ -102,8 +103,8 @@ func main() {
 		logger,
 		initializeBBSClient(logger, bulkerConfig),
 		&bulk.CCTaskClient{},
-		bulkerConfig.CCPollingInterval,
-		bulkerConfig.DomainTTL,
+		time.Duration(bulkerConfig.CCPollingInterval),
+		time.Duration(bulkerConfig.DomainTTL),
 		bulkerConfig.BBSFailTaskPoolSize,
 		bulkerConfig.BBSCancelTaskPoolSize,
 		bulkerConfig.SkipCertVerify,
