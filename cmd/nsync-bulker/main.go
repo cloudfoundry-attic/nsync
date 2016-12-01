@@ -123,7 +123,7 @@ func main() {
 		{"task-runner", taskRunner},
 	}
 
-	if dbgAddr := debugserver.DebugAddress(flag.CommandLine); dbgAddr != "" {
+	if dbgAddr := bulkerConfig.DebugServerConfig.DebugAddress; dbgAddr != "" {
 		members = append(grouper.Members{
 			{"debug-server", debugserver.Runner(dbgAddr, reconfigurableSink)},
 		}, members...)
