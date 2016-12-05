@@ -78,6 +78,11 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		return nil, err
 	}
 
+	placementTags := []string{}
+	if task.IsolationSegment != "" {
+		placementTags = []string{task.IsolationSegment}
+	}
+
 	taskDefinition := &models.TaskDefinition{
 		LogGuid:               task.LogGuid,
 		MemoryMb:              int32(task.MemoryMb),
@@ -93,6 +98,7 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
 		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
+		PlacementTags:                 placementTags,
 	}
 
 	return taskDefinition, nil
@@ -240,6 +246,11 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 	actionAction := models.Codependent(actions...)
 
+	placementTags := []string{}
+	if desiredApp.IsolationSegment != "" {
+		placementTags = []string{desiredApp.IsolationSegment}
+	}
+
 	return &models.DesiredLRP{
 		Privileged: false,
 
@@ -277,6 +288,7 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
+		PlacementTags:                 placementTags,
 	}, nil
 }
 

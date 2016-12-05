@@ -213,6 +213,8 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 				Expect(desiredLRP.Network).To(Equal(networkInfo))
 
+				Expect(desiredLRP.PlacementTags).To(BeEmpty())
+
 				expectedCachedDependencies := []*models.CachedDependency{}
 				expectedCachedDependencies = append(expectedCachedDependencies, &models.CachedDependency{
 					From:     "http://file-server.com/v1/static/the/docker/lifecycle/path.tgz",
@@ -492,6 +494,16 @@ var _ = Describe("Docker Recipe Builder", func() {
 					It("should return an error", func() {
 						Expect(err).To(HaveOccurred())
 					})
+				})
+			})
+
+			Context("when an Isolation segment is specified", func() {
+				BeforeEach(func() {
+					desiredAppReq.IsolationSegment = "foo"
+				})
+
+				It("includes the correct segment in the desiredLRP", func() {
+					Expect(desiredLRP.PlacementTags).To(ContainElement("foo"))
 				})
 			})
 		})
@@ -980,6 +992,17 @@ var _ = Describe("Docker Recipe Builder", func() {
 			Expect(taskDefinition.Action).To(BeEquivalentTo(expectedAction))
 
 			Expect(taskDefinition.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
+			Expect(taskDefinition.PlacementTags).To(BeEmpty())
+		})
+
+		Context("when an Isolation segment is specified", func() {
+			BeforeEach(func() {
+				newTaskReq.IsolationSegment = "foo"
+			})
+
+			It("includes the correct segment in the desiredLRP", func() {
+				Expect(taskDefinition.PlacementTags).To(ContainElement("foo"))
+			})
 		})
 
 		Context("When the recipeBuilder Config has Privileged set to true", func() {
