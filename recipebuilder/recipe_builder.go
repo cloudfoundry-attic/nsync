@@ -85,16 +85,21 @@ func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32) []*m
 	return env
 }
 
-func getParallelAction(ports []uint32, user string) *models.ParallelAction {
+func getParallelAction(ports []uint32, user string, uri string) *models.ParallelAction {
 	fileDescriptorLimit := DefaultFileDescriptorLimit
 	parallelAction := &models.ParallelAction{}
 	for _, port := range ports {
+		args := []string{fmt.Sprintf("-port=%d", port)}
+		if uri != "" {
+			args = append(args, fmt.Sprintf("-uri=%s", uri))
+		}
+
 		parallelAction.Actions = append(parallelAction.Actions,
 			&models.Action{
 				RunAction: &models.RunAction{
 					User:      user,
 					Path:      "/tmp/lifecycle/healthcheck",
-					Args:      []string{fmt.Sprintf("-port=%d", port)},
+					Args:      args,
 					LogSource: HealthLogSource,
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,

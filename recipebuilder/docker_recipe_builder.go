@@ -175,7 +175,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		monitor = models.Timeout(getParallelAction(desiredAppPorts, user), 30*time.Second)
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, user, ""), 30*time.Second)
+	case cc_messages.HTTPHealthCheckType:
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, user, desiredApp.HealthCheckHTTPEndpoint), 30*time.Second)
 	}
 
 	actions = append(actions, &models.RunAction{

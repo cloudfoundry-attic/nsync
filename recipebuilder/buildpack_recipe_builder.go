@@ -167,7 +167,9 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 	switch desiredApp.HealthCheckType {
 	case cc_messages.PortHealthCheckType, cc_messages.UnspecifiedHealthCheckType:
-		monitor = models.Timeout(getParallelAction(desiredAppPorts, "vcap"), 30*time.Second)
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, "vcap", ""), 30*time.Second)
+	case cc_messages.HTTPHealthCheckType:
+		monitor = models.Timeout(getParallelAction(desiredAppPorts, "vcap", desiredApp.HealthCheckHTTPEndpoint), 30*time.Second)
 	}
 
 	downloadAction := &models.DownloadAction{

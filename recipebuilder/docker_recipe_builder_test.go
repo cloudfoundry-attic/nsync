@@ -361,6 +361,36 @@ var _ = Describe("Docker Recipe Builder", func() {
 				})
 			})
 
+			Context("when the 'http' health check is specified", func() {
+				BeforeEach(func() {
+					desiredAppReq.HealthCheckType = cc_messages.HTTPHealthCheckType
+					desiredAppReq.HealthCheckHTTPEndpoint = "/healthz"
+				})
+
+				It("builds a valid monitor value", func() {
+					Expect(desiredLRP.Monitor.GetValue()).To(Equal(models.Timeout(
+						&models.ParallelAction{
+							Actions: []*models.Action{
+								&models.Action{
+									RunAction: &models.RunAction{
+										User:      "root",
+										Path:      "/tmp/lifecycle/healthcheck",
+										Args:      []string{"-port=8080", "-uri=/healthz"},
+										LogSource: "HEALTH",
+										ResourceLimits: &models.ResourceLimits{
+											Nofile: &defaultNofile,
+										},
+										SuppressLogOutput: true,
+									},
+								},
+							},
+						},
+						30*time.Second,
+					)))
+
+				})
+			})
+
 			Context("when allow ssh is true", func() {
 				BeforeEach(func() {
 					desiredAppReq.AllowSSH = true
