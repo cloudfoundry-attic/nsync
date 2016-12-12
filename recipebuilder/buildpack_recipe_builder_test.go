@@ -169,6 +169,15 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				Expect(varNames).NotTo(ContainElement("PORT"))
 			})
+
+			It("does not include a VCAP_APP_PORT environment variable", func() {
+				varNames := []string{}
+				for _, envVar := range desiredLRP.EnvironmentVariables {
+					varNames = append(varNames, envVar.Name)
+				}
+
+				Expect(varNames).NotTo(ContainElement("VCAP_APP_PORT"))
+			})
 		})
 
 		Context("when everything is correct", func() {
@@ -270,6 +279,11 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 
 				Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
 					Name:  "PORT",
+					Value: "8080",
+				}))
+
+				Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
+					Name:  "VCAP_APP_PORT",
 					Value: "8080",
 				}))
 
@@ -440,6 +454,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							Env: []*models.EnvironmentVariable{
 								{Name: "foo", Value: "bar"},
 								{Name: "PORT", Value: "8080"},
+								{Name: "VCAP_APP_PORT", Value: "8080"},
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
@@ -459,6 +474,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							Env: []*models.EnvironmentVariable{
 								{Name: "foo", Value: "bar"},
 								{Name: "PORT", Value: "8080"},
+								{Name: "VCAP_APP_PORT", Value: "8080"},
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
