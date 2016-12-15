@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/diego-ssh/keys"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/runtimeschema/cc_messages/flags"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/nu7hatch/gouuid"
@@ -40,19 +41,17 @@ const (
 func main() {
 	flag.Parse()
 
-	logger := lager.NewLogger("nsync-bulker")
-
 	bulkerConfig, err := config.NewBulkerConfig(*configPath)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("Couldn't parse config file %s", *configPath), err)
+		panic(err.Error())
 	}
 	lifecycles := flags.LifecycleMap{}
 	for _, value := range bulkerConfig.Lifecycles {
 		lifecycles.Set(value)
 	}
 
-	reconfigurableSink := newReconfigurableSink(bulkerConfig.LagerConfig.LogLevel)
-	logger.RegisterSink(reconfigurableSink)
+	logger, reconfigurableSink := lagerflags.NewFromConfig("nsync-bulker", bulkerConfig.LagerConfig)
+
 	initializeDropsonde(logger, bulkerConfig)
 	cfhttp.Initialize(time.Duration(bulkerConfig.CommunicationTimeout))
 
@@ -179,21 +178,4 @@ func initializeBBSClient(logger lager.Logger, bulkerConfig config.BulkerConfig) 
 		logger.Fatal("Failed to configure secure BBS client", err)
 	}
 	return bbsClient
-}
-func newReconfigurableSink(logLevel string) *lager.ReconfigurableSink {
-	var minLagerLogLevel lager.LogLevel
-	switch logLevel {
-	case "debug":
-		minLagerLogLevel = lager.DEBUG
-	case "info":
-		minLagerLogLevel = lager.INFO
-	case "error":
-		minLagerLogLevel = lager.ERROR
-	case "fatal":
-		minLagerLogLevel = lager.FATAL
-	default:
-		panic(fmt.Errorf("unknown log level: %s", logLevel))
-	}
-
-	return lager.NewReconfigurableSink(lager.NewWriterSink(os.Stdout, lager.DEBUG), minLagerLogLevel)
 }
