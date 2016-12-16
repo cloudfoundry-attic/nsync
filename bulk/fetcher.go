@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.cloudfoundry.org/bbs/models"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/runtimeschema/cc_messages"
 )
@@ -31,7 +32,7 @@ type Fetcher interface {
 		cancel <-chan struct{},
 		httpClient *http.Client,
 		fingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
-	) (<-chan []cc_messages.DesireAppRequestFromCC, <-chan error)
+	) (<-chan []*models.DesiredLRP, <-chan error)
 }
 
 type CCFetcher struct {
@@ -103,8 +104,8 @@ func (fetcher *CCFetcher) FetchDesiredApps(
 	cancel <-chan struct{},
 	httpClient *http.Client,
 	fingerprintCh <-chan []cc_messages.CCDesiredAppFingerprint,
-) (<-chan []cc_messages.DesireAppRequestFromCC, <-chan error) {
-	results := make(chan []cc_messages.DesireAppRequestFromCC)
+) (<-chan []*models.DesiredLRP, <-chan error) {
+	results := make(chan []*models.DesiredLRP)
 	errc := make(chan error, 1)
 
 	go func() {
@@ -149,7 +150,7 @@ func (fetcher *CCFetcher) FetchDesiredApps(
 				continue
 			}
 
-			response := []cc_messages.DesireAppRequestFromCC{}
+			response := []*models.DesiredLRP{}
 
 			err = fetcher.doRequest(logger, httpClient, req, &response)
 			if err != nil {
@@ -261,7 +262,7 @@ func (fetcher *CCFetcher) fingerprintURL(bulkToken string) string {
 }
 
 func (fetcher *CCFetcher) desiredURL() string {
-	return fmt.Sprintf("%s/internal/bulk/apps", fetcher.BaseURI)
+	return fmt.Sprintf("%s/internal/bulk/apps?format=lrp", fetcher.BaseURI)
 }
 
 func (fetcher *CCFetcher) taskStatesURL(bulkToken string) string {

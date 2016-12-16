@@ -210,7 +210,7 @@ process_loop:
 func (l *LRPProcessor) createMissingDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
-	missing <-chan []cc_messages.DesireAppRequestFromCC,
+	missing <-chan []*models.DesiredLRP,
 	invalidCount *int32,
 ) <-chan error {
 	logger = logger.Session("create-missing-desired-lrps")
@@ -221,7 +221,7 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 		defer close(errc)
 
 		for {
-			var desireAppRequests []cc_messages.DesireAppRequestFromCC
+			var desiredLRPs []*models.DesiredLRP
 
 			select {
 			case <-cancel:
@@ -232,32 +232,19 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 					return
 				}
 
-				desireAppRequests = selected
+				desiredLRPs = selected
 			}
 
-			works := make([]func(), len(desireAppRequests))
+			works := make([]func(), len(desiredLRPs))
 
-			for i, desireAppRequest := range desireAppRequests {
-				desireAppRequest := desireAppRequest
-				var builder recipebuilder.RecipeBuilder = l.builders["buildpack"]
-				if desireAppRequest.DockerImageUrl != "" {
-					builder = l.builders["docker"]
-				}
+			for i, desiredLRP := range desiredLRPs {
+				desiredLRP := desiredLRP
 
 				works[i] = func() {
-					logger.Debug("building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
-					desired, err := builder.Build(&desireAppRequest)
+					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(desiredLRP))
+					err := l.bbsClient.DesireLRP(logger, desiredLRP)
 					if err != nil {
-						logger.Error("failed-building-create-desired-lrp-request", err, lager.Data{"process-guid": desireAppRequest.ProcessGuid})
-						errc <- err
-						return
-					}
-					logger.Debug("succeeded-building-create-desired-lrp-request", desireAppRequestDebugData(&desireAppRequest))
-
-					logger.Debug("creating-desired-lrp", createDesiredReqDebugData(desired))
-					err = l.bbsClient.DesireLRP(logger, desired)
-					if err != nil {
-						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desired.ProcessGuid})
+						logger.Error("failed-creating-desired-lrp", err, lager.Data{"process-guid": desiredLRP.ProcessGuid})
 						if models.ConvertError(err).Type == models.Error_InvalidRequest {
 							atomic.AddInt32(invalidCount, int32(1))
 						} else {
@@ -265,7 +252,7 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 						}
 						return
 					}
-					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(desired))
+					logger.Debug("succeeded-creating-desired-lrp", createDesiredReqDebugData(desiredLRP))
 				}
 			}
 
@@ -275,9 +262,9 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 				return
 			}
 
-			logger.Info("processing-batch", lager.Data{"size": len(desireAppRequests)})
+			logger.Info("processing-batch", lager.Data{"size": len(desiredLRPs)})
 			throttler.Work()
-			logger.Info("done-processing-batch", lager.Data{"size": len(desireAppRequests)})
+			logger.Info("done-processing-batch", lager.Data{"size": len(desiredLRPs)})
 		}
 	}()
 
@@ -287,7 +274,7 @@ func (l *LRPProcessor) createMissingDesiredLRPs(
 func (l *LRPProcessor) updateStaleDesiredLRPs(
 	logger lager.Logger,
 	cancel <-chan struct{},
-	stale <-chan []cc_messages.DesireAppRequestFromCC,
+	stale <-chan []*models.DesiredLRP,
 	existingSchedulingInfoMap map[string]*models.DesiredLRPSchedulingInfo,
 	invalidCount *int32,
 ) <-chan error {
@@ -299,7 +286,7 @@ func (l *LRPProcessor) updateStaleDesiredLRPs(
 		defer close(errc)
 
 		for {
-			var staleAppRequests []cc_messages.DesireAppRequestFromCC
+			var staleAppRequests []*models.DesiredLRP
 
 			select {
 			case <-cancel:
@@ -317,17 +304,13 @@ func (l *LRPProcessor) updateStaleDesiredLRPs(
 
 			for i, desireAppRequest := range staleAppRequests {
 				desireAppRequest := desireAppRequest
-				var builder recipebuilder.RecipeBuilder = l.builders["buildpack"]
-				if desireAppRequest.DockerImageUrl != "" {
-					builder = l.builders["docker"]
-				}
 
 				works[i] = func() {
 					processGuid := desireAppRequest.ProcessGuid
 					existingSchedulingInfo := existingSchedulingInfoMap[desireAppRequest.ProcessGuid]
 
 					updateReq := &models.DesiredLRPUpdate{}
-					instances := int32(desireAppRequest.NumInstances)
+					instances := desireAppRequest.Instances
 					updateReq.Instances = &instances
 					updateReq.Annotation = &desireAppRequest.ETag
 
@@ -500,17 +483,15 @@ func createDesiredReqDebugData(createDesiredRequest *models.DesiredLRP) lager.Da
 	}
 }
 
-func desireAppRequestDebugData(desireAppRequest *cc_messages.DesireAppRequestFromCC) lager.Data {
+func desireAppRequestDebugData(desireAppRequest *models.DesiredLRP) lager.Data {
 	return lager.Data{
 		"process-guid": desireAppRequest.ProcessGuid,
 		"log-guid":     desireAppRequest.LogGuid,
-		"stack":        desireAppRequest.Stack,
-		"memory":       desireAppRequest.MemoryMB,
-		"disk":         desireAppRequest.DiskMB,
-		"file":         desireAppRequest.FileDescriptors,
-		"instances":    desireAppRequest.NumInstances,
-		"allow-ssh":    desireAppRequest.AllowSSH,
-		"etag":         desireAppRequest.ETag,
+		"stack":        desireAppRequest.RootFs,
+		"memory":       desireAppRequest.MemoryMb,
+		"disk":         desireAppRequest.DiskMb,
+		"instances":    desireAppRequest.Instances,
+		"etag":         desireAppRequest.Annotation,
 	}
 }
 
