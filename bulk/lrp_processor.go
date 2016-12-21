@@ -108,101 +108,12 @@ func (l *LRPProcessor) sync(signals <-chan os.Signal) bool {
 
 	defer logger.Info("done")
 
-	existing, err := l.getSchedulingInfos(logger)
-	if err != nil {
-		return false
-	}
-
-	existingSchedulingInfoMap := organizeSchedulingInfosByProcessGuid(existing)
-	appDiffer := NewAppDiffer(existingSchedulingInfoMap)
-
-	cancelCh := make(chan struct{})
-
 	// from here on out, the fetcher, differ, and processor work across channels in a pipeline
-	fingerprintCh, fingerprintErrorCh := l.fetcher.FetchFingerprints(
+	l.fetcher.FetchFingerprints(
 		logger,
-		cancelCh,
+		nil,
 		l.httpClient,
 	)
-
-	diffErrorCh := appDiffer.Diff(
-		logger,
-		cancelCh,
-		fingerprintCh,
-	)
-
-	missingAppCh, missingAppsErrorCh := l.fetcher.FetchDesiredApps(
-		logger.Session("fetch-missing-desired-lrps-from-cc"),
-		cancelCh,
-		l.httpClient,
-		appDiffer.Missing(),
-	)
-
-	createErrorCh := l.createMissingDesiredLRPs(logger, cancelCh, missingAppCh, &invalidsFound)
-
-	staleAppCh, staleAppErrorCh := l.fetcher.FetchDesiredApps(
-		logger.Session("fetch-stale-desired-lrps-from-cc"),
-		cancelCh,
-		l.httpClient,
-		appDiffer.Stale(),
-	)
-
-	updateErrorCh := l.updateStaleDesiredLRPs(logger, cancelCh, staleAppCh, existingSchedulingInfoMap, &invalidsFound)
-
-	bumpFreshness := true
-	success := true
-
-	fingerprintErrorCh, fingerprintErrorCount := countErrors(fingerprintErrorCh)
-
-	// closes errors when all error channels have been closed.
-	// below, we rely on this behavior to break the process_loop.
-	errors := mergeErrors(
-		fingerprintErrorCh,
-		diffErrorCh,
-		missingAppsErrorCh,
-		staleAppErrorCh,
-		createErrorCh,
-		updateErrorCh,
-	)
-
-	logger.Info("processing-updates-and-creates")
-process_loop:
-	for {
-		select {
-		case err, open := <-errors:
-			if err != nil {
-				logger.Error("not-bumping-freshness-because-of", err)
-				bumpFreshness = false
-			}
-			if !open {
-				break process_loop
-			}
-		case sig := <-signals:
-			logger.Info("exiting", lager.Data{"received-signal": sig})
-			close(cancelCh)
-			return true
-		}
-	}
-	logger.Info("done-processing-updates-and-creates")
-
-	if <-fingerprintErrorCount != 0 {
-		logger.Error("failed-to-fetch-all-cc-fingerprints", nil)
-		success = false
-	}
-
-	if success {
-		deleteList := <-appDiffer.Deleted()
-		l.deleteExcess(logger, cancelCh, deleteList)
-	}
-
-	if bumpFreshness && success {
-		logger.Info("bumping-freshness")
-
-		err = l.bbsClient.UpsertDomain(logger, cc_messages.AppLRPDomain, l.domainTTL)
-		if err != nil {
-			logger.Error("failed-to-upsert-domain", err)
-		}
-	}
 
 	return false
 }

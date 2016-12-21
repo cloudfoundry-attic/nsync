@@ -48,54 +48,19 @@ func (fetcher *CCFetcher) FetchFingerprints(
 	cancel <-chan struct{},
 	httpClient *http.Client,
 ) (<-chan []cc_messages.CCDesiredAppFingerprint, <-chan error) {
-	results := make(chan []cc_messages.CCDesiredAppFingerprint)
-	errc := make(chan error, 1)
+	req, err := http.NewRequest("GET", fetcher.syncProcessesURL(), nil)
+	if err != nil {
+		logger.Error("fail-hit-sync", err)
+		return nil, nil
+	}
 
-	logger = logger.Session("fetch-fingerprints-from-cc")
+	response := cc_messages.CCDesiredStateFingerprintResponse{}
 
-	go func() {
-		defer close(results)
-		defer close(errc)
-		defer logger.Info("done-fetching-desired")
-
-		token := initialBulkToken
-		for {
-			logger.Info("fetching-desired")
-
-			req, err := http.NewRequest("GET", fetcher.fingerprintURL(token), nil)
-			if err != nil {
-				errc <- err
-				return
-			}
-
-			response := cc_messages.CCDesiredStateFingerprintResponse{}
-
-			err = fetcher.doRequest(logger, httpClient, req, &response)
-			if err != nil {
-				errc <- err
-				return
-			}
-
-			select {
-			case results <- response.Fingerprints:
-			case <-cancel:
-				return
-			}
-
-			if len(response.Fingerprints) < fetcher.BatchSize {
-				return
-			}
-
-			if response.CCBulkToken == nil {
-				errc <- errors.New("token not included in response")
-				return
-			}
-
-			token = string(*response.CCBulkToken)
-		}
-	}()
-
-	return results, errc
+	err = fetcher.doRequest(logger, httpClient, req, &response)
+	if err != nil {
+		logger.Error("fail-hit-sync", err)
+	}
+	return nil, nil
 }
 
 func (fetcher *CCFetcher) FetchDesiredApps(
@@ -256,8 +221,8 @@ func (fetcher *CCFetcher) doRequest(
 	return nil
 }
 
-func (fetcher *CCFetcher) fingerprintURL(bulkToken string) string {
-	return fmt.Sprintf("%s/internal/bulk/apps?batch_size=%d&format=fingerprint&token=%s", fetcher.BaseURI, fetcher.BatchSize, bulkToken)
+func (fetcher *CCFetcher) syncProcessesURL() string {
+	return fmt.Sprintf("%s/internal/bulk/sync_processes", fetcher.BaseURI)
 }
 
 func (fetcher *CCFetcher) desiredURL() string {
