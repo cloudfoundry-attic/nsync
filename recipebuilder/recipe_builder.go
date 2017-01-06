@@ -78,9 +78,13 @@ func cpuWeight(memoryMB int) uint32 {
 	return uint32((100 * cpuProxy) / MaxCpuProxy)
 }
 
-func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32) []*models.EnvironmentVariable {
+func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32, includeDeprecated bool) []*models.EnvironmentVariable {
 	if len(exposedPorts) > 0 {
-		env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: fmt.Sprintf("%d", exposedPorts[0])})
+		portValue := fmt.Sprintf("%d", exposedPorts[0])
+		env = append(env, &models.EnvironmentVariable{Name: "PORT", Value: portValue})
+		if includeDeprecated {
+			env = append(env, &models.EnvironmentVariable{Name: "VCAP_APP_PORT", Value: portValue})
+		}
 	}
 	return env
 }

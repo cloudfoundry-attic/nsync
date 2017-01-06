@@ -273,6 +273,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 					Value: "8080",
 				}))
 
+				Expect(runAction.Env).NotTo(ContainElement(&models.EnvironmentVariable{
+					Name:  "VCAP_APP_PORT",
+					Value: "8080",
+				}))
+
 				Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
 
 				Expect(desiredLRP.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))

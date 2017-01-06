@@ -193,7 +193,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 			desiredApp.StartCommand,
 			desiredApp.ExecutionMetadata,
 		),
-		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts),
+		Env:       createLrpEnv(desiredApp.Environment, desiredAppPorts, true),
 		LogSource: getAppLogSource(desiredApp.LogSource),
 		ResourceLimits: &models.ResourceLimits{
 			Nofile: &numFiles,
@@ -229,7 +229,7 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 				"-inheritDaemonEnv",
 				"-logLevel=fatal",
 			},
-			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts),
+			Env: createLrpEnv(desiredApp.Environment, desiredAppPorts, true),
 			ResourceLimits: &models.ResourceLimits{
 				Nofile: &numFiles,
 			},
