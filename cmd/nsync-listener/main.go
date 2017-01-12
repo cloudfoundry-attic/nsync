@@ -160,7 +160,7 @@ func initializeRegistrationRunner(
 		Name: "nsync",
 		Port: port,
 		Check: &api.AgentServiceCheck{
-			TTL: "3s",
+			TTL: "20s",
 		},
 	}
 	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
