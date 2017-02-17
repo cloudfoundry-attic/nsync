@@ -86,6 +86,11 @@ func createLrpEnv(env []*models.EnvironmentVariable, exposedPorts []uint32, incl
 			env = append(env, &models.EnvironmentVariable{Name: "VCAP_APP_PORT", Value: portValue})
 		}
 	}
+
+	if includeDeprecated {
+		env = append(env, &models.EnvironmentVariable{Name: "VCAP_APP_HOST", Value: "0.0.0.0"})
+	}
+
 	return env
 }
 

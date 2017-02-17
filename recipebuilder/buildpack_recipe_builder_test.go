@@ -287,6 +287,11 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					Value: "8080",
 				}))
 
+				Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
+					Name:  "VCAP_APP_HOST",
+					Value: "0.0.0.0",
+				}))
+
 				Expect(desiredLRP.EgressRules).To(ConsistOf(egressRules))
 
 				Expect(desiredLRP.TrustedSystemCertificatesPath).To(Equal(recipebuilder.TrustedSystemCertificatesPath))
@@ -455,6 +460,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 								{Name: "foo", Value: "bar"},
 								{Name: "PORT", Value: "8080"},
 								{Name: "VCAP_APP_PORT", Value: "8080"},
+								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
@@ -475,6 +481,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 								{Name: "foo", Value: "bar"},
 								{Name: "PORT", Value: "8080"},
 								{Name: "VCAP_APP_PORT", Value: "8080"},
+								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 							},
 							ResourceLimits: &models.ResourceLimits{
 								Nofile: &expectedNumFiles,
