@@ -28,7 +28,7 @@ var _ = Describe("Config", func() {
 			Expect(bulkerConfig.DropsondePort).To(Equal(3457))
 			Expect(bulkerConfig.LagerConfig.LogLevel).To(Equal("info"))
 			Expect(bulkerConfig.LockRetryInterval).To(Equal(Duration(locket.RetryInterval)))
-			Expect(bulkerConfig.LockTTL).To(Equal(Duration(locket.LockTTL)))
+			Expect(bulkerConfig.LockTTL).To(Equal(Duration(locket.DefaultSessionTTL)))
 			Expect(bulkerConfig.PrivilegedContainers).To(Equal(false))
 			Expect(bulkerConfig.SkipCertVerify).To(Equal(false))
 		})

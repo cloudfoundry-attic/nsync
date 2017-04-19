@@ -96,7 +96,7 @@ func DefaultBulkerConfig() BulkerConfig {
 		DropsondePort:             3457,
 		LagerConfig:               lagerflags.DefaultLagerConfig(),
 		LockRetryInterval:         Duration(locket.RetryInterval),
-		LockTTL:                   Duration(locket.LockTTL),
+		LockTTL:                   Duration(locket.DefaultSessionTTL),
 		PrivilegedContainers:      false,
 		SkipCertVerify:            false,
 	}

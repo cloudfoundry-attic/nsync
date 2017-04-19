@@ -580,7 +580,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 		var nsyncLockClaimerProcess ifrit.Process
 
 		BeforeEach(func() {
-			nsyncLockClaimer := locket.NewLock(logger, consulRunner.NewClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.LockTTL)
+			nsyncLockClaimer := locket.NewLock(logger, consulRunner.NewClient(), locket.LockSchemaPath(bulkerLockName), []byte("something-else"), clock.NewClock(), locket.RetryInterval, locket.DefaultSessionTTL)
 			nsyncLockClaimerProcess = ifrit.Invoke(nsyncLockClaimer)
 		})
 
