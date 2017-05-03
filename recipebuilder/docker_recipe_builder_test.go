@@ -246,7 +246,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 							},
 						},
 					},
-					30*time.Second,
+					10*time.Minute,
 				)))
 
 				Expect(runAction.Path).To(Equal("/tmp/lifecycle/launcher"))
@@ -345,7 +345,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 								},
 							},
 						},
-						30*time.Second,
+						10*time.Minute,
 					)))
 				})
 			})
@@ -395,7 +395,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 								},
 							},
 						},
-						30*time.Second,
+						10*time.Minute,
 					)))
 
 				})
@@ -593,7 +593,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 							},
 						},
 					},
-					30*time.Second,
+					10*time.Minute,
 				)))
 
 				Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{
@@ -734,7 +734,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 								},
 							},
 						},
-						30*time.Second,
+						10*time.Minute,
 					)))
 
 					Expect(runAction.Env).To(ContainElement(&models.EnvironmentVariable{

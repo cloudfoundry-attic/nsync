@@ -255,7 +255,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							},
 						},
 					},
-					30*time.Second,
+					10*time.Minute,
 				)))
 
 				Expect(runAction.Path).To(Equal("/tmp/lifecycle/launcher"))
@@ -354,7 +354,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 								},
 							},
 						},
-						30*time.Second,
+						10*time.Minute,
 					)))
 				})
 			})
@@ -383,7 +383,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 								},
 							},
 						},
-						30*time.Second,
+						10*time.Minute,
 					)))
 
 				})
@@ -698,7 +698,7 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 							},
 						},
 					},
-					30*time.Second,
+					10*time.Minute,
 				)))
 			})
 		})
