@@ -291,6 +291,9 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
 		PlacementTags:                 placementTags,
+
+		ImageUsername: desiredApp.DockerUser,
+		ImagePassword: desiredApp.DockerPassword,
 	}, nil
 }
 

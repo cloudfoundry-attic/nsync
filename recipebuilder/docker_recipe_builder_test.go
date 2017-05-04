@@ -85,7 +85,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 		}
 	})
 
-	Context("Build LRPs", func() {
+	Describe("Build LRPs", func() {
 		var (
 			err            error
 			desiredAppReq  cc_messages.DesireAppRequestFromCC
@@ -869,6 +869,26 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 		})
 
+		Context("when there is a docker username", func() {
+			BeforeEach(func() {
+				desiredAppReq.DockerUser = "someuser"
+			})
+
+			It("includes the docker username in the desiredLRP", func() {
+				Expect(desiredLRP.ImageUsername).To(Equal("someuser"))
+			})
+		})
+
+		Context("when there is a docker password", func() {
+			BeforeEach(func() {
+				desiredAppReq.DockerPassword = "apassword"
+			})
+
+			It("includes the docker password in the desiredLRP", func() {
+				Expect(desiredLRP.ImagePassword).To(Equal("apassword"))
+			})
+		})
+
 		Context("when there is a docker image url AND a droplet uri", func() {
 			BeforeEach(func() {
 				desiredAppReq.DockerImageUrl = "user/repo:tag"
@@ -960,7 +980,7 @@ var _ = Describe("Docker Recipe Builder", func() {
 
 	})
 
-	Context("BuildTask", func() {
+	Describe("BuildTask", func() {
 		var (
 			newTaskReq     *cc_messages.TaskRequestFromCC
 			taskDefinition *models.TaskDefinition
