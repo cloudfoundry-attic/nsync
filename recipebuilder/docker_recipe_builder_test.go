@@ -1111,6 +1111,26 @@ var _ = Describe("Docker Recipe Builder", func() {
 			})
 		})
 
+		Context("when there is a docker username", func() {
+			BeforeEach(func() {
+				newTaskReq.DockerUser = "someuser"
+			})
+
+			It("includes the docker username in the task", func() {
+				Expect(taskDefinition.ImageUsername).To(Equal("someuser"))
+			})
+		})
+
+		Context("when there is a docker password", func() {
+			BeforeEach(func() {
+				newTaskReq.DockerPassword = "apassword"
+			})
+
+			It("includes the docker password in the task", func() {
+				Expect(taskDefinition.ImagePassword).To(Equal("apassword"))
+			})
+		})
+
 		Describe("volume mounts", func() {
 			Context("when none are provided", func() {
 				It("is empty", func() {

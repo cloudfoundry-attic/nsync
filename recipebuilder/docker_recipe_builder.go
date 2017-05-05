@@ -99,6 +99,8 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		LogSource:                     task.LogSource,
 		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
 		PlacementTags:                 placementTags,
+		ImageUsername:                 task.DockerUser,
+		ImagePassword:                 task.DockerPassword,
 	}
 
 	return taskDefinition, nil
