@@ -134,10 +134,18 @@ func initializeBBSClient(logger lager.Logger, listenerConfig config.ListenerConf
 	}
 
 	if bbsURL.Scheme != "https" {
-		return bbs.NewClient(listenerConfig.BBSAddress)
+		var cfg bbs.ClientConfig
+		cfg.URL = listenerConfig.BBSAddress
+		cfg.IsTLS = false
+
+		bbsClient, err := bbs.NewClientWithConfig(cfg)
+		if err != nil {
+			logger.Fatal("Failed to configure insecure BBS client", err)
+		}
+		return bbsClient
 	}
 
-	bbsClient, err := bbs.NewSecureClient(
+	bbsClient, err := bbs.NewClient(
 		listenerConfig.BBSAddress,
 		listenerConfig.BBSCACert,
 		listenerConfig.BBSClientCert,
