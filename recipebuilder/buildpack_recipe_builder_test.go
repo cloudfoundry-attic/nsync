@@ -231,7 +231,6 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 					},
 				}
 				Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
-				Expect(desiredLRP.LegacyDownloadUser).To(Equal("vcap"))
 
 				parallelRunAction := desiredLRP.Action.CodependentAction
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
@@ -885,7 +884,6 @@ var _ = Describe("Buildpack Recipe Builder", func() {
 				},
 			}
 
-			Expect(taskDefinition.LegacyDownloadUser).To(Equal("vcap"))
 			Expect(taskDefinition.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
 		})
 

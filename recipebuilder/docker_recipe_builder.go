@@ -92,7 +92,6 @@ func (b *DockerRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) (*m
 		EgressRules:           task.EgressRules,
 		CompletionCallbackUrl: task.CompletionCallbackUrl,
 		CachedDependencies:    cachedDependencies,
-		LegacyDownloadUser:    "vcap",
 		Action:                action,
 		RootFs:                rootFSPath,
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
@@ -288,7 +287,6 @@ func (b *DockerRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestFrom
 
 		EgressRules:        desiredApp.EgressRules,
 		Network:            desiredApp.Network,
-		LegacyDownloadUser: user,
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),

@@ -222,7 +222,6 @@ var _ = Describe("Docker Recipe Builder", func() {
 					CacheKey: "docker-lifecycle",
 				})
 				Expect(desiredLRP.CachedDependencies).To(BeEquivalentTo(expectedCachedDependencies))
-				Expect(desiredLRP.LegacyDownloadUser).To(Equal("root"))
 
 				parallelRunAction := desiredLRP.Action.CodependentAction
 				Expect(parallelRunAction.Actions).To(HaveLen(1))
@@ -779,12 +778,6 @@ var _ = Describe("Docker Recipe Builder", func() {
 				})
 			})
 
-			testLegacySetupUser := func(user string) func() {
-				return func() {
-					Expect(desiredLRP.LegacyDownloadUser).To(Equal(user))
-				}
-			}
-
 			testRunActionUser := func(user string) func() {
 				return func() {
 					parallelRunAction := desiredLRP.Action.CodependentAction
@@ -809,13 +802,11 @@ var _ = Describe("Docker Recipe Builder", func() {
 					desiredAppReq.ExecutionMetadata = `{"user":"custom"}`
 				})
 
-				It("builds a setup action with the correct user", testLegacySetupUser("custom"))
 				It("builds a run action with the correct user", testRunActionUser("custom"))
 				It("builds a healthcheck action with the correct user", testHealthcheckActionUser("custom"))
 			})
 
 			Context("when the docker image does not exposes a user in its metadata", func() {
-				It("builds a setup action with the default user", testLegacySetupUser("root"))
 				It("builds a run action with the default user", testRunActionUser("root"))
 				It("builds a healthcheck action with the default user", testHealthcheckActionUser("root"))
 			})
@@ -1033,7 +1024,6 @@ var _ = Describe("Docker Recipe Builder", func() {
 				},
 			}
 
-			Expect(taskDefinition.LegacyDownloadUser).To(Equal("vcap"))
 			Expect(taskDefinition.CachedDependencies).To(BeEquivalentTo(expectedCacheDependencies))
 
 			expectedAction := models.WrapAction(&models.RunAction{

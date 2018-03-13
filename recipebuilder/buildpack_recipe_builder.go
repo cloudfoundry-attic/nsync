@@ -102,7 +102,6 @@ func (b *BuildpackRecipeBuilder) BuildTask(task *cc_messages.TaskRequestFromCC) 
 		)),
 		CachedDependencies:            cachedDependencies,
 		EgressRules:                   task.EgressRules,
-		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		LogSource:                     task.LogSource,
 		VolumeMounts:                  convertVolumeMounts(task.VolumeMounts),
@@ -294,7 +293,6 @@ func (b *BuildpackRecipeBuilder) Build(desiredApp *cc_messages.DesireAppRequestF
 
 		EgressRules:        desiredApp.EgressRules,
 		Network:            desiredApp.Network,
-		LegacyDownloadUser: "vcap",
 
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 		VolumeMounts:                  convertVolumeMounts(desiredApp.VolumeMounts),
