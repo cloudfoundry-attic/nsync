@@ -1,5 +1,7 @@
 nsync
 =====
+# This repository is now deprecated. 
+Syncing with Diego is now handled in the cloud_controller_ng repository.
 
 **Note**: This repository should be imported as `code.cloudfoundry.org/nsync`.
 
